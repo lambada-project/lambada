@@ -2,7 +2,7 @@ module.exports = {
   title: 'Lambada Project',
   tagline: 'From zero to serverless',
   url: 'https://lambada-project.github.io',
-  baseUrl: '/lambada/',
+  baseUrl: '/',
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
   favicon: 'img/favicon.ico',
