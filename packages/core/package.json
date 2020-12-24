@@ -1,0 +1,37 @@
+{
+  "name": "@attire/core",
+  "version": "1.0.42",
+  "description": "",
+  "main": "dist/lib/index.js",
+  "module": "dist/lib/index.js",
+  "typings": "dist/lib/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "prebuild": "rimraf dist",
+    "build": "tsc",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Juan C. Andreu",
+  "peerDependencies": {
+    "@aws/dynamodb-auto-marshaller": "^0.7.1",
+    "@pulumi/aws": "^3.12.1",
+    "@pulumi/awsx": "^0.22.0",
+    "@pulumi/pulumi": "^2.13.2",
+    "aws-sdk": "2.795.0"
+  },
+  "devDependencies": {
+    "@aws/dynamodb-auto-marshaller": "^0.7.1",
+    "@pulumi/aws": "^3.12.1",
+    "@pulumi/awsx": "^0.22.0",
+    "@pulumi/pulumi": "^2.13.2",
+    "aws-sdk": "2.795.0",
+    "rimraf": "^3.0.2",
+    "typescript": "^4.0.5"
+  },
+  "gitHead": "714253c6ea32a35d689efe3040ad182306d20b67"
+}

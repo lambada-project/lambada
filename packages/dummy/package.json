@@ -1,0 +1,7 @@
+{
+  "name": "lerna-bug-workaround",
+  "private": true,
+  "devDependencies": {
+    "lerna": "^3.22.1"
+  }
+}

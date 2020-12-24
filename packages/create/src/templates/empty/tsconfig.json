@@ -1,0 +1,31 @@
+{
+    "compilerOptions": {
+        "strict": true,
+        "target": "ES6",
+        "module": "commonjs",
+        "noEmit": true,
+        "noImplicitAny": true,
+        "moduleResolution": "Node",
+        "sourceMap": true,
+        "experimentalDecorators": true,
+        "esModuleInterop": true,
+        "pretty": true,
+        "noFallthroughCasesInSwitch": true,
+        "noImplicitReturns": true,
+        "forceConsistentCasingInFileNames": true,
+        "types": [
+            "@types/jest",
+            "node"
+        ],
+        "lib": [
+            "DOM"
+        ]
+    },
+    "files": [
+        "src/index.ts"
+    ],
+
+    "exclude": [
+        "node_modules"
+    ]
+}
