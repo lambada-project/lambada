@@ -2,12 +2,12 @@ module.exports = {
   title: 'Lambada Project',
   tagline: 'From zero to serverless',
   url: 'https://lambada-project.github.io',
-  baseUrl: '/',
+  baseUrl: '/lambada/',
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
   favicon: 'img/favicon.ico',
   organizationName: 'lambada-project', // Usually your GitHub org/user name.
-  projectName: 'lambada', // Usually your repo name.
+  projectName: 'lambada-project.github.io', // Usually your repo name.
   themeConfig: {
     navbar: {
       title: 'Lambada Project',
