@@ -58,7 +58,7 @@ export const run = (projectName: string, environment: string, args: EmbroideryRu
     const secrets = args.secrets ? createSecrets(projectName, environment, args.secrets) : {}
     const databases = args.tables ? createDynamoDbTables(environment, args.tables, args.tablePrefix, encryptionKeys) : undefined
     const pool = args.auth && args.auth.useCognito ?
-        args.auth.useCognito === true ? [createUserPool(environment, encryptionKeys)] : args.auth.useCognito
+        args.auth.useCognito === true ? [createUserPool(projectName, environment, encryptionKeys)] : args.auth.useCognito
         : undefined
     const messaging = args.messages ? createMessaging(environment, args.messages, databases, /*encryptionKeys*/ undefined) : undefined
     // const notifications = createNotifications(environment)
