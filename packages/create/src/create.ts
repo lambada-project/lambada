@@ -58,9 +58,9 @@ export async function create(
 
     try {
       const options = {
-        files: [`${destPath}/**/*`, `${destPath}/*`],
+        files: [`${destPath}/**/*`, `${destPath}/*`, `${destPath}/.devcontainer/*`],
         from: /{{PROJECT_NAME}}/g,
-        to: 'bar',
+        to: name,
       };
       replace.sync(options);
       console.log('Project name set');
