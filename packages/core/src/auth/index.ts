@@ -9,6 +9,7 @@ export default function createUserPool(projectName: string, environment: string,
     const name = `${projectName}-${environment}`
     //const lambdas = createAuthLambdas(environment, userAccountTable)
     const cognitoUserPool = new aws.cognito.UserPool(name, {
+        name: name,
         // emailConfiguration: {
 
         // },
