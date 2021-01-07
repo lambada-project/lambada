@@ -74,7 +74,7 @@ export async function create(
 
     const npmI = spawn(
       /^win/.test(process.platform) ? 'npm.cmd' : 'npm',
-      ['install'],
+      ['install', '--quiet', '--silent', '--no-audit', '--no-fund'],
       { cwd: destPath, stdio: 'inherit' }
     );
     npmI.on('close', function (code) {
