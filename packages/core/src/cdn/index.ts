@@ -133,7 +133,9 @@ export const createCloudFront = (
         },
         viewerCertificate: {
             cloudfrontDefaultCertificate: customDomain ? false : true,
-            acmCertificateArn: cert?.arn
+            acmCertificateArn: cert?.arn,
+            minimumProtocolVersion: customDomain ? 'TLSv1' : undefined,
+            sslSupportMethod: customDomain ? 'sni-only' : undefined
         },  
     })
 }
