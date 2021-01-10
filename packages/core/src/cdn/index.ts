@@ -13,7 +13,8 @@ export const createCloudFront = (
     www?: {
         domain: pulumi.Input<string>,
         path: pulumi.Input<string>
-    }
+    },
+    customDomain?: pulumi.Input<pulumi.Input<string>[]>
 ) => {
 
     const wwwOriginId = 'wwwOriginId'
@@ -85,6 +86,7 @@ export const createCloudFront = (
     return new aws.cloudfront.Distribution(`${projectName}-${environment}`, {
         enabled: true,
         origins: origins,
+        aliases: customDomain ?? undefined,
         orderedCacheBehaviors: behaviours,
         defaultCacheBehavior: {
             // TODO: MAYBE THIS SHOULD BE GET ONLY?

@@ -27,7 +27,9 @@ export * from './security'
 type EmbroideryRunArguments = {
     gatewayType?: 'EDGE' | 'REGIONAL' | 'PRIVATE'
     generateOpenAPIDocument?: boolean
-    useCloudFront?: boolean
+    cdn?: {
+        customDomain?: pulumi.Input<pulumi.Input<string>[]>
+    },
     endpointDefinitions?: EmbroideryApiEndpointCreator[],
     createOptionsForCors?: boolean,
     staticSiteLocalPath?: string
@@ -83,7 +85,7 @@ export const run = (projectName: string, environment: string, args: EmbroideryRu
         } : undefined,
         www: args.staticSiteLocalPath ? {
             local: args.staticSiteLocalPath,
-            path: wwwPath
+            path: wwwPath,
         } : undefined,
         databases: databases,
         environmentVariables: args.environmentVariables || {},
@@ -96,7 +98,7 @@ export const run = (projectName: string, environment: string, args: EmbroideryRu
 
     const getDomain = (x: string) => x.substr(8, x.indexOf('.com') - 8 + 4)
 
-    const cdn = args.useCloudFront ? createCloudFront(
+    const cdn = args.cdn ? createCloudFront(
         projectName,
         environment,
         {
@@ -107,7 +109,8 @@ export const run = (projectName: string, environment: string, args: EmbroideryRu
         {
             domain: api.url.apply(x => getDomain(x)),
             path: `/${stageName}${wwwPath}`
-        }
+        },
+        args.cdn.customDomain
     ) : undefined
 
     return {
