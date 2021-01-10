@@ -28,6 +28,7 @@ type EmbroideryRunArguments = {
     gatewayType?: 'EDGE' | 'REGIONAL' | 'PRIVATE'
     generateOpenAPIDocument?: boolean
     cdn?: {
+        useCDN: boolean,
         customDomain?: pulumi.Input<pulumi.Input<string>[]>
     },
     endpointDefinitions?: EmbroideryApiEndpointCreator[],
@@ -98,7 +99,7 @@ export const run = (projectName: string, environment: string, args: EmbroideryRu
 
     const getDomain = (x: string) => x.substr(8, x.indexOf('.com') - 8 + 4)
 
-    const cdn = args.cdn ? createCloudFront(
+    const cdn = args.cdn && args.cdn.useCDN ? createCloudFront(
         projectName,
         environment,
         {

@@ -17,7 +17,9 @@ const result = run('embroidery-example', 'dev',
         staticSiteLocalPath: 'src/www',
         tables: tables,
         messages: topics,
-        useCloudFront: true,
+        cdn: {
+            useCDN: true
+        }
     })
 
 export const apiUrl = result.api.url
