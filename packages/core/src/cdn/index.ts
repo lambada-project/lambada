@@ -14,7 +14,7 @@ export const createCloudFront = (
         domain: pulumi.Input<string>,
         path: pulumi.Input<string>
     },
-    customDomain?: pulumi.Input<pulumi.Input<string>[]>
+    customDomain?: string[]
 ) => {
 
     const wwwOriginId = 'wwwOriginId'
@@ -82,11 +82,20 @@ export const createCloudFront = (
             }
         )
     }
+
+
+    const cert = customDomain ?
+        pulumi.output(aws.acm.getCertificate({
+            domain: customDomain[0]
+        })) : undefined
+
     // TODO: Set price tier
+
     return new aws.cloudfront.Distribution(`${projectName}-${environment}`, {
         enabled: true,
         origins: origins,
         aliases: customDomain ?? undefined,
+
         orderedCacheBehaviors: behaviours,
         defaultCacheBehavior: {
             // TODO: MAYBE THIS SHOULD BE GET ONLY?
@@ -120,7 +129,8 @@ export const createCloudFront = (
             }
         },
         viewerCertificate: {
-            cloudfrontDefaultCertificate: true,
-        },
+            cloudfrontDefaultCertificate: customDomain ? false : true,
+            acmCertificateArn: cert?.arn
+        },  
     })
 }
