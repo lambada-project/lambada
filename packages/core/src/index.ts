@@ -29,7 +29,7 @@ type EmbroideryRunArguments = {
     generateOpenAPIDocument?: boolean
     cdn?: {
         useCDN: boolean,
-        customDomain?: pulumi.Input<pulumi.Input<string>[]>
+        customDomain?: string[]
     },
     endpointDefinitions?: EmbroideryApiEndpointCreator[],
     createOptionsForCors?: boolean,
