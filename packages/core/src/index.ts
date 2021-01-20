@@ -1,6 +1,6 @@
 import * as pulumi from "@pulumi/pulumi";
-// import * as aws from "@pulumi/aws";
-// import * as awsx from "@pulumi/awsx";
+import * as aws from "@pulumi/aws";
+import * as awsx from "@pulumi/awsx";
 
 import { EmbroideryApiEndpointCreator, EmbroideryEventHandlerRoute } from './api'
 import createApi from './api/createApi'
@@ -47,7 +47,7 @@ type EmbroideryRunArguments = {
         stageName?: string
     },
     auth?: {
-        useCognito?: boolean | (pulumi.Input<string> | UserPool)[]
+        useCognito?: boolean | pulumi.Input<string> | UserPool
     }
 }
 
@@ -60,9 +60,16 @@ export const run = (projectName: string, environment: string, args: EmbroideryRu
     const encryptionKeys = args.keys ? CreateKMSKeys(projectName, environment, args.keys) : {}
     const secrets = args.secrets ? createSecrets(projectName, environment, args.secrets) : {}
     const databases = args.tables ? createDynamoDbTables(environment, args.tables, args.tablePrefix, encryptionKeys) : undefined
-    const pool = args.auth && args.auth.useCognito ?
-        args.auth.useCognito === true ? [createUserPool(projectName, environment, encryptionKeys)] : args.auth.useCognito
+    const pool: pulumi.Input<string> | UserPool | undefined = args.auth && args.auth.useCognito ?
+        args.auth.useCognito === true ? createUserPool(projectName, environment, encryptionKeys) : args.auth.useCognito
         : undefined
+
+    const isPool = (userPool: pulumi.Input<string> | UserPool| undefined): userPool is UserPool => {
+        return typeof userPool !== 'undefined' && (userPool as UserPool).arn !== undefined
+    }
+
+    const cognitoARN = isPool(pool) ? pool.arn : pool
+
     const messaging = args.messages ? createMessaging(environment, args.messages, databases, /*encryptionKeys*/ undefined) : undefined
     // const notifications = createNotifications(environment)
 
@@ -91,7 +98,7 @@ export const run = (projectName: string, environment: string, args: EmbroideryRu
         databases: databases,
         environmentVariables: args.environmentVariables || {},
         secrets: secrets,
-        authorizerProviderARNs: pool,
+        authorizerProviderARNs: pool ? [pool] : undefined,
         kmsKeys: encryptionKeys,
         messaging: messaging
     })
@@ -116,6 +123,9 @@ export const run = (projectName: string, environment: string, args: EmbroideryRu
 
     return {
         api: api,
-        cdn: cdn
+        cdn: cdn,
+        auth: {
+            cognitoARN: cognitoARN
+        }
     }
 }
