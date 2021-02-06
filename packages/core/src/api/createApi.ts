@@ -105,10 +105,14 @@ export default function createApi(
             endpointConfiguration: api ? {
                 types: api.type,
             } : undefined
-        }
+        },
     }, {
 
     });
+
+    // awsx.apigateway.createAssociatedAPIKeys('master', {
+
+    // })
 
     return apigateway;
 }

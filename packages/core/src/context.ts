@@ -8,7 +8,11 @@ import { EmbroideryEnvironmentVariables } from ".";
 
 export type EmbroideryContext = {
     api?: {
-        apiPath: string
+        apiPath: string,
+        auth?: {
+            useCognitoAuthorizer?: boolean,
+            useApiKey?: boolean
+        }
     },
     authorizers: CognitoAuthorizer[]
     messaging?: MessagingResult

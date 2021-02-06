@@ -31,34 +31,21 @@ export const createEndpointSimpleCors = <T>(
     path: string,
     method: "GET" | "POST" | "DELETE",
     callbackDefinition: EmbroideryCallback,
-    resources: LambdaResource[]
+    resources?: LambdaResource[],
+    /** This overrides at endpoint level any default set */
+    auth?: {
+        useCognitoAuthorizer?: boolean
+        useApiKey?: boolean
+    },
 ) => {
-    // const newCallback = async (request: Request): Promise<Response> => {
-
-    //     const authContext = await getContext(request)
-    //     const user = authContext?.currentUsername && authContext ? await getUser(authContext.currentUsername, authContext) : undefined
-
-    //     const result = await callbackDefinition({
-    //         user,
-    //         context: authContext,
-    //         request
-    //     })
-
-    //     return {
-    //         statusCode: 200,
-    //         body: JSON.stringify(result ?? {}),
-    //         headers: {
-    //             "Access-Control-Allow-Headers": "*",
-    //             "Access-Control-Allow-Origin": "*",
-    //             "Access-Control-Allow-Methods": "*",
-    //         }
-    //     }
-    // }
-    return createEndpointSimple(name, embroideryContext, path, method, callbackDefinition, resources, {
-        "Access-Control-Allow-Headers": "*",
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "*",
-    })
+    return createEndpointSimple(name, embroideryContext, path, method, callbackDefinition, resources,
+        {
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "*",
+        },
+        auth,
+    )
 }
 
 export const createEndpointSimple = (
@@ -68,7 +55,12 @@ export const createEndpointSimple = (
     method: "GET" | "POST" | "DELETE",
     callbackDefinition: EmbroideryCallback,
     resources?: LambdaResource[],
-    extraHeaders?: {}
+    extraHeaders?: {},
+    /** This overrides at endpoint level any default set */
+    auth?: {
+        useCognitoAuthorizer?: boolean
+        useApiKey?: boolean
+    },
 ) => {
     const newCallback = async (request: Request): Promise<Response> => {
 
@@ -98,7 +90,7 @@ export const createEndpointSimple = (
         }
     }
 
-    return createEndpoint(name, embroideryContext, path, method, newCallback, [], undefined, true, resources)
+    return createEndpoint(name, embroideryContext, path, method, newCallback, [], undefined, auth?.useCognitoAuthorizer, resources, auth?.useApiKey)
 }
 
 export const createEndpoint = (
@@ -110,7 +102,8 @@ export const createEndpoint = (
     policyStatements: aws.iam.PolicyStatement[],
     environmentVariables: EmbroideryEnvironmentVariables = undefined,
     enableAuth = true,
-    resources: LambdaResource[] = [],
+    resources?: LambdaResource[],
+    apiKeyRequired?: boolean,
 ): EmbroideryEventHandlerRoute => {
 
     var environment = embroideryContext.environment
@@ -168,7 +161,8 @@ export const createEndpoint = (
     return {
         path: `${embroideryContext.api?.apiPath ?? ''}${path}`,
         method: method,
-        authorizers: enableAuth ? embroideryContext.authorizers : [],
-        eventHandler: callback
+        authorizers: embroideryContext?.api?.auth?.useCognitoAuthorizer === true || enableAuth ? embroideryContext.authorizers : [],
+        eventHandler: callback,
+        apiKeyRequired: embroideryContext?.api?.auth?.useApiKey === true || apiKeyRequired
     }
 }
