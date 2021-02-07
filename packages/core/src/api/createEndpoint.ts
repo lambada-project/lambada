@@ -17,7 +17,7 @@ export type EmbroideryRequest = {
 }
 
 export type EmbroideryCallback = (event: EmbroideryRequest) => Promise<object>
-export type EmbroideryEventHandlerRoute = Route
+export type EmbroideryEventHandlerRoute = Route & { _devOnlyCallback?: Callback<Request, Response> | FolderLambda }
 
 const isResponse = (result: any): boolean => {
     return result && (
@@ -163,6 +163,7 @@ export const createEndpoint = (
         method: method,
         authorizers: embroideryContext?.api?.auth?.useCognitoAuthorizer === true || enableAuth ? embroideryContext.authorizers : [],
         eventHandler: callback,
-        apiKeyRequired: embroideryContext?.api?.auth?.useApiKey === true || apiKeyRequired
+        _devOnlyCallback: callbackDefinition,
+        apiKeyRequired: embroideryContext?.api?.auth?.useApiKey === true || apiKeyRequired,
     }
 }

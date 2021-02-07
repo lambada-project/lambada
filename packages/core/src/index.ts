@@ -24,7 +24,7 @@ export * from './test_utils'
 export * from './messaging'
 export * from './security'
 
-type EmbroideryRunArguments = {
+export type EmbroideryRunArguments = {
     gatewayType?: 'EDGE' | 'REGIONAL' | 'PRIVATE'
     generateOpenAPIDocument?: boolean
     cdn?: {

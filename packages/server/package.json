@@ -1,0 +1,27 @@
+{
+  "name": "@lambada/server",
+  "version": "0.0.1",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "ts-node src/index.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@hapi/hapi": "^20.1.0"
+  },
+  "peerDependencies": {
+    "@attire/core": "^1.0.0"
+  },
+  "devDependencies": {
+    "@attire/core": "^1.0.0",
+    "@aws/dynamodb-auto-marshaller": "^0.7.1",
+    "@pulumi/aws": "^3.12.1",
+    "@pulumi/awsx": "^0.22.0",
+    "@pulumi/pulumi": "^2.13.2",
+    "@types/hapi__hapi": "^20.0.5",
+    "aws-sdk": "2.795.0"
+  }
+}
