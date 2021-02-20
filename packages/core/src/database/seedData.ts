@@ -19,9 +19,9 @@ function seed(table: DatabaseResultItem) {
         for (let i = 0; i < table.definition.data.length; i++) {
             const element = table.definition.data[i];
             new aws.dynamodb.TableItem(`dataseed-${table.definition.name}-${i}`, {
-                hashKey: table.awsTable.hashKey,
+                hashKey: table.ref.hashKey,
                 item: typeof element === 'string' ? element : JSON.stringify(marshaller.marshallItem(element)),
-                tableName: table.awsTable.name,
+                tableName: table.ref.name,
             });
         }
     }

@@ -71,11 +71,11 @@ export const createLambda = <E, R>(
         if (access.table) {
             //pulumi.log.info('granting access to table' + access.table.definition.name)
             //DB connections need the table name to talk to DynamoDB
-            envVarsFromResources[access.table.definition.envKeyName] = access.table.awsTable.name
+            envVarsFromResources[access.table.definition.envKeyName] = access.table.ref.name
             policyStatements.push(
                 {
                     Action: access.access,
-                    Resource: access.table.awsTable.arn,
+                    Resource: access.table.ref.arn,
                     Effect: 'Allow'
                 }
             )

@@ -47,7 +47,7 @@ export function createAuthLambdas(environment: string, userAccountTable: Databas
         role: role.arn,
         environment: {
             variables: {
-                [userAccountTable.definition.envKeyName]: userAccountTable.awsTable.name
+                [userAccountTable.definition.envKeyName]: userAccountTable.ref.name
             }
         }
     });
@@ -78,7 +78,7 @@ export function attachPolicies(environment: string, lambdas: CreatedLambdas, use
                 LambdaResourceAccess.DynamoDbGetItem,
                 LambdaResourceAccess.DynamoDbUpdateItem
             ],
-            Resource: userAccountTable.awsTable.arn,
+            Resource: userAccountTable.ref.arn,
             Effect: 'Allow'
         }
     ]

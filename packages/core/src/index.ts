@@ -35,7 +35,10 @@ type EmbroideryRunArguments = {
     createOptionsForCors?: boolean,
     staticSiteLocalPath?: string
     tablePrefix?: string
+    /** Tables to create */
     tables?: EmbroideryTables
+    /** Referenced tables, does not create anything */
+    tablesRef?: EmbroideryTables
     messages?: EmbroideryMessages,
     messageHandlerDefinitions?: EmbroiderySubscriptionCreator[],
     environmentVariables?: EmbroideryEnvironmentVariables,
@@ -59,7 +62,7 @@ export const run = (projectName: string, environment: string, args: EmbroideryRu
 
     const encryptionKeys = args.keys ? CreateKMSKeys(projectName, environment, args.keys) : {}
     const secrets = args.secrets ? createSecrets(projectName, environment, args.secrets) : {}
-    const databases = args.tables ? createDynamoDbTables(environment, args.tables, args.tablePrefix, encryptionKeys) : undefined
+    const databases = args.tables ? createDynamoDbTables(environment, args.tables, args.tablePrefix, encryptionKeys, args.tablesRef) : undefined
     const pool: pulumi.Input<string> | UserPool | undefined = args.auth && args.auth.useCognito ?
         args.auth.useCognito === true ? createUserPool(projectName, environment, encryptionKeys) : args.auth.useCognito
         : undefined

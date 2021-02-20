@@ -50,6 +50,13 @@ function createTable(name: string, environment: string, primaryKeyName: string, 
     })
 }
 
+function findTable(name: string, environment: string) : pulumi.Output<TableReference> {
+    const tableName = `${name}-${environment}`
+    return pulumi.output(aws.dynamodb.getTable({
+        name: tableName,
+    }, { async: true }));
+}
+
 export type TableDefinition = {
     name: string
     primaryKey: string
@@ -60,26 +67,53 @@ export type TableDefinition = {
 
 export type EmbroideryTables = { [id: string]: TableDefinition }
 
-export const createDynamoDbTables = (environment: string, tables: EmbroideryTables, prefix?: string, kmsKeys?: SecurityResult): DatabaseResult => {
+export const createDynamoDbTables = (environment: string, tables: EmbroideryTables, prefix?: string, kmsKeys?: SecurityResult, tableRefs?: EmbroideryTables): DatabaseResult => {
 
     const result: any = {}
     for (const key in tables) {
-        if (tables.hasOwnProperty(key)) {
+        if (Object.prototype.hasOwnProperty.call(tables, key)) {
             const table = tables[key];
             const tableName = prefix && prefix.length > 0 ? `${prefix}-${table.name}` : table.name
+            const awsTable = createTable(tableName, environment, table.primaryKey, table.rangeKey, kmsKeys?.dynamodb?.awsKmsKey)
             result[key] = {
-                awsTable: createTable(tableName, environment, table.primaryKey, table.rangeKey, kmsKeys?.dynamodb?.awsKmsKey),
+                ref: {
+                    id: awsTable.id,
+                    arn: awsTable.arn,
+                    name: awsTable.name,
+                    hashKey: awsTable.hashKey
+                },
+                awsTable: awsTable,
                 definition: table,
                 kmsKey: kmsKeys?.dynamodb?.awsKmsKey
             } as DatabaseResultItem
         }
     }
+    for (const key in tableRefs) {
+        if (Object.prototype.hasOwnProperty.call(tableRefs, key)) {
+            const table = tableRefs[key];
+            const tableName = prefix && prefix.length > 0 ? `${prefix}-${table.name}` : table.name
+            result[key] = {
+                ref: findTable(tableName, environment),
+                definition: table,
+                kmsKey: kmsKeys?.dynamodb?.awsKmsKey
+            } as DatabaseResultItem
+        }
+    }
+
     seedData(result)
     return result;
 }
 
+type TableReference = {
+    name: string
+    id: string
+    arn: string
+    hashKey: string;
+}
+
 export type DatabaseResultItem = {
-    awsTable: aws.dynamodb.Table
+    awsTable?: aws.dynamodb.Table
+    ref: pulumi.Output<TableReference>
     definition: TableDefinition
     kmsKey: aws.kms.Key
 }
