@@ -50,7 +50,7 @@ function createTable(name: string, environment: string, primaryKeyName: string, 
     })
 }
 
-function findTable(name: string, environment: string) : pulumi.Output<TableReference> {
+function findTable(name: string, environment: string): pulumi.Output<TableReference> {
     const tableName = `${name}-${environment}`
     return pulumi.output(aws.dynamodb.getTable({
         name: tableName,
@@ -91,9 +91,8 @@ export const createDynamoDbTables = (environment: string, tables: EmbroideryTabl
     for (const key in tableRefs) {
         if (Object.prototype.hasOwnProperty.call(tableRefs, key)) {
             const table = tableRefs[key];
-            const tableName = prefix && prefix.length > 0 ? `${prefix}-${table.name}` : table.name
             result[key] = {
-                ref: findTable(tableName, environment),
+                ref: findTable(table.name, environment),
                 definition: table,
                 kmsKey: kmsKeys?.dynamodb?.awsKmsKey
             } as DatabaseResultItem
