@@ -1,4 +1,5 @@
 import { run, createProxyIntegration } from '@attire/core'
+import {} from "@lambada/server"
 import { createGetToDos } from './api/todos/get'
 import { createPostToDo } from './api/todos/post'
 import { tables } from './lib/dynamodb-repos/tables'

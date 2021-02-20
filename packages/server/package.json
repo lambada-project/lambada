@@ -2,13 +2,23 @@
   "name": "@lambada/server",
   "version": "0.0.1",
   "description": "",
-  "main": "index.js",
+  "author": "Juan C. Andreu",
+  "main": "dist/lib/index.js",
+  "module": "dist/lib/index.js",
+  "typings": "dist/lib/index.d.ts",
+  "license": "ISC",
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
+    "prebuild": "rm -rf dist",
+    "build": "tsc",
     "start": "ts-node src/index.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "",
-  "license": "ISC",
   "dependencies": {
     "@hapi/hapi": "^20.1.0"
   },
@@ -17,6 +27,7 @@
   },
   "devDependencies": {
     "@attire/core": "^1.0.0",
+    "typescript": "^4.0.5",
     "@aws/dynamodb-auto-marshaller": "^0.7.1",
     "@pulumi/aws": "^3.12.1",
     "@pulumi/awsx": "^0.22.0",

@@ -12,7 +12,7 @@
     "access": "public"
   },
   "scripts": {
-    "prebuild": "rimraf dist",
+    "prebuild": "rm -rf dist",
     "build": "tsc",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -30,7 +30,6 @@
     "@pulumi/awsx": "^0.22.0",
     "@pulumi/pulumi": "^2.13.2",
     "aws-sdk": "2.795.0",
-    "rimraf": "^3.0.2",
     "typescript": "^4.0.5"
   },
   "gitHead": "714253c6ea32a35d689efe3040ad182306d20b67"

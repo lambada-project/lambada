@@ -50,7 +50,7 @@ export async function server(projectName: string, environment: string, args: Emb
         throw 'Not implemented: Event handlers only'
     }
 
-    server.route(args.endpointDefinitions.map(hapify))
+    server.route(args?.endpointDefinitions?.map(hapify) ?? [])
 
     await server.start()
     console.log('Dev-server started')
