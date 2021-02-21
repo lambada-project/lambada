@@ -23,10 +23,15 @@ export type LambdaSubscriptionSimple = {
     resources: LambdaResource[]
 }
 
+// const context: MessagingContext = {
+//     environment,
+//     databases,
+//     kmsKeys
+// }
 
-export const subscribeToTopic = (context: EmbroideryContext, topic: MessagingResultItem, subscription: LambdaSubscription) : TopicEventSubscription => {
+export const subscribeToTopic = (context: EmbroideryContext, topic: MessagingResultItem, subscription: LambdaSubscription): TopicEventSubscription => {
     const environment = context.environment
-    const topicName = topic.awsTopic.name
+    const topicName = topic.definition.name
     // policyStatements.push({
     //     Action: [
     //         "cognito-idp:AdminGetUser",
@@ -57,36 +62,11 @@ export const subscribeToTopic = (context: EmbroideryContext, topic: MessagingRes
         subscription.environmentVariables,
         subscription.resources
     )
-
-    return topic.awsTopic.onEvent(`${topicName}_${subscription.name}_${environment}`, callback)
-}
-
-export const createTopicAndSubscribeSimple = (
-    topicName: string,
-    topicEnvironmentKeyName: string,
-    context: MessagingContext,
-    subscriptions: LambdaSubscriptionSimple[]
-): MessagingResultItem => {
-
-    const subs: LambdaSubscription[] = subscriptions.map(sub => {
-
-        return {
-            name: sub.name,
-            callback: sub.callback,
-            environmentVariables: undefined,
-            policyStatements: [],
-            resources: sub.resources
-        } as LambdaSubscription
-    })
-
-    return {
-        awsTopic: createTopicAndSubscribe(
-            topicName,
-            context,
-            subs
-        ),
-        envKeyName: topicEnvironmentKeyName
-    }
+    if (topic.awsTopic)
+        return topic.awsTopic.onEvent(`${topicName}_${subscription.name}_${environment}`, callback)
+    else
+        // TODO: reference topics
+        throw 'REFERENCE TOPICS NOT IMPLEMENTED'
 }
 
 export const createTopicAndSubscribe = (
@@ -98,16 +78,10 @@ export const createTopicAndSubscribe = (
     const environment = context.environment
     const databases = context.databases
     const name = `${topicName}-${environment}`
-
-    const topic = new aws.sns.Topic(name, {
-        tags: {
-            Environment: environment
-        }
-    });
+    throw 'NOT IMPLEMENTED'
 
     for (let index = 0; index < subscriptions.length; index++) {
         const subscription = subscriptions[index];
-        throw 'NOT IMPLEMENTED'
 
     }
     /**
@@ -115,5 +89,5 @@ export const createTopicAndSubscribe = (
         fifoQueue: true,
      */
 
-    return topic
+    // return topic
 } 

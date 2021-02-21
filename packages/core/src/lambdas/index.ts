@@ -82,11 +82,11 @@ export const createLambda = <E, R>(
         }
         else if (access.topic) {
             //PubSub connections need the topic ARN to talk to SNS
-            envVarsFromResources[access.topic.envKeyName] = access.topic.awsTopic.arn
+            envVarsFromResources[access.topic.envKeyName] = access.topic.ref.arn
             policyStatements.push(
                 {
                     Action: access.access,
-                    Resource: access.topic.awsTopic.arn,
+                    Resource: access.topic.ref.arn,
                     Effect: 'Allow'
                 }
             )
