@@ -66,28 +66,41 @@ export const createEndpointSimple = (
 
         const authContext = await getContext(request)
         //const user = authContext?.currentUsername && authContext ? await getUser(authContext.currentUsername, authContext) : undefined
+        try {
+            const result = await callbackDefinition({
+                user: authContext,
+                request
+            })
 
-        const result = await callbackDefinition({
-            user: authContext,
-            request
-        })
-
-        if (isResponse(result)) {
-            const resultTyped = result as any
-            return {
-                ...resultTyped,
-                headers: {
-                    ...(resultTyped.headers || {}),
-                    ...(extraHeaders || {})
+            if (isResponse(result)) {
+                const resultTyped = result as any
+                return {
+                    ...resultTyped,
+                    headers: {
+                        ...(resultTyped.headers || {}),
+                        ...(extraHeaders || {})
+                    }
                 }
             }
+
+            return {
+                statusCode: 200,
+                body: JSON.stringify(result ?? {}),
+                headers: (extraHeaders || {})
+            }
+            
+        } catch (ex) {
+            if (ex && (ex as Error).message) {
+                return {
+                    statusCode: 400,
+                    body: ex.message,
+                    headers: (extraHeaders || {})
+                }
+            } else {
+                throw ex;
+            }``
         }
 
-        return {
-            statusCode: 200,
-            body: JSON.stringify(result ?? {}),
-            headers: (extraHeaders || {})
-        }
     }
 
     return createEndpoint(name, embroideryContext, path, method, newCallback, [], undefined, auth?.useCognitoAuthorizer, resources, auth?.useApiKey)
