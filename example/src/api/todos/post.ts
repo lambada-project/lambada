@@ -9,7 +9,7 @@ export const postToDo: EmbroideryCallback = async (request: EmbroideryRequest): 
 
     // TODO: use a different type and not the entity
     const newItemData = getBody<ToDoItem>(request.request); //TODO: pass embroidery request instead
-    
+    newItemData.userId = '1'
     const newItem = await ToDoService.production().addToDo(newItemData)
 
     return newItem

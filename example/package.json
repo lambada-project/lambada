@@ -3,7 +3,7 @@
 	"main": "src/index.ts",
 	"private": true,
 	"scripts": {
-		"test": "jest",
+		"test": "jest lib",
 		"build": "tsc"
 	},
 	"dependencies": {
@@ -17,7 +17,7 @@
 		"jest" : "26.*",
 		"@types/uuid": "^8.3.0",
 
-		"@attire/core": "^1.0.0",
+		"@attire/core": "*",
 		"@pulumi/pulumi": "^2.13.2",
 		"@types/node": "^10.0.0",
 		"ts-node": "^9.0.0",

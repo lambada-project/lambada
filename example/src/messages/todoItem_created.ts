@@ -1,7 +1,14 @@
 import { SubscriptionEvent, EmbroideryContext, EmbroiderySubscriptionCreator, subscribeToTopic, EmbroideryTopicEventSubscription } from '@attire/core'
+import { ToDoItemCreated } from '../lib/todos/inotify'
+import { ToDoService } from '../lib/todos/service'
 
 export const onTodoItemCreated = async (request: SubscriptionEvent): Promise<void> => {
-    console.log('okokok', request)
+    for (const item of request.Records) {
+        const message = JSON.parse(item.Sns.Message) as ToDoItemCreated
+        const todos = ToDoService.production()
+        const total = await todos.getTotal(message.userId)
+        await todos.updateTotals(message.userId, total + 1)
+    }
 }
 
 
