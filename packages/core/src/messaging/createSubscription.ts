@@ -40,7 +40,7 @@ export const subscribeToTopic = (context: EmbroideryContext, topic: MessagingRes
     //     Resource: apiContext.cognitoUserPool.arn,
     //     Effect: "Allow"
     // })
-    if (context.kmsKeys) {
+    if (context.kmsKeys && context.kmsKeys.dynamodb) {
         subscription.resources.push(
             {
                 kmsKey: context.kmsKeys.dynamodb,

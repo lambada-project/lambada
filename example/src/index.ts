@@ -17,6 +17,7 @@ const result = run('embroidery-example', 'dev',
         staticSiteLocalPath: 'src/www',
         tables: tables,
         messages: topics,
+
         cdn: {
             useCDN: true
         },

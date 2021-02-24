@@ -33,14 +33,15 @@ type CreateApiArgs = {
     www?: {
         local: string,
         path: string
-    }
-    authorizerProviderARNs?:  (pulumi.Input<string> | aws.cognito.UserPool)[]
-    messaging?: MessagingResult
-    notifications?: NotificationResult
-    databases?: DatabaseResult
-    kmsKeys?: SecurityResult
-    environmentVariables?: EmbroideryEnvironmentVariables
-    secrets?: SecretsResult
+    },
+    context: EmbroideryContext
+    // authorizerProviderARNs?:  (pulumi.Input<string> | aws.cognito.UserPool)[]
+    // messaging?: MessagingResult
+    // notifications?: NotificationResult
+    // databases?: DatabaseResult
+    // kmsKeys?: SecurityResult
+    // environmentVariables?: EmbroideryEnvironmentVariables
+    // secrets?: SecretsResult
 }
 
 export default function createApi(
@@ -49,44 +50,23 @@ export default function createApi(
         environment,
         api,
         www,
-        authorizerProviderARNs,
-        messaging,
-        notifications,
-        databases,
-        kmsKeys,
-        environmentVariables,
-        secrets
+        context
+        // authorizerProviderARNs,
+        // messaging,
+        // notifications,
+        // databases,
+        // kmsKeys,
+        // environmentVariables,
+        // secrets
     }: CreateApiArgs
 ): awsx.apigateway.API {
 
-    const authorizers: CognitoAuthorizer[] = [
-        ...(authorizerProviderARNs ? [awsx.apigateway.getCognitoAuthorizer({
-            providerARNs: authorizerProviderARNs,
-            //methodsToAuthorize: ["https://yourdomain.com/user.read"]
-        })] : []),
-    ];
-
     const stageName = 'app'
 
-    // TODO: option to add projectName as prefix to all functions
-    const embroideryContext: EmbroideryContext = {
-        api: api ? {
-            apiPath:  api.path
-        } : undefined,
-        authorizers: authorizers,
-        messaging: messaging,
-        notifications: notifications,
-        databases: databases,
-        environment: environment,
-        kmsKeys: kmsKeys,
-        environmentVariables: environmentVariables,
-        secrets: secrets
-    }
-
-    const routes = api?.apiEndpoints  ? api.apiEndpoints.map(createEndpoint => createEndpoint(embroideryContext)) : []
+    const routes = api?.apiEndpoints  ? api.apiEndpoints.map(createEndpoint => createEndpoint(context)) : []
 
     // TODO: Configure per endpoint?
-    const endpointsWithCors = api?.createOptionsForCors ? createCorsEndpoints(routes, embroideryContext) : routes
+    const endpointsWithCors = api?.createOptionsForCors ? createCorsEndpoints(routes, context) : routes
 
     const staticRoutes: StaticRoute[] = []
     if (www) {

@@ -16,6 +16,7 @@ import { CreateKMSKeys, createSecrets, EmbroideryEncryptionKeys, EmbroiderySecre
 import { createOpenApiDocumentEndpoint } from "./api/openApiDocument";
 import { UserPool } from "@pulumi/aws/cognito/userPool";
 import createUserPool from "./auth";
+import { CognitoAuthorizer } from "@pulumi/awsx/apigateway";
 
 export * from './context'
 export * from './api/index'
@@ -67,13 +68,13 @@ export const run = (projectName: string, environment: string, args: EmbroideryRu
         args.auth.useCognito === true ? createUserPool(projectName, environment, encryptionKeys) : args.auth.useCognito
         : undefined
 
-    const isPool = (userPool: pulumi.Input<string> | UserPool| undefined): userPool is UserPool => {
+    const isPool = (userPool: pulumi.Input<string> | UserPool | undefined): userPool is UserPool => {
         return typeof userPool !== 'undefined' && (userPool as UserPool).arn !== undefined
     }
 
     const cognitoARN = isPool(pool) ? pool.arn : pool
 
-    const messaging = args.messages ? createMessaging(environment, args.messages) : undefined
+    const messaging = args.messages ? createMessaging(environment, args.messages, args.messageHandlerDefinitions) : undefined
     // const notifications = createNotifications(environment)
 
     const stageName = 'app'
@@ -82,6 +83,37 @@ export const run = (projectName: string, environment: string, args: EmbroideryRu
 
     if (args.generateOpenAPIDocument && args.endpointDefinitions) {
         args.endpointDefinitions.push(createOpenApiDocumentEndpoint)
+    }
+
+
+    const authorizerProviderARNs = pool ? [pool] : undefined
+    const authorizers: CognitoAuthorizer[] = [
+        ...(authorizerProviderARNs ? [awsx.apigateway.getCognitoAuthorizer({
+            providerARNs: authorizerProviderARNs,
+            //methodsToAuthorize: ["https://yourdomain.com/user.read"]
+        })] : []),
+    ];
+
+    // TODO: option to add projectName as prefix to all functions
+    const embroideryContext: EmbroideryContext = {
+        api: apiPath ? {
+            apiPath: apiPath
+        } : undefined,
+        authorizers: authorizers,
+        messaging: messaging,
+        //notifications: notifications, // TODO: 
+        databases: databases,
+        environment: environment,
+        kmsKeys: encryptionKeys,
+        environmentVariables: args.environmentVariables || {},
+        secrets: secrets
+    }
+
+    // TODO: Move to file
+    if (args.messageHandlerDefinitions) {
+        for (const handler of args.messageHandlerDefinitions) {
+            handler(embroideryContext)
+        }
     }
 
     //TODO pass stage name as parameter
@@ -98,12 +130,13 @@ export const run = (projectName: string, environment: string, args: EmbroideryRu
             local: args.staticSiteLocalPath,
             path: wwwPath,
         } : undefined,
-        databases: databases,
-        environmentVariables: args.environmentVariables || {},
-        secrets: secrets,
-        authorizerProviderARNs: pool ? [pool] : undefined,
-        kmsKeys: encryptionKeys,
-        messaging: messaging
+        context: embroideryContext
+        // databases: databases,
+        // environmentVariables: args.environmentVariables || {},
+        // secrets: secrets,
+        // authorizerProviderARNs: pool ? [pool] : undefined,
+        // kmsKeys: encryptionKeys,
+        // messaging: messaging
     })
 
 

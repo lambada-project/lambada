@@ -20,7 +20,7 @@ export type EmbroideryMessages = { [id: string]: MessageDefinition }
 export type EmbroideryTopicEventSubscription = TopicEventSubscription
 export type EmbroiderySubscriptionCreator = (context: EmbroideryContext) => EmbroideryTopicEventSubscription
 
-export const createMessaging = (environment: string, messages: EmbroideryMessages): MessagingResult => {
+export const createMessaging = (environment: string, messages: EmbroideryMessages, handlers?: EmbroiderySubscriptionCreator[]): MessagingResult => {
 
     const result: MessagingResult = {}
 
@@ -40,7 +40,8 @@ export const createMessaging = (environment: string, messages: EmbroideryMessage
                     arn: topic.arn,
                     id: topic.id,
                     name: topic.name
-                }
+                },
+                definition: message
             } as MessagingResultItem
         }
     }

@@ -61,7 +61,7 @@ export const createLambda = <E, R>(
     if (!environmentVariables) environmentVariables = {}
 
     var envVarsFromResources: EmbroideryEnvironmentVariables = {}
-    pulumi.log.info('resources length:' + resources.length)
+    //pulumi.log.info('resources length:' + resources.length)
     for (let i = 0; i < resources.length; i++) {
         const access = resources[i];
 
@@ -155,7 +155,7 @@ export const createLambda = <E, R>(
             )
         }
         else {
-            throw 'Access must have the resource, eg. topic, table, messaging, etc'
+            throw 'Access must have the resource, eg. topic, table, messaging, etc. ' + JSON.stringify(access)
         }
     }
 
