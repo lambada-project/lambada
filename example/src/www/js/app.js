@@ -5,7 +5,7 @@ var buttonAdd = document.querySelector('#buttonAdd')
 var newItemText = document.querySelector('#newItemText')
 
 
-function getItems() {
+function getData() {
 	return fetch(`${serverUrl}/todos`)
 		.then(response => response.json())
 }
@@ -38,7 +38,11 @@ function drawItem(todoItem) {
 	list.appendChild(item)
 	
 }
-function drawItems(todoItems) {
+function drawItems(data) {
+	const todoItems = data.items
+	const total = data.total
+	document.getElementById('total').textContent = total.toString()
+
 	for (let i = 0; i < todoItems.length; i++) {
 		const todoItem = todoItems[i];
 		drawItem(todoItem)
@@ -46,7 +50,7 @@ function drawItems(todoItems) {
 }
 
 function refreshItems() {
-	getItems().then(data => drawItems(data))
+	getData().then(data => drawItems(data))
 }
 
 function newTodoItemHandler() {

@@ -19,6 +19,9 @@ const result = run('embroidery-example', 'dev',
         messages: topics,
         cdn: {
             useCDN: true
+        },
+        environmentVariables: {
+            LAMBADA_SHOW_ALL_ERRORS: 'true'
         }
     })
 

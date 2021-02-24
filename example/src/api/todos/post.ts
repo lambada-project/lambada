@@ -15,13 +15,19 @@ export const postToDo: EmbroideryCallback = async (request: EmbroideryRequest): 
     return newItem
 }
 
-export const createPostToDo: EmbroideryApiEndpointCreator = (apiContext: EmbroideryContext): EmbroideryEventHandlerRoute => {
-    return createEndpointSimpleCors('postToDo', apiContext, '/todos', 'POST', postToDo, [
+export const createPostToDo: EmbroideryApiEndpointCreator = (context: EmbroideryContext): EmbroideryEventHandlerRoute => {
+    return createEndpointSimpleCors('postToDo', context, '/todos', 'POST', postToDo, [
         {
-            table: apiContext.databases?.todos,
+            table: context.databases?.todos,
             access: [
                 LambdaResourceAccess.DynamoDbPutItem,
             ],
+        },
+        {
+            topic: context.messaging?.todoItemCreated,
+            access: [
+                "sns:Publish"
+            ]
         }
     ])
 }

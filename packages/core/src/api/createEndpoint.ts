@@ -90,10 +90,13 @@ export const createEndpointSimple = (
             }
             
         } catch (ex) {
-            if (ex && (ex as Error).message) {
+            const showErrorDetails = ex && (ex.showError || process.env['LAMBADA_SHOW_ALL_ERRORS'] == 'true')
+            if (showErrorDetails) {
                 return {
                     statusCode: 400,
-                    body: ex.message,
+                    body: JSON.stringify({
+                        error: ex.message
+                    }),
                     headers: (extraHeaders || {})
                 }
             } else {
