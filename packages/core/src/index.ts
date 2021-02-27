@@ -64,6 +64,7 @@ export const run = (projectName: string, environment: string, args: EmbroideryRu
     const encryptionKeys = args.keys ? CreateKMSKeys(projectName, environment, args.keys) : {}
     const secrets = args.secrets ? createSecrets(projectName, environment, args.secrets) : {}
     const databases = args.tables ? createDynamoDbTables(environment, args.tables, args.tablePrefix, encryptionKeys, args.tablesRef) : undefined
+    
     const pool: pulumi.Input<string> | UserPool | undefined = args.auth && args.auth.useCognito ?
         args.auth.useCognito === true ? createUserPool(projectName, environment, encryptionKeys) : args.auth.useCognito
         : undefined
@@ -73,6 +74,8 @@ export const run = (projectName: string, environment: string, args: EmbroideryRu
     }
 
     const cognitoARN = isPool(pool) ? pool.arn : pool
+    const cognitoPoolId = isPool(pool) ? pool.id : undefined
+    
 
     const messaging = args.messages ? createMessaging(environment, args.messages, args.messageHandlerDefinitions) : undefined
     // const notifications = createNotifications(environment)
@@ -161,7 +164,8 @@ export const run = (projectName: string, environment: string, args: EmbroideryRu
         api: api,
         cdn: cdn,
         auth: {
-            cognitoARN: cognitoARN
+            cognitoARN: cognitoARN,
+            cognitoPoolId: cognitoPoolId
         }
     }
 }
