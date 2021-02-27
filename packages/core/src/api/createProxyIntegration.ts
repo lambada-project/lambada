@@ -13,7 +13,7 @@ export const createProxyIntegration = (
     enableAuth = true,
 ): Route => {
     const route: IntegrationRoute = {
-        path: path,
+        path: `${embroideryContext.api?.apiPath ?? ''}${path}`,
         authorizers: enableAuth ? embroideryContext.authorizers : [],
         target: {
             type: 'http_proxy',

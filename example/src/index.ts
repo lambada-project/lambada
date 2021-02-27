@@ -13,7 +13,9 @@ const result = run('embroidery-example', 'dev',
             (context) => createProxyIntegration(context, '/google', "https://www.google.com")
         ],
         createOptionsForCors: true,
-        messageHandlerDefinitions: [createHandlerTodoItem_created],
+        messageHandlerDefinitions: [
+            createHandlerTodoItem_created
+        ],
         staticSiteLocalPath: 'src/www',
         tables: tables,
         messages: topics,
