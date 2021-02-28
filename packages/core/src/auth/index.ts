@@ -4,7 +4,12 @@ import { DatabaseResultItem } from "../database";
 import { SecurityResult } from "../security";
 import { attachPolicies, createAuthLambdas } from "./authLambdas";
 
-export default function createUserPool(projectName: string, environment: string, kmsKeys: SecurityResult) {
+type CreateUserPoolOptions = {
+    useEmailAsUsername?: boolean
+    protect?: boolean
+}
+
+export default function createUserPool(projectName: string, environment: string, kmsKeys: SecurityResult, options?: CreateUserPoolOptions) {
 
     const name = `${projectName}-${environment}`
     //const lambdas = createAuthLambdas(environment, userAccountTable)
@@ -42,9 +47,9 @@ export default function createUserPool(projectName: string, environment: string,
         usernameConfiguration: {
             caseSensitive: false
         },
-        aliasAttributes: ['email'],
+        usernameAttributes: options?.useEmailAsUsername ? ['email'] : []
     }, {
-        protect: true
+        protect: typeof options?.protect === 'undefined' ? true : options?.protect
     })
 
     //attachPolicies(environment, lambdas, cognitoUserPool, userAccountTable, kmsKeys)

@@ -52,6 +52,10 @@ type EmbroideryRunArguments = {
     },
     auth?: {
         useCognito?: boolean | pulumi.Input<string> | UserPool
+        cognitoOptions?: {
+            useEmailAsUsername? : boolean
+            preventResourceDeletion: boolean
+        }
     }
 }
 
@@ -66,7 +70,10 @@ export const run = (projectName: string, environment: string, args: EmbroideryRu
     const databases = args.tables ? createDynamoDbTables(environment, args.tables, args.tablePrefix, encryptionKeys, args.tablesRef) : undefined
     
     const pool: pulumi.Input<string> | UserPool | undefined = args.auth && args.auth.useCognito ?
-        args.auth.useCognito === true ? createUserPool(projectName, environment, encryptionKeys) : args.auth.useCognito
+        args.auth.useCognito === true ? createUserPool(projectName, environment, encryptionKeys, {
+            useEmailAsUsername: args?.auth?.cognitoOptions?.useEmailAsUsername,
+            protect: args?.auth?.cognitoOptions?.preventResourceDeletion
+        }) : args.auth.useCognito
         : undefined
 
     const isPool = (userPool: pulumi.Input<string> | UserPool | undefined): userPool is UserPool => {
@@ -75,7 +82,7 @@ export const run = (projectName: string, environment: string, args: EmbroideryRu
 
     const cognitoARN = isPool(pool) ? pool.arn : pool
     const cognitoPoolId = isPool(pool) ? pool.id : undefined
-    
+
 
     const messaging = args.messages ? createMessaging(environment, args.messages, args.messageHandlerDefinitions) : undefined
     // const notifications = createNotifications(environment)
