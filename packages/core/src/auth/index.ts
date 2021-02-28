@@ -31,6 +31,20 @@ export default function createUserPool(projectName: string, environment: string,
         //         developerOnlyAttribute: true
         //     }
         // ]
+        passwordPolicy: {
+            requireSymbols: false,
+            minimumLength: 10,
+            requireLowercase: true,
+            requireNumbers: true,
+            requireUppercase: true,
+            temporaryPasswordValidityDays: 7
+        },
+        usernameConfiguration: {
+            caseSensitive: false
+        },
+        aliasAttributes: ['email'],
+    }, {
+        protect: true
     })
 
     //attachPolicies(environment, lambdas, cognitoUserPool, userAccountTable, kmsKeys)
