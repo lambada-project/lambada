@@ -174,13 +174,16 @@ export const createLambda = <E, R>(
         variables
     } : undefined
 
+    const memorySize = 768
+
     if (typeof definition === 'function') {
         const callbackDefinition = definition as Callback<E, R>
         return new aws.lambda.CallbackFunction(`${name}-${environment}`, {
             callback: callbackDefinition,
             role: lambdaRole,
             description: `Lambda ${name} - ${environment}`,
-            environment: functionEnvironment
+            environment: functionEnvironment,
+            memorySize: memorySize
         })
     }
     else if ((definition as FolderLambda).functionFolder) {
@@ -195,6 +198,7 @@ export const createLambda = <E, R>(
                         //`./auth/lambdas/src/dist`
                     ),
                 }),
+                memorySize: memorySize,
                 //code: new pulumi.asset.FileAsset('./auth/lambdas/postConfirmation.js'),
                 timeout: 5,
                 //THE CONTENT OF DIST 1:1 
