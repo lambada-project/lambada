@@ -17,9 +17,9 @@ Our tooling consists of:
         - AWS-SDK V2
         - Latest Pulumi CLI
     - DynamoDb container image
-- Prepopulated `package.json` with:
+- Pre-populated `package.json` with:
     - AWS-SDK
     - Pulumi-SDK
     - @lambada/core
 
-If you want to jumpstart your development right now, check our [Quickstart guide](/quickstart).
+If you want to jump-start your development right now, check our [Quickstart guide](/quickstart).
