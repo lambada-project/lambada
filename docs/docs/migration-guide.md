@@ -6,7 +6,10 @@ slug: /migration
 ---
 
 
-## From v1 to v2
+## From Attire to Lambada (March 2021)
+### Core library is now `@lambada/core`
+We keel the breaking changes to a minimum and this migration should not cause major issues. Just rename @attire to @lambada and follow the steps below:
+
 ### Renamed EmbroideryContext => LambadaResources
 As part of the project, we are cleaning up residual names that still exist that were part of the initial proof of concept.
 Simply replace `EmbroideryContext` with `LambadaResources`

@@ -1,6 +1,6 @@
 {
-  "name": "@attire/core",
-  "version": "1.5.0",
+  "name": "@lambada/core",
+  "version": "1.0.0",
   "description": "",
   "main": "dist/lib/index.js",
   "module": "dist/lib/index.js",
