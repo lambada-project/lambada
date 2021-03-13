@@ -106,6 +106,7 @@ export const run = (projectName: string, environment: string, args: EmbroideryRu
 
     // TODO: option to add projectName as prefix to all functions
     const embroideryContext: LambadaResources = {
+        projectName: projectName,
         api: apiPath ? {
             apiPath: apiPath
         } : undefined,

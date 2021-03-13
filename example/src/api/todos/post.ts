@@ -1,5 +1,5 @@
-import { EmbroideryCallback, EmbroideryRequest, LambadaResources, EmbroideryEventHandlerRoute, createEndpointSimpleCors, EmbroideryApiEndpointCreator } from '@attire/core'
-import { LambdaResourceAccess } from '@attire/core/dist/lib/lambdas';
+import { EmbroideryCallback, EmbroideryRequest, LambadaResources, EmbroideryEventHandlerRoute, createEndpointSimpleCors, EmbroideryApiEndpointCreator } from '@lambada/core'
+import { LambdaResourceAccess } from '@lambada/core/dist/lib/lambdas';
 import { getBody } from '@lambada/utils'
 import { ToDoService } from '../../lib/todos/service';
 

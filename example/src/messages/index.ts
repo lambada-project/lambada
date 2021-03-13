@@ -1,4 +1,4 @@
-import { EmbroideryMessages } from '@attire/core/dist/lib/messaging'
+import { EmbroideryMessages } from '@lambada/core/dist/lib/messaging'
 
 export const topics: EmbroideryMessages = {
     'todoItemCreated': {

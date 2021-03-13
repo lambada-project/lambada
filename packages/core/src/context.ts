@@ -7,12 +7,13 @@ import { NotificationResult } from "./notifications";
 import { EmbroideryEnvironmentVariables } from ".";
 
 export type LambadaResources = {
+    projectName: string
     api?: {
         apiPath: string,
         auth?: {
             useCognitoAuthorizer?: boolean,
             useApiKey?: boolean
-        }
+        },
     },
     authorizers: CognitoAuthorizer[]
     messaging?: MessagingResult

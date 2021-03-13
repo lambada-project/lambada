@@ -3,16 +3,13 @@ import { createLambda, lambdaAsumeRole } from '../lambdas';
 import { Request, Response, EventHandlerRoute } from '@pulumi/awsx/apigateway/api'
 import { LambadaResources } from '../context';
 import { EmbroideryEventHandlerRoute } from '.';
+import { getNameFromPath } from './utils';
 
 
 export const createCorsEndpoints = (endpoints: EmbroideryEventHandlerRoute[], embroideryContext: LambadaResources): EmbroideryEventHandlerRoute[] => {
 
     function uniq(a: string[]) {
         return Array.from(new Set(a));
-    }
-
-    function replaceAll(input: string, search: string, replace: string) {
-        return input.split(search).join(replace);
     }
 
     const uniquePaths = uniq(endpoints.map(x => x.path))
@@ -23,7 +20,7 @@ export const createCorsEndpoints = (endpoints: EmbroideryEventHandlerRoute[], em
     })
 
     const corsEndpoints: EventHandlerRoute[] = uniquePaths.map(path => {
-        const name = replaceAll(replaceAll(replaceAll(path.startsWith('/') ? path.substr(1) : path, "{", ""), "}", ""), "/", "-")
+        const name = getNameFromPath(path)
         const callback = async (req: Request): Promise<Response> => {
             return {
                 statusCode: 200,

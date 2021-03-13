@@ -53,12 +53,12 @@ export default function createApi(
 ): awsx.apigateway.API {
 
     const stageName = 'app'
-    const isRoute = (route: Route | LambadaEndpointArgs): route is Route =>{
+    const isRoute = (route: Route | LambadaEndpointArgs): route is Route => {
         return true
     }
     const lambadaEndpoints = api?.apiEndpoints ? api.apiEndpoints
         .map(createEndpoint => createEndpoint(context))
-        .map(x=> isRoute(x) ? x : createEndpointSimpleCompat(x))
+        .map(x => isRoute(x) ? x : createEndpointSimpleCompat(x, context))
         : []
 
     // TODO: Configure per endpoint?

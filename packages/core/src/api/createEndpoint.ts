@@ -11,6 +11,7 @@ import { AuthExecutionContext, getUser, getContext, tryGetBody, getBody } from '
 import { EmbroideryEnvironmentVariables } from '..';
 import { UserPool } from '@pulumi/aws/cognito';
 import { LambdaAuthorizer } from '@pulumi/awsx/apigateway';
+import { getNameFromPath } from './utils';
 
 
 export type EmbroideryRequest = {
@@ -21,8 +22,8 @@ export type EmbroideryRequest = {
 export type EmbroideryCallback = (event: EmbroideryRequest) => Promise<object>
 export type EmbroideryEventHandlerRoute = Route
 export type LambadaEndpointArgs = {
-    name: string,
-    embroideryContext: LambadaResources,
+    /** Custom name for your lambda, if empty it will take a name based on the path-verb */
+    name?: string,
     path: string,
     method: "GET" | "POST" | "DELETE",
     callbackDefinition: EmbroideryCallback,
@@ -67,7 +68,7 @@ export const createEndpointSimpleCors = <T>(
 
 export const createEndpointSimple = (
     name: string,
-    embroideryContext: LambadaResources,
+    context: LambadaResources,
     path: string,
     method: "GET" | "POST" | "DELETE",
     callbackDefinition: EmbroideryCallback,
@@ -81,25 +82,25 @@ export const createEndpointSimple = (
     },
 ) => createEndpointSimpleCompat({
     name,
-    embroideryContext,
     path,
     method,
     callbackDefinition,
     resources,
     extraHeaders,
     auth
-})
+}, context)
 
 export const createEndpointSimpleCompat = ({
     name,
-    embroideryContext,
     path,
     method,
     callbackDefinition,
     resources,
     extraHeaders,
     auth,
-}: LambadaEndpointArgs) => {
+}: LambadaEndpointArgs, context: LambadaResources,) => {
+
+    const lambdaName = name ?? getNameFromPath(`${context.projectName}-${path}-${method.toLowerCase()}`)
     const newCallback = async (request: Request): Promise<Response> => {
 
         const authContext = await getContext(request)
@@ -144,7 +145,7 @@ export const createEndpointSimpleCompat = ({
 
     }
 
-    return createEndpoint(name, embroideryContext, path, method, newCallback, [], undefined, auth?.useCognitoAuthorizer, resources, auth?.useApiKey,)
+    return createEndpoint(lambdaName, context, path, method, newCallback, [], undefined, auth?.useCognitoAuthorizer, resources, auth?.useApiKey,)
 }
 
 export const createEndpoint = (

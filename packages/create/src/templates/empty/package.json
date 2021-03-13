@@ -8,7 +8,7 @@
 	},
 	"dependencies": {
 		"aws-sdk": "2.795.0",
-		"@attire/core": "^1.0.0",
+		"@lambada/core": "^1.0.0",
 		"@aws/dynamodb-auto-marshaller": "^0.7.1",
 		"uuid": "^3.4.0"
 	},
