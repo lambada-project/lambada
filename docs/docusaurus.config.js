@@ -13,7 +13,7 @@ module.exports = {
       title: 'Lambada Project',
       logo: {
         alt: 'My Site Logo',
-        src: 'img/logo.svg',
+        src: 'img/logo-black.png',
       },
       items: [
         // {
