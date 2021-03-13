@@ -4,11 +4,15 @@ import { createPostToDo } from './api/todos/post'
 import { tables } from './lib/dynamodb-repos/tables'
 import { topics } from './messages'
 import { createHandlerTodoItem_created } from './messages/todoItem_created'
+import * as pulumi from '@pulumi/pulumi'
 
-const result = run('embroidery-example', 'dev',
+const environment = pulumi.getStack()
+const project = 'embroidery-example'
+
+const result = run(project, environment,
     {
         endpointDefinitions: [
-            createGetToDos,
+            //createGetToDos,
             createPostToDo,
             (context) => createProxyIntegration(context, '/google', "https://www.google.com")
         ],
@@ -21,7 +25,7 @@ const result = run('embroidery-example', 'dev',
         messages: topics,
 
         cdn: {
-            useCDN: true
+            useCDN: false
         },
         environmentVariables: {
             LAMBADA_SHOW_ALL_ERRORS: 'true'

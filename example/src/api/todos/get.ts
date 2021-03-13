@@ -31,6 +31,7 @@ export const createGetToDos: LambadaEndpointCreator = (apiContext: LambadaResour
     return {
         path: '/todos',
         method: 'GET',
+        name: 'potatoes',
         callbackDefinition: getToDos,
         resources: [
             {
