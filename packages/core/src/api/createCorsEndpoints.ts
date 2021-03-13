@@ -1,11 +1,11 @@
 import * as aws from '@pulumi/aws'
 import { createLambda, lambdaAsumeRole } from '../lambdas';
 import { Request, Response, EventHandlerRoute } from '@pulumi/awsx/apigateway/api'
-import { EmbroideryContext } from '../context';
+import { LambadaResources } from '../context';
 import { EmbroideryEventHandlerRoute } from '.';
 
 
-export const createCorsEndpoints = (endpoints: EmbroideryEventHandlerRoute[], embroideryContext: EmbroideryContext): EmbroideryEventHandlerRoute[] => {
+export const createCorsEndpoints = (endpoints: EmbroideryEventHandlerRoute[], embroideryContext: LambadaResources): EmbroideryEventHandlerRoute[] => {
 
     function uniq(a: string[]) {
         return Array.from(new Set(a));

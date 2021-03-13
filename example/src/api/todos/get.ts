@@ -1,4 +1,4 @@
-import { EmbroideryCallback, EmbroideryRequest, EmbroideryContext, EmbroideryEventHandlerRoute, createEndpointSimpleCors, EmbroideryApiEndpointCreator } from '@attire/core'
+import { EmbroideryCallback, EmbroideryRequest, LambadaResources, EmbroideryEventHandlerRoute, createEndpointSimpleCors, EmbroideryApiEndpointCreator } from '@attire/core'
 import { LambdaResourceAccess } from '@attire/core/dist/lib/lambdas';
 
 import { ToDoService } from "../../lib/todos/service";
@@ -27,7 +27,7 @@ export const getToDos: EmbroideryCallback = async (request: EmbroideryRequest): 
 }
 
 
-export const createGetToDos: EmbroideryApiEndpointCreator = (apiContext: EmbroideryContext): EmbroideryEventHandlerRoute => {
+export const createGetToDos: EmbroideryApiEndpointCreator = (apiContext: LambadaResources): EmbroideryEventHandlerRoute => {
     return createEndpointSimpleCors('getToDos', apiContext, '/todos', 'GET', getToDos, [
         {
             table: apiContext.databases?.todos,

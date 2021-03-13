@@ -2,10 +2,10 @@ import * as pulumi from "@pulumi/pulumi";
 import * as aws from "@pulumi/aws";
 import * as awsx from "@pulumi/awsx";
 
-import { EmbroideryApiEndpointCreator, EmbroideryEventHandlerRoute } from './api'
+import { EmbroideryApiEndpointCreator, EmbroideryEventHandlerRoute, LambadaEndpointCreator } from './api'
 import createApi from './api/createApi'
 import { createCloudFront } from './cdn/index'
-import { EmbroideryContext } from './context'
+import { LambadaResources } from './context'
 
 // import createUserPool from './auth'
 // import createApi from './api/createApi'
@@ -32,7 +32,7 @@ type EmbroideryRunArguments = {
         useCDN: boolean,
         customDomain?: string[]
     },
-    endpointDefinitions?: EmbroideryApiEndpointCreator[],
+    endpointDefinitions?: (EmbroideryApiEndpointCreator | LambadaEndpointCreator)[],
     createOptionsForCors?: boolean,
     staticSiteLocalPath?: string
     tablePrefix?: string
@@ -105,7 +105,7 @@ export const run = (projectName: string, environment: string, args: EmbroideryRu
     ];
 
     // TODO: option to add projectName as prefix to all functions
-    const embroideryContext: EmbroideryContext = {
+    const embroideryContext: LambadaResources = {
         api: apiPath ? {
             apiPath: apiPath
         } : undefined,

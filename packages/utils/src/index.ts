@@ -1,6 +1,7 @@
 import * as AWS from "aws-sdk"
-import { Request } from '@pulumi/awsx/apigateway/api'
-import { EmbroideryRequest } from ".";
+import * as awslambda from "aws-lambda"
+
+export declare type Request = awslambda.APIGatewayProxyEvent;
 
 export function tryGetBody<TBody>(request: Request): TBody | undefined {
     if (!request.body) return undefined;

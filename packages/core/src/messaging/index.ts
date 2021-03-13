@@ -2,7 +2,7 @@ import * as pulumi from "@pulumi/pulumi";
 import * as aws from "@pulumi/aws";
 import { TopicEventSubscription } from "@pulumi/aws/sns";
 import * as awsx from "@pulumi/awsx";
-import { EmbroideryContext } from "..";
+import { LambadaResources } from "..";
 
 import { DatabaseResult } from "../database";
 import { SecurityResult } from "../security";
@@ -18,7 +18,7 @@ export type MessageDefinition = {
 export type EmbroideryMessages = { [id: string]: MessageDefinition }
 
 export type EmbroideryTopicEventSubscription = TopicEventSubscription
-export type EmbroiderySubscriptionCreator = (context: EmbroideryContext) => EmbroideryTopicEventSubscription
+export type EmbroiderySubscriptionCreator = (context: LambadaResources) => EmbroideryTopicEventSubscription
 
 export const createMessaging = (environment: string, messages: EmbroideryMessages, handlers?: EmbroiderySubscriptionCreator[]): MessagingResult => {
 

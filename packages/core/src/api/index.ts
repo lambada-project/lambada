@@ -1,10 +1,11 @@
-import { EmbroideryContext, EmbroideryEventHandlerRoute } from '..'
+import { LambadaResources } from '..'
 
 export * from './createApi'
-export * from './createCorsEndpoints'
 export * from './createEndpoint'
 export * from './createStatic'
-export * from './utils'
 export * from './createProxyIntegration'
 
-export type EmbroideryApiEndpointCreator = (apiContext: EmbroideryContext) => EmbroideryEventHandlerRoute
+import { LambadaEndpointArgs, EmbroideryEventHandlerRoute } from './createEndpoint'
+
+export type EmbroideryApiEndpointCreator = (apiContext: LambadaResources) => EmbroideryEventHandlerRoute
+export type LambadaEndpointCreator = (resources: LambadaResources) => LambadaEndpointArgs
