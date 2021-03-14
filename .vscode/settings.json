@@ -2,5 +2,5 @@
     "terminal.integrated.shell.linux": "/bin/zsh",
     "terminal.integrated.shell.windows": "C:\\WINDOWS\\System32\\bash.exe",
     "cSpell.language": "en-GB",
-    "cSpell.ignoreWords": ["pulumi", "mkdir", "clicky", "quickstart"]
+    "cSpell.ignoreWords": ["pulumi", "mkdir", "clicky", "quickstart", "awsx"]
 }

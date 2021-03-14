@@ -58,7 +58,7 @@ export default function createApi(
     }
 
     const lambadaEndpoints = api?.apiEndpoints ? api.apiEndpoints
-        .map(createEndpoint => createEndpoint(context))
+        .map(create => create(context))
         .map(x => isRoute(x) ? x : createEndpointSimpleCompat(x, context))
         : []
 
