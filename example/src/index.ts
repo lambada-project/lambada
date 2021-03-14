@@ -13,16 +13,16 @@ const result = run(project, environment,
     {
         endpointDefinitions: [
             //createGetToDos,
-            createPostToDo,
+            //createPostToDo,
             (context) => createProxyIntegration(context, '/google', "https://www.google.com")
         ],
         createOptionsForCors: true,
-        messageHandlerDefinitions: [
-            createHandlerTodoItem_created
-        ],
+        // messageHandlerDefinitions: [
+        //     createHandlerTodoItem_created
+        // ],
         staticSiteLocalPath: 'src/www',
         tables: tables,
-        messages: topics,
+        //messages: topics,
 
         cdn: {
             useCDN: false

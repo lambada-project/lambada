@@ -54,15 +54,17 @@ export default function createApi(
 
     const stageName = 'app'
     const isRoute = (route: Route | LambadaEndpointArgs): route is Route => {
-        return true
+        return typeof (route as LambadaEndpointArgs).callbackDefinition === 'undefined'
     }
+
     const lambadaEndpoints = api?.apiEndpoints ? api.apiEndpoints
         .map(createEndpoint => createEndpoint(context))
         .map(x => isRoute(x) ? x : createEndpointSimpleCompat(x, context))
         : []
 
     // TODO: Configure per endpoint?
-    const endpointsWithCors = api?.createOptionsForCors ? createCorsEndpoints(lambadaEndpoints, context) : lambadaEndpoints
+    const corsEndpoints = api?.createOptionsForCors && lambadaEndpoints.length > 0 ?
+        createCorsEndpoints(lambadaEndpoints, context) : []
 
     const staticRoutes: StaticRoute[] = []
     if (www) {
@@ -70,7 +72,8 @@ export default function createApi(
     }
 
     const allRoutes: Route[] = [
-        ...endpointsWithCors,
+        ...lambadaEndpoints,
+        ...corsEndpoints,
         ...staticRoutes
     ]
 
