@@ -2,7 +2,7 @@
     "version": 3,
     "deployment": {
         "manifest": {
-            "time": "2021-03-14T11:49:23.5006605Z",
+            "time": "2021-03-14T14:29:32.9967224Z",
             "magic": "94592db9536de5e7104a9178d135d36c6df2f321f7c86cf30cb149dc72ed5a8a",
             "version": "v2.13.2"
         },
@@ -12,39 +12,39 @@
                 "url": "https://api.pulumi.com",
                 "owner": "andreujuanc",
                 "project": "embroidery-example",
-                "stack": "cleanup"
+                "stack": "cleanup-2"
             }
         },
         "resources": [
             {
-                "urn": "urn:pulumi:cleanup::embroidery-example::pulumi:pulumi:Stack::embroidery-example-cleanup",
+                "urn": "urn:pulumi:cleanup-2::embroidery-example::pulumi:pulumi:Stack::embroidery-example-cleanup-2",
                 "custom": false,
                 "type": "pulumi:pulumi:Stack"
             },
             {
-                "urn": "urn:pulumi:cleanup::embroidery-example::aws:apigateway:x:API::embroidery-example-cleanup",
+                "urn": "urn:pulumi:cleanup-2::embroidery-example::aws:apigateway:x:API::lambada-example-cleanup-2",
                 "custom": false,
                 "type": "aws:apigateway:x:API",
-                "parent": "urn:pulumi:cleanup::embroidery-example::pulumi:pulumi:Stack::embroidery-example-cleanup"
+                "parent": "urn:pulumi:cleanup-2::embroidery-example::pulumi:pulumi:Stack::embroidery-example-cleanup-2"
             },
             {
-                "urn": "urn:pulumi:cleanup::embroidery-example::pulumi:providers:aws::default_3_13_0",
+                "urn": "urn:pulumi:cleanup-2::embroidery-example::pulumi:providers:aws::default_3_12_1",
                 "custom": true,
-                "id": "0c337e55-142b-405f-9700-0aa955bb808c",
+                "id": "ce8ede2c-43c3-47ad-a128-00b843ee0d16",
                 "type": "pulumi:providers:aws",
                 "inputs": {
                     "region": "eu-west-1",
-                    "version": "3.13.0"
+                    "version": "3.12.1"
                 },
                 "outputs": {
                     "region": "eu-west-1",
-                    "version": "3.13.0"
+                    "version": "3.12.1"
                 }
             },
             {
-                "urn": "urn:pulumi:cleanup::embroidery-example::aws:iam/role:Role::embroidery-example-todos-get-cleanup-role",
+                "urn": "urn:pulumi:cleanup-2::embroidery-example::aws:apigateway:x:API$aws:iam/role:Role::lambada-example-cleanup-24c238266",
                 "custom": true,
-                "id": "embroidery-example-todos-get-cleanup-role-b80186a",
+                "id": "lambada-example-cleanup-24c238266-a777788",
                 "type": "aws:iam/role:Role",
                 "inputs": {
                     "__defaults": [
@@ -53,582 +53,35 @@
                         "name",
                         "path"
                     ],
-                    "assumeRolePolicy": "{\"Statement\":[{\"Action\":[\"sts:AssumeRole\"],\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"lambda.amazonaws.com\"}}],\"Version\":\"2012-10-17\"}",
+                    "assumeRolePolicy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Action\":\"sts:AssumeRole\",\"Principal\":{\"Service\":\"lambda.amazonaws.com\"},\"Effect\":\"Allow\",\"Sid\":\"\"}]}",
                     "forceDetachPolicies": false,
                     "maxSessionDuration": 3600,
-                    "name": "embroidery-example-todos-get-cleanup-role-b80186a",
+                    "name": "lambada-example-cleanup-24c238266-a777788",
                     "path": "/"
                 },
                 "outputs": {
-                    "arn": "arn:aws:iam::325047155657:role/embroidery-example-todos-get-cleanup-role-b80186a",
-                    "assumeRolePolicy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"lambda.amazonaws.com\"},\"Action\":\"sts:AssumeRole\"}]}",
-                    "createDate": "2021-03-14T11:45:33Z",
+                    "arn": "arn:aws:iam::325047155657:role/lambada-example-cleanup-24c238266-a777788",
+                    "assumeRolePolicy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"lambda.amazonaws.com\"},\"Action\":\"sts:AssumeRole\"}]}",
+                    "createDate": "2021-03-14T14:27:11Z",
                     "description": "",
                     "forceDetachPolicies": false,
-                    "id": "embroidery-example-todos-get-cleanup-role-b80186a",
+                    "id": "lambada-example-cleanup-24c238266-a777788",
                     "maxSessionDuration": 3600,
-                    "name": "embroidery-example-todos-get-cleanup-role-b80186a",
+                    "name": "lambada-example-cleanup-24c238266-a777788",
                     "path": "/",
                     "tags": {},
-                    "uniqueId": "AROAUXLSR7PEW7VW6W5CL"
+                    "uniqueId": "AROAUXLSR7PEU53IL3HJ5"
                 },
-                "parent": "urn:pulumi:cleanup::embroidery-example::pulumi:pulumi:Stack::embroidery-example-cleanup",
-                "provider": "urn:pulumi:cleanup::embroidery-example::pulumi:providers:aws::default_3_13_0::0c337e55-142b-405f-9700-0aa955bb808c",
+                "parent": "urn:pulumi:cleanup-2::embroidery-example::aws:apigateway:x:API::lambada-example-cleanup-2",
+                "provider": "urn:pulumi:cleanup-2::embroidery-example::pulumi:providers:aws::default_3_12_1::ce8ede2c-43c3-47ad-a128-00b843ee0d16",
                 "propertyDependencies": {
                     "assumeRolePolicy": null
                 }
             },
             {
-                "urn": "urn:pulumi:cleanup::embroidery-example::aws:dynamodb/table:Table::todos-cleanup",
+                "urn": "urn:pulumi:cleanup-2::embroidery-example::aws:apigateway:x:API$aws:apigateway/restApi:RestApi::lambada-example-cleanup-2",
                 "custom": true,
-                "id": "todos-cleanup",
-                "type": "aws:dynamodb/table:Table",
-                "inputs": {
-                    "__defaults": [],
-                    "attributes": [
-                        {
-                            "__defaults": [],
-                            "name": "userId",
-                            "type": "S"
-                        },
-                        {
-                            "__defaults": [],
-                            "name": "id",
-                            "type": "S"
-                        }
-                    ],
-                    "billingMode": "PAY_PER_REQUEST",
-                    "hashKey": "userId",
-                    "name": "todos-cleanup",
-                    "rangeKey": "id",
-                    "serverSideEncryption": {
-                        "__defaults": [],
-                        "enabled": false
-                    },
-                    "tags": {
-                        "Environment": "cleanup",
-                        "__defaults": []
-                    }
-                },
-                "outputs": {
-                    "__meta": "{\"e2bfb730-ecaa-11e6-8f88-34363bc7c4c0\":{\"create\":600000000000,\"delete\":600000000000,\"update\":3600000000000},\"schema_version\":\"1\"}",
-                    "arn": "arn:aws:dynamodb:eu-west-1:325047155657:table/todos-cleanup",
-                    "attributes": [
-                        {
-                            "name": "id",
-                            "type": "S"
-                        },
-                        {
-                            "name": "userId",
-                            "type": "S"
-                        }
-                    ],
-                    "billingMode": "PAY_PER_REQUEST",
-                    "globalSecondaryIndexes": [],
-                    "hashKey": "userId",
-                    "id": "todos-cleanup",
-                    "localSecondaryIndexes": [],
-                    "name": "todos-cleanup",
-                    "pointInTimeRecovery": {
-                        "enabled": false
-                    },
-                    "rangeKey": "id",
-                    "readCapacity": 0,
-                    "replicas": [],
-                    "serverSideEncryption": null,
-                    "streamArn": "",
-                    "streamEnabled": false,
-                    "streamLabel": "",
-                    "streamViewType": "",
-                    "tags": {
-                        "Environment": "cleanup"
-                    },
-                    "ttl": {
-                        "attributeName": "",
-                        "enabled": false
-                    },
-                    "writeCapacity": 0
-                },
-                "parent": "urn:pulumi:cleanup::embroidery-example::pulumi:pulumi:Stack::embroidery-example-cleanup",
-                "provider": "urn:pulumi:cleanup::embroidery-example::pulumi:providers:aws::default_3_13_0::0c337e55-142b-405f-9700-0aa955bb808c",
-                "propertyDependencies": {
-                    "attributes": null,
-                    "billingMode": null,
-                    "hashKey": null,
-                    "name": null,
-                    "rangeKey": null,
-                    "serverSideEncryption": null,
-                    "tags": null
-                }
-            },
-            {
-                "urn": "urn:pulumi:cleanup::embroidery-example::aws:iam/role:Role::cors-shared-role-cleanup",
-                "custom": true,
-                "id": "cors-shared-role-cleanup-f6ef396",
-                "type": "aws:iam/role:Role",
-                "inputs": {
-                    "__defaults": [
-                        "forceDetachPolicies",
-                        "maxSessionDuration",
-                        "name",
-                        "path"
-                    ],
-                    "assumeRolePolicy": "{\"Statement\":[{\"Action\":[\"sts:AssumeRole\"],\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"lambda.amazonaws.com\"}}],\"Version\":\"2012-10-17\"}",
-                    "forceDetachPolicies": false,
-                    "maxSessionDuration": 3600,
-                    "name": "cors-shared-role-cleanup-f6ef396",
-                    "path": "/"
-                },
-                "outputs": {
-                    "arn": "arn:aws:iam::325047155657:role/cors-shared-role-cleanup-f6ef396",
-                    "assumeRolePolicy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"lambda.amazonaws.com\"},\"Action\":\"sts:AssumeRole\"}]}",
-                    "createDate": "2021-03-14T11:45:34Z",
-                    "description": "",
-                    "forceDetachPolicies": false,
-                    "id": "cors-shared-role-cleanup-f6ef396",
-                    "maxSessionDuration": 3600,
-                    "name": "cors-shared-role-cleanup-f6ef396",
-                    "path": "/",
-                    "tags": {},
-                    "uniqueId": "AROAUXLSR7PE3CF2QLL7Z"
-                },
-                "parent": "urn:pulumi:cleanup::embroidery-example::pulumi:pulumi:Stack::embroidery-example-cleanup",
-                "provider": "urn:pulumi:cleanup::embroidery-example::pulumi:providers:aws::default_3_13_0::0c337e55-142b-405f-9700-0aa955bb808c",
-                "propertyDependencies": {
-                    "assumeRolePolicy": null
-                }
-            },
-            {
-                "urn": "urn:pulumi:cleanup::embroidery-example::aws:iam/role:Role::post-to-do-cleanup-role",
-                "custom": true,
-                "id": "post-to-do-cleanup-role-c1013ad",
-                "type": "aws:iam/role:Role",
-                "inputs": {
-                    "__defaults": [
-                        "forceDetachPolicies",
-                        "maxSessionDuration",
-                        "name",
-                        "path"
-                    ],
-                    "assumeRolePolicy": "{\"Statement\":[{\"Action\":[\"sts:AssumeRole\"],\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"lambda.amazonaws.com\"}}],\"Version\":\"2012-10-17\"}",
-                    "forceDetachPolicies": false,
-                    "maxSessionDuration": 3600,
-                    "name": "post-to-do-cleanup-role-c1013ad",
-                    "path": "/"
-                },
-                "outputs": {
-                    "arn": "arn:aws:iam::325047155657:role/post-to-do-cleanup-role-c1013ad",
-                    "assumeRolePolicy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"lambda.amazonaws.com\"},\"Action\":\"sts:AssumeRole\"}]}",
-                    "createDate": "2021-03-14T11:45:34Z",
-                    "description": "",
-                    "forceDetachPolicies": false,
-                    "id": "post-to-do-cleanup-role-c1013ad",
-                    "maxSessionDuration": 3600,
-                    "name": "post-to-do-cleanup-role-c1013ad",
-                    "path": "/",
-                    "tags": {},
-                    "uniqueId": "AROAUXLSR7PE3S4KSEPZI"
-                },
-                "parent": "urn:pulumi:cleanup::embroidery-example::pulumi:pulumi:Stack::embroidery-example-cleanup",
-                "provider": "urn:pulumi:cleanup::embroidery-example::pulumi:providers:aws::default_3_13_0::0c337e55-142b-405f-9700-0aa955bb808c",
-                "propertyDependencies": {
-                    "assumeRolePolicy": null
-                }
-            },
-            {
-                "urn": "urn:pulumi:cleanup::embroidery-example::aws:apigateway:x:API$aws:s3/bucket:Bucket::embroidery-example-cleanup",
-                "custom": true,
-                "id": "embroidery-example-cleanup-d874bc5",
-                "type": "aws:s3/bucket:Bucket",
-                "inputs": {
-                    "__defaults": [
-                        "acl",
-                        "bucket",
-                        "forceDestroy"
-                    ],
-                    "acl": "private",
-                    "bucket": "embroidery-example-cleanup-d874bc5",
-                    "forceDestroy": false
-                },
-                "outputs": {
-                    "accelerationStatus": "",
-                    "acl": "private",
-                    "arn": "arn:aws:s3:::embroidery-example-cleanup-d874bc5",
-                    "bucket": "embroidery-example-cleanup-d874bc5",
-                    "bucketDomainName": "embroidery-example-cleanup-d874bc5.s3.amazonaws.com",
-                    "bucketRegionalDomainName": "embroidery-example-cleanup-d874bc5.s3.eu-west-1.amazonaws.com",
-                    "corsRules": [],
-                    "forceDestroy": false,
-                    "grants": [],
-                    "hostedZoneId": "Z1BKCTXD74EZPE",
-                    "id": "embroidery-example-cleanup-d874bc5",
-                    "lifecycleRules": [],
-                    "loggings": [],
-                    "objectLockConfiguration": null,
-                    "region": "eu-west-1",
-                    "replicationConfiguration": null,
-                    "requestPayer": "BucketOwner",
-                    "serverSideEncryptionConfiguration": null,
-                    "tags": {},
-                    "versioning": {
-                        "enabled": false,
-                        "mfaDelete": false
-                    },
-                    "website": null
-                },
-                "parent": "urn:pulumi:cleanup::embroidery-example::aws:apigateway:x:API::embroidery-example-cleanup",
-                "provider": "urn:pulumi:cleanup::embroidery-example::pulumi:providers:aws::default_3_13_0::0c337e55-142b-405f-9700-0aa955bb808c"
-            },
-            {
-                "urn": "urn:pulumi:cleanup::embroidery-example::aws:apigateway:x:API$aws:iam/role:Role::embroidery-example-cleanup9b6b9c0e",
-                "custom": true,
-                "id": "embroidery-example-cleanup9b6b9c0e-81a0c83",
-                "type": "aws:iam/role:Role",
-                "inputs": {
-                    "__defaults": [
-                        "forceDetachPolicies",
-                        "maxSessionDuration",
-                        "name",
-                        "path"
-                    ],
-                    "assumeRolePolicy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"apigateway.amazonaws.com\"},\"Action\":\"sts:AssumeRole\"}]}",
-                    "forceDetachPolicies": false,
-                    "maxSessionDuration": 3600,
-                    "name": "embroidery-example-cleanup9b6b9c0e-81a0c83",
-                    "path": "/"
-                },
-                "outputs": {
-                    "arn": "arn:aws:iam::325047155657:role/embroidery-example-cleanup9b6b9c0e-81a0c83",
-                    "assumeRolePolicy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"apigateway.amazonaws.com\"},\"Action\":\"sts:AssumeRole\"}]}",
-                    "createDate": "2021-03-14T11:45:35Z",
-                    "description": "",
-                    "forceDetachPolicies": false,
-                    "id": "embroidery-example-cleanup9b6b9c0e-81a0c83",
-                    "maxSessionDuration": 3600,
-                    "name": "embroidery-example-cleanup9b6b9c0e-81a0c83",
-                    "path": "/",
-                    "tags": {},
-                    "uniqueId": "AROAUXLSR7PEVNSQ4YDCF"
-                },
-                "parent": "urn:pulumi:cleanup::embroidery-example::aws:apigateway:x:API::embroidery-example-cleanup",
-                "provider": "urn:pulumi:cleanup::embroidery-example::pulumi:providers:aws::default_3_13_0::0c337e55-142b-405f-9700-0aa955bb808c",
-                "propertyDependencies": {
-                    "assumeRolePolicy": null
-                }
-            },
-            {
-                "urn": "urn:pulumi:cleanup::embroidery-example::aws:apigateway:x:API$aws:s3/bucketObject:BucketObject::embroidery-example-cleanup9b6b9c0e/js/app.js",
-                "custom": true,
-                "id": "embroidery-example-cleanup9b6b9c0e/js/app.js",
-                "type": "aws:s3/bucketObject:BucketObject",
-                "inputs": {
-                    "__defaults": [
-                        "acl",
-                        "forceDestroy"
-                    ],
-                    "acl": "private",
-                    "bucket": "embroidery-example-cleanup-d874bc5",
-                    "contentType": "application/javascript",
-                    "forceDestroy": false,
-                    "key": "embroidery-example-cleanup9b6b9c0e/js/app.js",
-                    "source": {
-                        "4dabf18193072939515e22adb298388d": "c44067f5952c0a294b673a41bacd8c17",
-                        "hash": "49fe3daa982f66610d1ca94bb862aa8da7f3c5c31d62159cc23f847fef8790bd",
-                        "path": "/workspace/example/src/www/js/app.js"
-                    }
-                },
-                "outputs": {
-                    "acl": "private",
-                    "bucket": "embroidery-example-cleanup-d874bc5",
-                    "cacheControl": "",
-                    "contentDisposition": "",
-                    "contentEncoding": "",
-                    "contentLanguage": "",
-                    "contentType": "application/javascript",
-                    "etag": "6aa8a8b398a5dbe9b3d3b6a5bfcb23f5",
-                    "forceDestroy": false,
-                    "id": "embroidery-example-cleanup9b6b9c0e/js/app.js",
-                    "key": "embroidery-example-cleanup9b6b9c0e/js/app.js",
-                    "metadata": {},
-                    "objectLockLegalHoldStatus": "",
-                    "objectLockMode": "",
-                    "objectLockRetainUntilDate": "",
-                    "serverSideEncryption": "",
-                    "source": {
-                        "4dabf18193072939515e22adb298388d": "c44067f5952c0a294b673a41bacd8c17",
-                        "hash": "49fe3daa982f66610d1ca94bb862aa8da7f3c5c31d62159cc23f847fef8790bd",
-                        "path": "/workspace/example/src/www/js/app.js"
-                    },
-                    "storageClass": "STANDARD",
-                    "tags": {},
-                    "versionId": "",
-                    "websiteRedirect": ""
-                },
-                "parent": "urn:pulumi:cleanup::embroidery-example::aws:apigateway:x:API::embroidery-example-cleanup",
-                "dependencies": [
-                    "urn:pulumi:cleanup::embroidery-example::aws:apigateway:x:API$aws:s3/bucket:Bucket::embroidery-example-cleanup"
-                ],
-                "provider": "urn:pulumi:cleanup::embroidery-example::pulumi:providers:aws::default_3_13_0::0c337e55-142b-405f-9700-0aa955bb808c",
-                "propertyDependencies": {
-                    "bucket": [
-                        "urn:pulumi:cleanup::embroidery-example::aws:apigateway:x:API$aws:s3/bucket:Bucket::embroidery-example-cleanup"
-                    ],
-                    "contentType": null,
-                    "key": null,
-                    "source": null
-                }
-            },
-            {
-                "urn": "urn:pulumi:cleanup::embroidery-example::aws:apigateway:x:API$aws:s3/bucketObject:BucketObject::embroidery-example-cleanup9b6b9c0e/index.html",
-                "custom": true,
-                "id": "embroidery-example-cleanup9b6b9c0e/index.html",
-                "type": "aws:s3/bucketObject:BucketObject",
-                "inputs": {
-                    "__defaults": [
-                        "acl",
-                        "forceDestroy"
-                    ],
-                    "acl": "private",
-                    "bucket": "embroidery-example-cleanup-d874bc5",
-                    "contentType": "text/html",
-                    "forceDestroy": false,
-                    "key": "embroidery-example-cleanup9b6b9c0e/index.html",
-                    "source": {
-                        "4dabf18193072939515e22adb298388d": "c44067f5952c0a294b673a41bacd8c17",
-                        "hash": "34e8353f436e9af7944b8a89c94c34ac6572c07600b5e9a0b96ffac061502c08",
-                        "path": "/workspace/example/src/www/index.html"
-                    }
-                },
-                "outputs": {
-                    "acl": "private",
-                    "bucket": "embroidery-example-cleanup-d874bc5",
-                    "cacheControl": "",
-                    "contentDisposition": "",
-                    "contentEncoding": "",
-                    "contentLanguage": "",
-                    "contentType": "text/html",
-                    "etag": "b52d2eb781ce5a6541f5ebd589044c5e",
-                    "forceDestroy": false,
-                    "id": "embroidery-example-cleanup9b6b9c0e/index.html",
-                    "key": "embroidery-example-cleanup9b6b9c0e/index.html",
-                    "metadata": {},
-                    "objectLockLegalHoldStatus": "",
-                    "objectLockMode": "",
-                    "objectLockRetainUntilDate": "",
-                    "serverSideEncryption": "",
-                    "source": {
-                        "4dabf18193072939515e22adb298388d": "c44067f5952c0a294b673a41bacd8c17",
-                        "hash": "34e8353f436e9af7944b8a89c94c34ac6572c07600b5e9a0b96ffac061502c08",
-                        "path": "/workspace/example/src/www/index.html"
-                    },
-                    "storageClass": "STANDARD",
-                    "tags": {},
-                    "versionId": "",
-                    "websiteRedirect": ""
-                },
-                "parent": "urn:pulumi:cleanup::embroidery-example::aws:apigateway:x:API::embroidery-example-cleanup",
-                "dependencies": [
-                    "urn:pulumi:cleanup::embroidery-example::aws:apigateway:x:API$aws:s3/bucket:Bucket::embroidery-example-cleanup"
-                ],
-                "provider": "urn:pulumi:cleanup::embroidery-example::pulumi:providers:aws::default_3_13_0::0c337e55-142b-405f-9700-0aa955bb808c",
-                "propertyDependencies": {
-                    "bucket": [
-                        "urn:pulumi:cleanup::embroidery-example::aws:apigateway:x:API$aws:s3/bucket:Bucket::embroidery-example-cleanup"
-                    ],
-                    "contentType": null,
-                    "key": null,
-                    "source": null
-                }
-            },
-            {
-                "urn": "urn:pulumi:cleanup::embroidery-example::aws:apigateway:x:API$aws:s3/bucketObject:BucketObject::embroidery-example-cleanup9b6b9c0e/css/app.css",
-                "custom": true,
-                "id": "embroidery-example-cleanup9b6b9c0e/css/app.css",
-                "type": "aws:s3/bucketObject:BucketObject",
-                "inputs": {
-                    "__defaults": [
-                        "acl",
-                        "forceDestroy"
-                    ],
-                    "acl": "private",
-                    "bucket": "embroidery-example-cleanup-d874bc5",
-                    "contentType": "text/css",
-                    "forceDestroy": false,
-                    "key": "embroidery-example-cleanup9b6b9c0e/css/app.css",
-                    "source": {
-                        "4dabf18193072939515e22adb298388d": "c44067f5952c0a294b673a41bacd8c17",
-                        "hash": "f9d25f821cc8c7875440f282002896bc21facde54b617b7eb7421dfbb549a25d",
-                        "path": "/workspace/example/src/www/css/app.css"
-                    }
-                },
-                "outputs": {
-                    "acl": "private",
-                    "bucket": "embroidery-example-cleanup-d874bc5",
-                    "cacheControl": "",
-                    "contentDisposition": "",
-                    "contentEncoding": "",
-                    "contentLanguage": "",
-                    "contentType": "text/css",
-                    "etag": "17c643a9c073475dcfef19ed36424c6e",
-                    "forceDestroy": false,
-                    "id": "embroidery-example-cleanup9b6b9c0e/css/app.css",
-                    "key": "embroidery-example-cleanup9b6b9c0e/css/app.css",
-                    "metadata": {},
-                    "objectLockLegalHoldStatus": "",
-                    "objectLockMode": "",
-                    "objectLockRetainUntilDate": "",
-                    "serverSideEncryption": "",
-                    "source": {
-                        "4dabf18193072939515e22adb298388d": "c44067f5952c0a294b673a41bacd8c17",
-                        "hash": "f9d25f821cc8c7875440f282002896bc21facde54b617b7eb7421dfbb549a25d",
-                        "path": "/workspace/example/src/www/css/app.css"
-                    },
-                    "storageClass": "STANDARD",
-                    "tags": {},
-                    "versionId": "",
-                    "websiteRedirect": ""
-                },
-                "parent": "urn:pulumi:cleanup::embroidery-example::aws:apigateway:x:API::embroidery-example-cleanup",
-                "dependencies": [
-                    "urn:pulumi:cleanup::embroidery-example::aws:apigateway:x:API$aws:s3/bucket:Bucket::embroidery-example-cleanup"
-                ],
-                "provider": "urn:pulumi:cleanup::embroidery-example::pulumi:providers:aws::default_3_13_0::0c337e55-142b-405f-9700-0aa955bb808c",
-                "propertyDependencies": {
-                    "bucket": [
-                        "urn:pulumi:cleanup::embroidery-example::aws:apigateway:x:API$aws:s3/bucket:Bucket::embroidery-example-cleanup"
-                    ],
-                    "contentType": null,
-                    "key": null,
-                    "source": null
-                }
-            },
-            {
-                "urn": "urn:pulumi:cleanup::embroidery-example::aws:apigateway:x:API$aws:iam/rolePolicyAttachment:RolePolicyAttachment::embroidery-example-cleanup9b6b9c0e",
-                "custom": true,
-                "id": "embroidery-example-cleanup9b6b9c0e-81a0c83-20210314114535316300000001",
-                "type": "aws:iam/rolePolicyAttachment:RolePolicyAttachment",
-                "inputs": {
-                    "__defaults": [],
-                    "policyArn": "arn:aws:iam::aws:policy/AmazonS3FullAccess",
-                    "role": "embroidery-example-cleanup9b6b9c0e-81a0c83"
-                },
-                "outputs": {
-                    "id": "embroidery-example-cleanup9b6b9c0e-81a0c83-20210314114535316300000001",
-                    "policyArn": "arn:aws:iam::aws:policy/AmazonS3FullAccess",
-                    "role": "embroidery-example-cleanup9b6b9c0e-81a0c83"
-                },
-                "parent": "urn:pulumi:cleanup::embroidery-example::aws:apigateway:x:API::embroidery-example-cleanup",
-                "dependencies": [
-                    "urn:pulumi:cleanup::embroidery-example::aws:apigateway:x:API$aws:iam/role:Role::embroidery-example-cleanup9b6b9c0e"
-                ],
-                "provider": "urn:pulumi:cleanup::embroidery-example::pulumi:providers:aws::default_3_13_0::0c337e55-142b-405f-9700-0aa955bb808c",
-                "propertyDependencies": {
-                    "policyArn": null,
-                    "role": [
-                        "urn:pulumi:cleanup::embroidery-example::aws:apigateway:x:API$aws:iam/role:Role::embroidery-example-cleanup9b6b9c0e"
-                    ]
-                }
-            },
-            {
-                "urn": "urn:pulumi:cleanup::embroidery-example::aws:iam/policy:Policy::embroidery-example-todos-get-cleanup-policy",
-                "custom": true,
-                "id": "arn:aws:iam::325047155657:policy/embroidery-example-todos-get-cleanup-policy-2456c28",
-                "type": "aws:iam/policy:Policy",
-                "inputs": {
-                    "__defaults": [
-                        "name"
-                    ],
-                    "name": "embroidery-example-todos-get-cleanup-policy-2456c28",
-                    "path": "/",
-                    "policy": "{\"Statement\":[{\"Action\":[\"logs:CreateLogGroup\",\"logs:CreateLogStream\",\"logs:PutLogEvents\"],\"Effect\":\"Allow\",\"Resource\":\"arn:aws:logs:*:*:*\"},{\"Action\":[\"dynamodb:Query\",\"dynamodb:GetItem\"],\"Effect\":\"Allow\",\"Resource\":\"arn:aws:dynamodb:eu-west-1:325047155657:table/todos-cleanup\"}],\"Version\":\"2012-10-17\"}"
-                },
-                "outputs": {
-                    "arn": "arn:aws:iam::325047155657:policy/embroidery-example-todos-get-cleanup-policy-2456c28",
-                    "description": "",
-                    "id": "arn:aws:iam::325047155657:policy/embroidery-example-todos-get-cleanup-policy-2456c28",
-                    "name": "embroidery-example-todos-get-cleanup-policy-2456c28",
-                    "path": "/",
-                    "policy": "{\"Statement\":[{\"Action\":[\"logs:CreateLogGroup\",\"logs:CreateLogStream\",\"logs:PutLogEvents\"],\"Effect\":\"Allow\",\"Resource\":\"arn:aws:logs:*:*:*\"},{\"Action\":[\"dynamodb:Query\",\"dynamodb:GetItem\"],\"Effect\":\"Allow\",\"Resource\":\"arn:aws:dynamodb:eu-west-1:325047155657:table/todos-cleanup\"}],\"Version\":\"2012-10-17\"}"
-                },
-                "parent": "urn:pulumi:cleanup::embroidery-example::pulumi:pulumi:Stack::embroidery-example-cleanup",
-                "dependencies": [
-                    "urn:pulumi:cleanup::embroidery-example::aws:dynamodb/table:Table::todos-cleanup"
-                ],
-                "provider": "urn:pulumi:cleanup::embroidery-example::pulumi:providers:aws::default_3_13_0::0c337e55-142b-405f-9700-0aa955bb808c",
-                "propertyDependencies": {
-                    "path": null,
-                    "policy": [
-                        "urn:pulumi:cleanup::embroidery-example::aws:dynamodb/table:Table::todos-cleanup"
-                    ]
-                }
-            },
-            {
-                "urn": "urn:pulumi:cleanup::embroidery-example::aws:iam/rolePolicyAttachment:RolePolicyAttachment::embroidery-example-todos-get-cleanup-policy-attachment",
-                "custom": true,
-                "id": "embroidery-example-todos-get-cleanup-role-b80186a-20210314114751585000000001",
-                "type": "aws:iam/rolePolicyAttachment:RolePolicyAttachment",
-                "inputs": {
-                    "__defaults": [],
-                    "policyArn": "arn:aws:iam::325047155657:policy/embroidery-example-todos-get-cleanup-policy-2456c28",
-                    "role": "embroidery-example-todos-get-cleanup-role-b80186a"
-                },
-                "outputs": {
-                    "id": "embroidery-example-todos-get-cleanup-role-b80186a-20210314114751585000000001",
-                    "policyArn": "arn:aws:iam::325047155657:policy/embroidery-example-todos-get-cleanup-policy-2456c28",
-                    "role": "embroidery-example-todos-get-cleanup-role-b80186a"
-                },
-                "parent": "urn:pulumi:cleanup::embroidery-example::pulumi:pulumi:Stack::embroidery-example-cleanup",
-                "dependencies": [
-                    "urn:pulumi:cleanup::embroidery-example::aws:iam/policy:Policy::embroidery-example-todos-get-cleanup-policy",
-                    "urn:pulumi:cleanup::embroidery-example::aws:iam/role:Role::embroidery-example-todos-get-cleanup-role"
-                ],
-                "provider": "urn:pulumi:cleanup::embroidery-example::pulumi:providers:aws::default_3_13_0::0c337e55-142b-405f-9700-0aa955bb808c",
-                "propertyDependencies": {
-                    "policyArn": [
-                        "urn:pulumi:cleanup::embroidery-example::aws:iam/policy:Policy::embroidery-example-todos-get-cleanup-policy"
-                    ],
-                    "role": [
-                        "urn:pulumi:cleanup::embroidery-example::aws:iam/role:Role::embroidery-example-todos-get-cleanup-role"
-                    ]
-                }
-            },
-            {
-                "urn": "urn:pulumi:cleanup::embroidery-example::aws:iam/policy:Policy::post-to-do-cleanup-policy",
-                "custom": true,
-                "id": "arn:aws:iam::325047155657:policy/post-to-do-cleanup-policy-55e9c39",
-                "type": "aws:iam/policy:Policy",
-                "inputs": {
-                    "__defaults": [
-                        "name"
-                    ],
-                    "name": "post-to-do-cleanup-policy-55e9c39",
-                    "path": "/",
-                    "policy": "{\"Statement\":[{\"Action\":[\"logs:CreateLogGroup\",\"logs:CreateLogStream\",\"logs:PutLogEvents\"],\"Effect\":\"Allow\",\"Resource\":\"arn:aws:logs:*:*:*\"},{\"Action\":[\"dynamodb:PutItem\"],\"Effect\":\"Allow\",\"Resource\":\"arn:aws:dynamodb:eu-west-1:325047155657:table/todos-cleanup\"}],\"Version\":\"2012-10-17\"}"
-                },
-                "outputs": {
-                    "arn": "arn:aws:iam::325047155657:policy/post-to-do-cleanup-policy-55e9c39",
-                    "description": "",
-                    "id": "arn:aws:iam::325047155657:policy/post-to-do-cleanup-policy-55e9c39",
-                    "name": "post-to-do-cleanup-policy-55e9c39",
-                    "path": "/",
-                    "policy": "{\"Statement\":[{\"Action\":[\"logs:CreateLogGroup\",\"logs:CreateLogStream\",\"logs:PutLogEvents\"],\"Effect\":\"Allow\",\"Resource\":\"arn:aws:logs:*:*:*\"},{\"Action\":[\"dynamodb:PutItem\"],\"Effect\":\"Allow\",\"Resource\":\"arn:aws:dynamodb:eu-west-1:325047155657:table/todos-cleanup\"}],\"Version\":\"2012-10-17\"}"
-                },
-                "parent": "urn:pulumi:cleanup::embroidery-example::pulumi:pulumi:Stack::embroidery-example-cleanup",
-                "dependencies": [
-                    "urn:pulumi:cleanup::embroidery-example::aws:dynamodb/table:Table::todos-cleanup"
-                ],
-                "provider": "urn:pulumi:cleanup::embroidery-example::pulumi:providers:aws::default_3_13_0::0c337e55-142b-405f-9700-0aa955bb808c",
-                "propertyDependencies": {
-                    "path": null,
-                    "policy": [
-                        "urn:pulumi:cleanup::embroidery-example::aws:dynamodb/table:Table::todos-cleanup"
-                    ]
-                }
-            },
-            {
-                "urn": "urn:pulumi:cleanup::embroidery-example::aws:apigateway:x:API$aws:apigateway/restApi:RestApi::embroidery-example-cleanup",
-                "custom": true,
-                "id": "t7w48dko45",
+                "id": "5qy4pn3qr4",
                 "type": "aws:apigateway/restApi:RestApi",
                 "inputs": {
                     "__defaults": [
@@ -639,196 +92,60 @@
                     "binaryMediaTypes": [
                         "*/*"
                     ],
-                    "body": "{\"swagger\":\"2.0\",\"info\":{\"title\":\"embroidery-example-cleanup\",\"version\":\"1.0\"},\"paths\":{\"/api/todos\":{\"get\":{\"x-amazon-apigateway-integration\":{\"uri\":\"arn:aws:apigateway:eu-west-1:lambda:path/2015-03-31/functions/undefined/invocations\",\"passthroughBehavior\":\"when_no_match\",\"httpMethod\":\"POST\",\"type\":\"aws_proxy\"},\"security\":[]},\"post\":{\"x-amazon-apigateway-integration\":{\"uri\":\"arn:aws:apigateway:eu-west-1:lambda:path/2015-03-31/functions/undefined/invocations\",\"passthroughBehavior\":\"when_no_match\",\"httpMethod\":\"POST\",\"type\":\"aws_proxy\"},\"security\":[]},\"options\":{\"x-amazon-apigateway-integration\":{\"uri\":\"arn:aws:apigateway:eu-west-1:lambda:path/2015-03-31/functions/undefined/invocations\",\"passthroughBehavior\":\"when_no_match\",\"httpMethod\":\"POST\",\"type\":\"aws_proxy\"},\"security\":[]}},\"/api/google/\":{\"x-amazon-apigateway-any-method\":{\"x-amazon-apigateway-integration\":{\"responses\":{\"default\":{\"statusCode\":\"200\"}},\"uri\":\"https://www.google.com/\",\"type\":\"http_proxy\",\"passthroughBehavior\":\"when_no_match\",\"httpMethod\":\"ANY\"},\"security\":[]}},\"/api/google/{proxy+}\":{\"x-amazon-apigateway-any-method\":{\"x-amazon-apigateway-integration\":{\"responses\":{\"default\":{\"statusCode\":\"200\"}},\"uri\":\"https://www.google.com/{proxy}\",\"type\":\"http_proxy\",\"passthroughBehavior\":\"when_no_match\",\"httpMethod\":\"ANY\",\"requestParameters\":{\"integration.request.path.proxy\":\"method.request.path.proxy\"}},\"parameters\":[{\"name\":\"proxy\",\"in\":\"path\",\"required\":true,\"type\":\"string\"}],\"security\":[]}},\"/api/google\":{\"options\":{\"x-amazon-apigateway-integration\":{\"uri\":\"arn:aws:apigateway:eu-west-1:lambda:path/2015-03-31/functions/undefined/invocations\",\"passthroughBehavior\":\"when_no_match\",\"httpMethod\":\"POST\",\"type\":\"aws_proxy\"},\"security\":[]}},\"/www/\":{\"get\":{\"responses\":{\"200\":{\"description\":\"200 response\",\"schema\":{\"type\":\"object\"},\"headers\":{\"Content-Type\":{\"type\":\"string\"},\"content-type\":{\"type\":\"string\"}}},\"400\":{\"description\":\"400 response\"},\"500\":{\"description\":\"500 response\"}},\"x-amazon-apigateway-integration\":{\"credentials\":\"arn:aws:iam::325047155657:role/embroidery-example-cleanup9b6b9c0e-81a0c83\",\"uri\":\"arn:aws:apigateway:eu-west-1:s3:path/embroidery-example-cleanup-d874bc5/embroidery-example-cleanup9b6b9c0e/index.html\",\"passthroughBehavior\":\"when_no_match\",\"httpMethod\":\"GET\",\"type\":\"aws\",\"responses\":{\"4\\\\d{2}\":{\"statusCode\":\"400\"},\"default\":{\"statusCode\":\"200\",\"responseParameters\":{\"method.response.header.Content-Type\":\"integration.response.header.Content-Type\",\"method.response.header.content-type\":\"integration.response.header.content-type\"}},\"5\\\\d{2}\":{\"statusCode\":\"500\"}}}}},\"/www/{proxy+}\":{\"x-amazon-apigateway-any-method\":{\"responses\":{\"200\":{\"description\":\"200 response\",\"schema\":{\"type\":\"object\"},\"headers\":{\"Content-Type\":{\"type\":\"string\"},\"content-type\":{\"type\":\"string\"}}},\"400\":{\"description\":\"400 response\"},\"500\":{\"description\":\"500 response\"}},\"x-amazon-apigateway-integration\":{\"credentials\":\"arn:aws:iam::325047155657:role/embroidery-example-cleanup9b6b9c0e-81a0c83\",\"uri\":\"arn:aws:apigateway:eu-west-1:s3:path/embroidery-example-cleanup-d874bc5/embroidery-example-cleanup9b6b9c0e/{proxy}\",\"passthroughBehavior\":\"when_no_match\",\"httpMethod\":\"GET\",\"type\":\"aws\",\"responses\":{\"4\\\\d{2}\":{\"statusCode\":\"400\"},\"default\":{\"statusCode\":\"200\",\"responseParameters\":{\"method.response.header.Content-Type\":\"integration.response.header.Content-Type\",\"method.response.header.content-type\":\"integration.response.header.content-type\"}},\"5\\\\d{2}\":{\"statusCode\":\"500\"}},\"requestParameters\":{\"integration.request.path.proxy\":\"method.request.path.proxy\"}},\"parameters\":[{\"name\":\"proxy\",\"in\":\"path\",\"required\":true,\"type\":\"string\"}]}}},\"x-amazon-apigateway-binary-media-types\":[\"*/*\"],\"x-amazon-apigateway-gateway-responses\":{\"MISSING_AUTHENTICATION_TOKEN\":{\"statusCode\":404,\"responseTemplates\":{\"application/json\":\"{\\\"message\\\": \\\"404 Not found\\\" }\"}},\"ACCESS_DENIED\":{\"statusCode\":404,\"responseTemplates\":{\"application/json\":\"{\\\"message\\\": \\\"404 Not found\\\" }\"}}},\"x-amazon-apigateway-api-key-source\":\"HEADER\",\"securityDefinitions\":{}}",
-                    "endpointConfiguration": {
-                        "__defaults": [],
-                        "types": "EDGE"
-                    },
+                    "body": "{\"swagger\":\"2.0\",\"info\":{\"title\":\"lambada-example-cleanup-2\",\"version\":\"1.0\"},\"paths\":{\"/\":{\"get\":{\"x-amazon-apigateway-integration\":{\"uri\":\"arn:aws:apigateway:eu-west-1:lambda:path/2015-03-31/functions/undefined/invocations\",\"passthroughBehavior\":\"when_no_match\",\"httpMethod\":\"POST\",\"type\":\"aws_proxy\"}}}},\"x-amazon-apigateway-binary-media-types\":[\"*/*\"],\"x-amazon-apigateway-gateway-responses\":{\"MISSING_AUTHENTICATION_TOKEN\":{\"statusCode\":404,\"responseTemplates\":{\"application/json\":\"{\\\"message\\\": \\\"404 Not found\\\" }\"}},\"ACCESS_DENIED\":{\"statusCode\":404,\"responseTemplates\":{\"application/json\":\"{\\\"message\\\": \\\"404 Not found\\\" }\"}}},\"x-amazon-apigateway-api-key-source\":\"HEADER\"}",
                     "minimumCompressionSize": -1,
-                    "name": "embroidery-example-cleanup"
+                    "name": "lambada-example-cleanup-2"
                 },
                 "outputs": {
                     "apiKeySource": "HEADER",
                     "binaryMediaTypes": [
                         "*/*"
                     ],
-                    "body": "{\"swagger\":\"2.0\",\"info\":{\"title\":\"embroidery-example-cleanup\",\"version\":\"1.0\"},\"paths\":{\"/api/todos\":{\"get\":{\"x-amazon-apigateway-integration\":{\"uri\":\"arn:aws:apigateway:eu-west-1:lambda:path/2015-03-31/functions/undefined/invocations\",\"passthroughBehavior\":\"when_no_match\",\"httpMethod\":\"POST\",\"type\":\"aws_proxy\"},\"security\":[]},\"post\":{\"x-amazon-apigateway-integration\":{\"uri\":\"arn:aws:apigateway:eu-west-1:lambda:path/2015-03-31/functions/undefined/invocations\",\"passthroughBehavior\":\"when_no_match\",\"httpMethod\":\"POST\",\"type\":\"aws_proxy\"},\"security\":[]},\"options\":{\"x-amazon-apigateway-integration\":{\"uri\":\"arn:aws:apigateway:eu-west-1:lambda:path/2015-03-31/functions/undefined/invocations\",\"passthroughBehavior\":\"when_no_match\",\"httpMethod\":\"POST\",\"type\":\"aws_proxy\"},\"security\":[]}},\"/api/google/\":{\"x-amazon-apigateway-any-method\":{\"x-amazon-apigateway-integration\":{\"responses\":{\"default\":{\"statusCode\":\"200\"}},\"uri\":\"https://www.google.com/\",\"type\":\"http_proxy\",\"passthroughBehavior\":\"when_no_match\",\"httpMethod\":\"ANY\"},\"security\":[]}},\"/api/google/{proxy+}\":{\"x-amazon-apigateway-any-method\":{\"x-amazon-apigateway-integration\":{\"responses\":{\"default\":{\"statusCode\":\"200\"}},\"uri\":\"https://www.google.com/{proxy}\",\"type\":\"http_proxy\",\"passthroughBehavior\":\"when_no_match\",\"httpMethod\":\"ANY\",\"requestParameters\":{\"integration.request.path.proxy\":\"method.request.path.proxy\"}},\"parameters\":[{\"name\":\"proxy\",\"in\":\"path\",\"required\":true,\"type\":\"string\"}],\"security\":[]}},\"/api/google\":{\"options\":{\"x-amazon-apigateway-integration\":{\"uri\":\"arn:aws:apigateway:eu-west-1:lambda:path/2015-03-31/functions/undefined/invocations\",\"passthroughBehavior\":\"when_no_match\",\"httpMethod\":\"POST\",\"type\":\"aws_proxy\"},\"security\":[]}},\"/www/\":{\"get\":{\"responses\":{\"200\":{\"description\":\"200 response\",\"schema\":{\"type\":\"object\"},\"headers\":{\"Content-Type\":{\"type\":\"string\"},\"content-type\":{\"type\":\"string\"}}},\"400\":{\"description\":\"400 response\"},\"500\":{\"description\":\"500 response\"}},\"x-amazon-apigateway-integration\":{\"credentials\":\"arn:aws:iam::325047155657:role/embroidery-example-cleanup9b6b9c0e-81a0c83\",\"uri\":\"arn:aws:apigateway:eu-west-1:s3:path/embroidery-example-cleanup-d874bc5/embroidery-example-cleanup9b6b9c0e/index.html\",\"passthroughBehavior\":\"when_no_match\",\"httpMethod\":\"GET\",\"type\":\"aws\",\"responses\":{\"4\\\\d{2}\":{\"statusCode\":\"400\"},\"default\":{\"statusCode\":\"200\",\"responseParameters\":{\"method.response.header.Content-Type\":\"integration.response.header.Content-Type\",\"method.response.header.content-type\":\"integration.response.header.content-type\"}},\"5\\\\d{2}\":{\"statusCode\":\"500\"}}}}},\"/www/{proxy+}\":{\"x-amazon-apigateway-any-method\":{\"responses\":{\"200\":{\"description\":\"200 response\",\"schema\":{\"type\":\"object\"},\"headers\":{\"Content-Type\":{\"type\":\"string\"},\"content-type\":{\"type\":\"string\"}}},\"400\":{\"description\":\"400 response\"},\"500\":{\"description\":\"500 response\"}},\"x-amazon-apigateway-integration\":{\"credentials\":\"arn:aws:iam::325047155657:role/embroidery-example-cleanup9b6b9c0e-81a0c83\",\"uri\":\"arn:aws:apigateway:eu-west-1:s3:path/embroidery-example-cleanup-d874bc5/embroidery-example-cleanup9b6b9c0e/{proxy}\",\"passthroughBehavior\":\"when_no_match\",\"httpMethod\":\"GET\",\"type\":\"aws\",\"responses\":{\"4\\\\d{2}\":{\"statusCode\":\"400\"},\"default\":{\"statusCode\":\"200\",\"responseParameters\":{\"method.response.header.Content-Type\":\"integration.response.header.Content-Type\",\"method.response.header.content-type\":\"integration.response.header.content-type\"}},\"5\\\\d{2}\":{\"statusCode\":\"500\"}},\"requestParameters\":{\"integration.request.path.proxy\":\"method.request.path.proxy\"}},\"parameters\":[{\"name\":\"proxy\",\"in\":\"path\",\"required\":true,\"type\":\"string\"}]}}},\"x-amazon-apigateway-binary-media-types\":[\"*/*\"],\"x-amazon-apigateway-gateway-responses\":{\"MISSING_AUTHENTICATION_TOKEN\":{\"statusCode\":404,\"responseTemplates\":{\"application/json\":\"{\\\"message\\\": \\\"404 Not found\\\" }\"}},\"ACCESS_DENIED\":{\"statusCode\":404,\"responseTemplates\":{\"application/json\":\"{\\\"message\\\": \\\"404 Not found\\\" }\"}}},\"x-amazon-apigateway-api-key-source\":\"HEADER\",\"securityDefinitions\":{}}",
-                    "endpointConfiguration": {
-                        "types": "EDGE",
-                        "vpcEndpointIds": []
-                    },
-                    "id": "t7w48dko45",
+                    "body": "{\"swagger\":\"2.0\",\"info\":{\"title\":\"lambada-example-cleanup-2\",\"version\":\"1.0\"},\"paths\":{\"/\":{\"get\":{\"x-amazon-apigateway-integration\":{\"uri\":\"arn:aws:apigateway:eu-west-1:lambda:path/2015-03-31/functions/undefined/invocations\",\"passthroughBehavior\":\"when_no_match\",\"httpMethod\":\"POST\",\"type\":\"aws_proxy\"}}}},\"x-amazon-apigateway-binary-media-types\":[\"*/*\"],\"x-amazon-apigateway-gateway-responses\":{\"MISSING_AUTHENTICATION_TOKEN\":{\"statusCode\":404,\"responseTemplates\":{\"application/json\":\"{\\\"message\\\": \\\"404 Not found\\\" }\"}},\"ACCESS_DENIED\":{\"statusCode\":404,\"responseTemplates\":{\"application/json\":\"{\\\"message\\\": \\\"404 Not found\\\" }\"}}},\"x-amazon-apigateway-api-key-source\":\"HEADER\"}",
+                    "id": "5qy4pn3qr4",
                     "minimumCompressionSize": -1,
-                    "name": "embroidery-example-cleanup"
+                    "name": "lambada-example-cleanup-2"
                 },
-                "parent": "urn:pulumi:cleanup::embroidery-example::aws:apigateway:x:API::embroidery-example-cleanup",
+                "parent": "urn:pulumi:cleanup-2::embroidery-example::aws:apigateway:x:API::lambada-example-cleanup-2",
                 "dependencies": [
-                    "",
-                    "urn:pulumi:cleanup::embroidery-example::aws:apigateway:x:API$aws:iam/role:Role::embroidery-example-cleanup9b6b9c0e",
-                    "urn:pulumi:cleanup::embroidery-example::aws:apigateway:x:API$aws:s3/bucket:Bucket::embroidery-example-cleanup"
+                    ""
                 ],
                 "initErrors": [
-                    "creating urn:pulumi:cleanup::embroidery-example::aws:apigateway:x:API$aws:apigateway/restApi:RestApi::embroidery-example-cleanup: 1 error occurred:\n\t* error creating API Gateway specification: BadRequestException: Errors found during import:\n\tUnable to put integration on 'OPTIONS' for resource at path '/api/google': Invalid lambda function\n\tUnable to put integration on 'GET' for resource at path '/api/todos': Invalid lambda function\n\tUnable to put integration on 'OPTIONS' for resource at path '/api/todos': Invalid lambda function\n\tUnable to put integration on 'POST' for resource at path '/api/todos': Invalid lambda function\n\n"
+                    "creating urn:pulumi:cleanup-2::embroidery-example::aws:apigateway:x:API$aws:apigateway/restApi:RestApi::lambada-example-cleanup-2: 1 error occurred:\n\t* error creating API Gateway specification: BadRequestException: Errors found during import:\n\tUnable to put integration on 'GET' for resource at path '/': Invalid lambda function\n\n"
                 ],
-                "provider": "urn:pulumi:cleanup::embroidery-example::pulumi:providers:aws::default_3_13_0::0c337e55-142b-405f-9700-0aa955bb808c",
+                "provider": "urn:pulumi:cleanup-2::embroidery-example::pulumi:providers:aws::default_3_12_1::ce8ede2c-43c3-47ad-a128-00b843ee0d16",
                 "propertyDependencies": {
                     "binaryMediaTypes": null,
                     "body": [
-                        "",
-                        "urn:pulumi:cleanup::embroidery-example::aws:apigateway:x:API$aws:iam/role:Role::embroidery-example-cleanup9b6b9c0e",
-                        "urn:pulumi:cleanup::embroidery-example::aws:apigateway:x:API$aws:s3/bucket:Bucket::embroidery-example-cleanup"
+                        ""
                     ],
-                    "endpointConfiguration": null,
                     "name": null
                 }
             },
             {
-                "urn": "urn:pulumi:cleanup::embroidery-example::aws:iam/rolePolicyAttachment:RolePolicyAttachment::post-to-do-cleanup-policy-attachment",
+                "urn": "urn:pulumi:cleanup-2::embroidery-example::aws:apigateway:x:API$aws:iam/rolePolicyAttachment:RolePolicyAttachment::lambada-example-cleanup-24c238266-32be53a2",
                 "custom": true,
-                "id": "post-to-do-cleanup-role-c1013ad-20210314114754023400000002",
+                "id": "lambada-example-cleanup-24c238266-a777788-20210314142710940400000001",
                 "type": "aws:iam/rolePolicyAttachment:RolePolicyAttachment",
                 "inputs": {
                     "__defaults": [],
-                    "policyArn": "arn:aws:iam::325047155657:policy/post-to-do-cleanup-policy-55e9c39",
-                    "role": "post-to-do-cleanup-role-c1013ad"
+                    "policyArn": "arn:aws:iam::aws:policy/AWSLambdaFullAccess",
+                    "role": "lambada-example-cleanup-24c238266-a777788"
                 },
                 "outputs": {
-                    "id": "post-to-do-cleanup-role-c1013ad-20210314114754023400000002",
-                    "policyArn": "arn:aws:iam::325047155657:policy/post-to-do-cleanup-policy-55e9c39",
-                    "role": "post-to-do-cleanup-role-c1013ad"
+                    "id": "lambada-example-cleanup-24c238266-a777788-20210314142710940400000001",
+                    "policyArn": "arn:aws:iam::aws:policy/AWSLambdaFullAccess",
+                    "role": "lambada-example-cleanup-24c238266-a777788"
                 },
-                "parent": "urn:pulumi:cleanup::embroidery-example::pulumi:pulumi:Stack::embroidery-example-cleanup",
+                "parent": "urn:pulumi:cleanup-2::embroidery-example::aws:apigateway:x:API::lambada-example-cleanup-2",
                 "dependencies": [
-                    "urn:pulumi:cleanup::embroidery-example::aws:iam/policy:Policy::post-to-do-cleanup-policy",
-                    "urn:pulumi:cleanup::embroidery-example::aws:iam/role:Role::post-to-do-cleanup-role"
+                    "urn:pulumi:cleanup-2::embroidery-example::aws:apigateway:x:API$aws:iam/role:Role::lambada-example-cleanup-24c238266"
                 ],
-                "provider": "urn:pulumi:cleanup::embroidery-example::pulumi:providers:aws::default_3_13_0::0c337e55-142b-405f-9700-0aa955bb808c",
+                "provider": "urn:pulumi:cleanup-2::embroidery-example::pulumi:providers:aws::default_3_12_1::ce8ede2c-43c3-47ad-a128-00b843ee0d16",
                 "propertyDependencies": {
-                    "policyArn": [
-                        "urn:pulumi:cleanup::embroidery-example::aws:iam/policy:Policy::post-to-do-cleanup-policy"
-                    ],
+                    "policyArn": null,
                     "role": [
-                        "urn:pulumi:cleanup::embroidery-example::aws:iam/role:Role::post-to-do-cleanup-role"
-                    ]
-                }
-            },
-            {
-                "urn": "urn:pulumi:cleanup::embroidery-example::aws:sns/topic:Topic::todoItemCreated",
-                "custom": true,
-                "id": "arn:aws:sns:eu-west-1:325047155657:todoItemCreated-96826cf",
-                "type": "aws:sns/topic:Topic",
-                "inputs": {
-                    "__defaults": [
-                        "name"
-                    ],
-                    "name": "todoItemCreated-96826cf",
-                    "tags": {
-                        "Environment": "cleanup",
-                        "__defaults": []
-                    }
-                },
-                "outputs": {
-                    "applicationFailureFeedbackRoleArn": "",
-                    "applicationSuccessFeedbackRoleArn": "",
-                    "arn": "arn:aws:sns:eu-west-1:325047155657:todoItemCreated-96826cf",
-                    "deliveryPolicy": "",
-                    "displayName": "",
-                    "httpFailureFeedbackRoleArn": "",
-                    "httpSuccessFeedbackRoleArn": "",
-                    "id": "arn:aws:sns:eu-west-1:325047155657:todoItemCreated-96826cf",
-                    "kmsMasterKeyId": "",
-                    "lambdaFailureFeedbackRoleArn": "",
-                    "lambdaSuccessFeedbackRoleArn": "",
-                    "name": "todoItemCreated-96826cf",
-                    "policy": "{\"Version\":\"2008-10-17\",\"Id\":\"__default_policy_ID\",\"Statement\":[{\"Sid\":\"__default_statement_ID\",\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"*\"},\"Action\":[\"SNS:GetTopicAttributes\",\"SNS:SetTopicAttributes\",\"SNS:AddPermission\",\"SNS:RemovePermission\",\"SNS:DeleteTopic\",\"SNS:Subscribe\",\"SNS:ListSubscriptionsByTopic\",\"SNS:Publish\",\"SNS:Receive\"],\"Resource\":\"arn:aws:sns:eu-west-1:325047155657:todoItemCreated-96826cf\",\"Condition\":{\"StringEquals\":{\"AWS:SourceOwner\":\"325047155657\"}}}]}",
-                    "sqsFailureFeedbackRoleArn": "",
-                    "sqsSuccessFeedbackRoleArn": "",
-                    "tags": {
-                        "Environment": "cleanup"
-                    }
-                },
-                "parent": "urn:pulumi:cleanup::embroidery-example::pulumi:pulumi:Stack::embroidery-example-cleanup",
-                "provider": "urn:pulumi:cleanup::embroidery-example::pulumi:providers:aws::default_3_13_0::0c337e55-142b-405f-9700-0aa955bb808c",
-                "propertyDependencies": {
-                    "tags": null
-                }
-            },
-            {
-                "urn": "urn:pulumi:cleanup::embroidery-example::aws:iam/role:Role::on-todo-item-created-cleanup-role",
-                "custom": true,
-                "id": "on-todo-item-created-cleanup-role-29f4d44",
-                "type": "aws:iam/role:Role",
-                "inputs": {
-                    "__defaults": [
-                        "forceDetachPolicies",
-                        "maxSessionDuration",
-                        "name",
-                        "path"
-                    ],
-                    "assumeRolePolicy": "{\"Statement\":[{\"Action\":[\"sts:AssumeRole\"],\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"lambda.amazonaws.com\"}}],\"Version\":\"2012-10-17\"}",
-                    "forceDetachPolicies": false,
-                    "maxSessionDuration": 3600,
-                    "name": "on-todo-item-created-cleanup-role-29f4d44",
-                    "path": "/"
-                },
-                "outputs": {
-                    "arn": "arn:aws:iam::325047155657:role/on-todo-item-created-cleanup-role-29f4d44",
-                    "assumeRolePolicy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"lambda.amazonaws.com\"},\"Action\":\"sts:AssumeRole\"}]}",
-                    "createDate": "2021-03-14T11:45:35Z",
-                    "description": "",
-                    "forceDetachPolicies": false,
-                    "id": "on-todo-item-created-cleanup-role-29f4d44",
-                    "maxSessionDuration": 3600,
-                    "name": "on-todo-item-created-cleanup-role-29f4d44",
-                    "path": "/",
-                    "tags": {},
-                    "uniqueId": "AROAUXLSR7PE5HRKTU22A"
-                },
-                "parent": "urn:pulumi:cleanup::embroidery-example::pulumi:pulumi:Stack::embroidery-example-cleanup",
-                "provider": "urn:pulumi:cleanup::embroidery-example::pulumi:providers:aws::default_3_13_0::0c337e55-142b-405f-9700-0aa955bb808c",
-                "propertyDependencies": {
-                    "assumeRolePolicy": null
-                }
-            },
-            {
-                "urn": "urn:pulumi:cleanup::embroidery-example::aws:sns/topic:Topic$aws:sns:TopicEventSubscription::todoItemCreated_onTodoItemCreated_cleanup",
-                "custom": false,
-                "type": "aws:sns:TopicEventSubscription",
-                "parent": "urn:pulumi:cleanup::embroidery-example::aws:sns/topic:Topic::todoItemCreated",
-                "aliases": [
-                    "urn:pulumi:cleanup::embroidery-example::aws:sns:TopicEventSubscription::todoItemCreated_onTodoItemCreated_cleanup"
-                ]
-            },
-            {
-                "urn": "urn:pulumi:cleanup::embroidery-example::aws:iam/policy:Policy::on-todo-item-created-cleanup-policy",
-                "custom": true,
-                "id": "arn:aws:iam::325047155657:policy/on-todo-item-created-cleanup-policy-3d0b718",
-                "type": "aws:iam/policy:Policy",
-                "inputs": {
-                    "__defaults": [
-                        "name"
-                    ],
-                    "name": "on-todo-item-created-cleanup-policy-3d0b718",
-                    "path": "/",
-                    "policy": "{\"Statement\":[{\"Action\":[\"logs:CreateLogGroup\",\"logs:CreateLogStream\",\"logs:PutLogEvents\"],\"Effect\":\"Allow\",\"Resource\":\"arn:aws:logs:*:*:*\"},{\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\"],\"Effect\":\"Allow\",\"Resource\":\"arn:aws:dynamodb:eu-west-1:325047155657:table/todos-cleanup\"}],\"Version\":\"2012-10-17\"}"
-                },
-                "outputs": {
-                    "arn": "arn:aws:iam::325047155657:policy/on-todo-item-created-cleanup-policy-3d0b718",
-                    "description": "",
-                    "id": "arn:aws:iam::325047155657:policy/on-todo-item-created-cleanup-policy-3d0b718",
-                    "name": "on-todo-item-created-cleanup-policy-3d0b718",
-                    "path": "/",
-                    "policy": "{\"Statement\":[{\"Action\":[\"logs:CreateLogGroup\",\"logs:CreateLogStream\",\"logs:PutLogEvents\"],\"Effect\":\"Allow\",\"Resource\":\"arn:aws:logs:*:*:*\"},{\"Action\":[\"dynamodb:PutItem\",\"dynamodb:GetItem\"],\"Effect\":\"Allow\",\"Resource\":\"arn:aws:dynamodb:eu-west-1:325047155657:table/todos-cleanup\"}],\"Version\":\"2012-10-17\"}"
-                },
-                "parent": "urn:pulumi:cleanup::embroidery-example::pulumi:pulumi:Stack::embroidery-example-cleanup",
-                "dependencies": [
-                    "urn:pulumi:cleanup::embroidery-example::aws:dynamodb/table:Table::todos-cleanup"
-                ],
-                "provider": "urn:pulumi:cleanup::embroidery-example::pulumi:providers:aws::default_3_13_0::0c337e55-142b-405f-9700-0aa955bb808c",
-                "propertyDependencies": {
-                    "path": null,
-                    "policy": [
-                        "urn:pulumi:cleanup::embroidery-example::aws:dynamodb/table:Table::todos-cleanup"
+                        "urn:pulumi:cleanup-2::embroidery-example::aws:apigateway:x:API$aws:iam/role:Role::lambada-example-cleanup-24c238266"
                     ]
                 }
             }
