@@ -1,4 +1,4 @@
-var serverUrl = '/api' //https://jsonplaceholder.typicode.com
+var serverUrl = '../api' //https://jsonplaceholder.typicode.com
 
 var list = document.querySelector('#list')
 var buttonAdd = document.querySelector('#buttonAdd')

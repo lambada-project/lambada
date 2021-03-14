@@ -23,11 +23,11 @@ export const createPostToDo: EmbroideryApiEndpointCreator = (context: LambadaRes
                 LambdaResourceAccess.DynamoDbPutItem,
             ],
         },
-        // {
-        //     topic: context.messaging?.todoItemCreated,
-        //     access: [
-        //         "sns:Publish"
-        //     ]
-        // }
+        {
+            topic: context.messaging?.todoItemCreated,
+            access: [
+                "sns:Publish"
+            ]
+        }
     ])
 }
