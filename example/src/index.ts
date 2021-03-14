@@ -14,8 +14,8 @@ const projectName = 'lambada-example'
 const result = run(projectName, environment,
     {
         endpointDefinitions: [
-            //createGetToDos,
-            //createPostToDo,
+            createGetToDos,
+            createPostToDo,
             (context) => createEndpoint('test', context, '/test', 'GET', async (event) => ({
                 statusCode: 200,
                 body: JSON.stringify({ ok: true }),
@@ -24,12 +24,12 @@ const result = run(projectName, environment,
             (context) => createProxyIntegration(context, '/google', "https://www.google.com")
         ],
         createOptionsForCors: false,
-        // messageHandlerDefinitions: [
-        //     createHandlerTodoItem_created
-        // ],
-        //staticSiteLocalPath: 'src/www',
+        messageHandlerDefinitions: [
+            createHandlerTodoItem_created
+        ],
+        staticSiteLocalPath: 'src/www',
         tables: tables,
-        //messages: topics,
+        messages: topics,
 
         cdn: {
             useCDN: false
@@ -39,5 +39,5 @@ const result = run(projectName, environment,
         }
     })
 
-// export const apiUrl = result.api.url
-// export const cdnUrl = result.cdn?.domainName
+export const apiUrl = result.api.url
+export const cdnUrl = result.cdn?.domainName
