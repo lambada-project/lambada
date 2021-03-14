@@ -1,13 +1,15 @@
 {
   "name": "@lambada/utils",
   "version": "1.0.0",
-  "description": "",
   "main": "dist/index.js",
   "module": "dist/index.js",
   "typings": "dist/index.d.ts",
   "files": [
     "dist"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "author": "Juan C. Andreu",
   "scripts": {
     "prebuild": "rimraf dist",
@@ -20,5 +22,7 @@
     "rimraf": "^3.0.2",
     "typescript": "^4.0.5",
     "@types/node": "^14.14.34"
-  }
+  },
+  "dependencies": {},
+  "description": ""
 }

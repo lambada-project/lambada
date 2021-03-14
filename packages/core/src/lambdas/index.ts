@@ -177,7 +177,6 @@ export const createLambda = <E, R>(
     const memorySize = 768
 
     if (typeof definition === 'function') {
-        console.log("FUNCTION")
         const callbackDefinition = definition as Callback<E, R>
         return new aws.lambda.CallbackFunction(`${name}-${environment}`, {
             callback: callbackDefinition,
@@ -188,7 +187,6 @@ export const createLambda = <E, R>(
         })
     }
     else if ((definition as FolderLambda).functionFolder) {
-        console.log("FOLDER")
         if (lambdaRole) {
             const handlerInfo = (definition as FolderLambda)
 
