@@ -12,17 +12,16 @@ export const createProxyIntegration = (
     targetUri: pulumi.Input<string>,
     enableAuth = true,
 ): Route => {
-    return createProxyIntegrationCompat({ embroideryContext, path, targetUri, enableAuth })
+    return createProxyIntegrationCompat({ path, targetUri, enableAuth }, embroideryContext)
 }
 
-export type ProxyIntegrationArgs = {
-    embroideryContext: LambadaResources,
+export type ProxyIntegrationArgs = {    
     path: string,
     targetUri: pulumi.Input<string>,
     enableAuth: boolean,
 }
 
-export const createProxyIntegrationCompat = ({ embroideryContext, path, targetUri, enableAuth }: ProxyIntegrationArgs): Route => {
+export const createProxyIntegrationCompat = ({ path, targetUri, enableAuth }: ProxyIntegrationArgs, embroideryContext: LambadaResources): Route => {
     const route: IntegrationRoute = {
         path: `${embroideryContext.api?.apiPath ?? ''}${path}`,
         authorizers: enableAuth ? embroideryContext.authorizers : [],

@@ -68,7 +68,7 @@ export default function createApi(
     const lambadaEndpoints = api?.apiEndpoints ? api.apiEndpoints
         .map(create => create(context))
         .map(x => IsCallback(x) ? createEndpointSimpleCompat(x, context) : x)
-        .map(x => IsProxy(x) ? createProxyIntegrationCompat(x) : x)
+        .map(x => IsProxy(x) ? createProxyIntegrationCompat(x, context) : x)
         : []
 
     // TODO: Configure per endpoint?
