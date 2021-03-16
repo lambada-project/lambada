@@ -9,8 +9,13 @@ import { Route, StaticRoute } from "@pulumi/awsx/apigateway/api";
 //import { NotificationResult } from "../notifications";
 import { createCorsEndpoints } from "./createCorsEndpoints";
 import { LambadaResources } from "../context";
-import { createStaticEndpoint, EmbroideryApiEndpointCreator, LambadaEndpointCreator } from ".";
+import { createStaticEndpoint, EmbroideryApiEndpointCreator, LambadaEndpointCreator, LambadaProxyCreator, ProxyIntegrationArgs } from ".";
 import { createEndpointSimple, createEndpointSimpleCompat, LambadaEndpointArgs } from "./createEndpoint";
+import { createProxyIntegration, createProxyIntegrationCompat } from "./createProxyIntegration";
+
+type LambadaCreator = EmbroideryApiEndpointCreator | LambadaEndpointCreator | LambadaProxyCreator
+type LambadaCreatorReturn = Route | LambadaEndpointArgs | ProxyIntegrationArgs
+
 
 type CreateApiArgs = {
     projectName: string
@@ -18,7 +23,7 @@ type CreateApiArgs = {
     api?: {
         path: string,
         type: `EDGE` | `REGIONAL` | `PRIVATE`
-        apiEndpoints: (EmbroideryApiEndpointCreator | LambadaEndpointCreator)[],
+        apiEndpoints: LambadaCreator[],
         createOptionsForCors?: boolean
     }
     www?: {
@@ -53,13 +58,17 @@ export default function createApi(
 ): awsx.apigateway.API {
 
     const stageName = 'app'
-    const isRoute = (route: Route | LambadaEndpointArgs): route is Route => {
-        return typeof (route as LambadaEndpointArgs).callbackDefinition === 'undefined'
+    const IsCallback = (route: LambadaCreatorReturn): route is LambadaEndpointArgs => {
+        return typeof (route as LambadaEndpointArgs).callbackDefinition !== 'undefined'
+    }
+    const IsProxy = (route: LambadaCreatorReturn): route is ProxyIntegrationArgs => {
+        return typeof (route as ProxyIntegrationArgs).targetUri !== 'undefined'
     }
 
     const lambadaEndpoints = api?.apiEndpoints ? api.apiEndpoints
         .map(create => create(context))
-        .map(x => isRoute(x) ? x : createEndpointSimpleCompat(x, context))
+        .map(x => IsCallback(x) ? createEndpointSimpleCompat(x, context) : x)
+        .map(x => IsProxy(x) ? createProxyIntegrationCompat(x) : x)
         : []
 
     // TODO: Configure per endpoint?
