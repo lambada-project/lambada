@@ -2,8 +2,7 @@ import * as pulumi from "@pulumi/pulumi";
 import * as aws from "@pulumi/aws";
 import * as awsx from "@pulumi/awsx";
 
-import { EmbroideryApiEndpointCreator, EmbroideryEventHandlerRoute, LambadaEndpointCreator } from './api'
-import createApi from './api/createApi'
+import createApi, { LambadaCreator } from './api/createApi'
 import { createCloudFront } from './cdn/index'
 import { LambadaResources } from './context'
 
@@ -32,7 +31,7 @@ type EmbroideryRunArguments = {
         useCDN: boolean,
         customDomain?: string[]
     },
-    endpointDefinitions?: (EmbroideryApiEndpointCreator | LambadaEndpointCreator)[],
+    endpointDefinitions?: LambadaCreator[],
     createOptionsForCors?: boolean,
     staticSiteLocalPath?: string
     tablePrefix?: string

@@ -13,7 +13,7 @@ import { createStaticEndpoint, EmbroideryApiEndpointCreator, LambadaEndpointCrea
 import { createEndpointSimple, createEndpointSimpleCompat, LambadaEndpointArgs } from "./createEndpoint";
 import { createProxyIntegration, createProxyIntegrationCompat } from "./createProxyIntegration";
 
-type LambadaCreator = EmbroideryApiEndpointCreator | LambadaEndpointCreator | LambadaProxyCreator
+export type LambadaCreator = EmbroideryApiEndpointCreator | LambadaEndpointCreator | LambadaProxyCreator
 type LambadaCreatorReturn = Route | LambadaEndpointArgs | ProxyIntegrationArgs
 
 
