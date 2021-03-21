@@ -1,14 +1,15 @@
 import * as AWS from "aws-sdk"
 import { ConditionExpression, ExpressionAttributeValueMap, PutItemInput, QueryInput, Key } from "aws-sdk/clients/dynamodb"
 import { Marshaller } from '@aws/dynamodb-auto-marshaller'
-import { TableDefinition } from ".";
-
 
 export class RepositoryBase {
     protected marshaller = new Marshaller();
 
     protected readonly tableName: string
-    constructor(protected readonly table: TableDefinition) {
+    constructor(protected readonly table: { 
+        envKeyName: string,
+        name: string
+    }) {
         const name = process.env[this.table.envKeyName]
         if (name && name.length >= 3) //AWS rule
             this.tableName = name
