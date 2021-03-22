@@ -7,12 +7,12 @@
 		"build": "tsc"
 	},
 	"dependencies": {
-		"aws-sdk": "2.795.0",
-		"@lambada/core": "^1.0.0",
+		"aws-sdk": "2.795.0",		
 		"@aws/dynamodb-auto-marshaller": "^0.7.1",
 		"uuid": "^3.4.0"
 	},
 	"devDependencies": {
+		"@lambada/core": "^0.1.0",
 		"@types/jest": "26.*",
 		"ts-jest": "26.*",
 		"jest": "26.*",
