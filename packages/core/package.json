@@ -1,10 +1,10 @@
 {
   "name": "@lambada/core",
-  "version": "0.0.6",
+  "version": "0.1.0",
   "description": "",
-  "main": "dist/lib/index.js",
-  "module": "dist/lib/index.js",
-  "typings": "dist/lib/index.d.ts",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "typings": "dist/index.d.ts",
   "files": [
     "dist"
   ],
@@ -25,10 +25,8 @@
     "@lambada/utils": "^1.0.0",
     "aws-sdk": "2.795.0"
   },
-  "dependencies": {
-    "@lambada/utils": "^1.0.0"
-  },
   "devDependencies": {
+    "@lambada/utils": "^1.0.0",
     "@aws/dynamodb-auto-marshaller": "^0.7.1",
     "@pulumi/aws": "3.12.1",
     "@pulumi/awsx": "0.22.0",

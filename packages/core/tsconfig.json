@@ -10,14 +10,14 @@
       "allowSyntheticDefaultImports": true,
       "experimentalDecorators": true,
       "emitDecoratorMetadata": true,
-      "declarationDir": "dist/lib",
-      "outDir": "dist/lib",
+      "declarationDir": "dist",
+      "outDir": "dist",
       "typeRoots": [
         "node_modules/@types"
       ]
     },
     "include": [
       "src"
-, "../utils/src/repository.ts"    ]
+    ]
   }
   
