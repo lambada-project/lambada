@@ -66,7 +66,10 @@ export async function ConfigureAwsEnvironment(tables: EmbroideryTables): Promise
                         { AttributeName: x.hashKey, KeyType: "HASH" }, //Partition key
                         ...(x.rangeKey ? [{ AttributeName: x.rangeKey, KeyType: "RANGE" }] : [])
                     ],
-                    Projection: x.projectionType
+                    Projection: {
+                        ProjectionType: x.projectionType,
+                        //NonKeyAttributes: x.nonKeyAttributes // TODO :D
+                    }
                 }))
 
             } as CreateTableInput).promise()
