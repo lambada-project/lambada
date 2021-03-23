@@ -7,24 +7,30 @@ export class RepositoryBase {
 
     protected readonly tableName: string
 
-    constructor(protected readonly table: { 
+    constructor(protected readonly table: {
         envKeyName: string
         name: string
         primaryKey: string
         rangeKey?: string
     }) {
-        const name = process.env[this.table.envKeyName]
-        if (name && name.length >= 3) //AWS rule
-            this.tableName = name
-        else
-            throw new Error('Invalid table name')
+        this.tableName = process.env[this.table.envKeyName] ?? ''
+    }
 
+    /**
+     * Validates the table data before execution. This is important because if you've got more than one repo in a single service class,
+     * and a lambda that only uses one of them, then it would fail because it's expecting config for both tables, even if using one only. 
+     * That's because the resource access given to each lambda also sets he environment variables needed.
+     */
+    private validateTable() {
+        if (!this.tableName || this.tableName.length < 3) //AWS rule
+            throw new Error(`Could not find env var: ${this.table.envKeyName}`)
     }
 
     protected async scan<T>(args?: {
         filter?: ConditionExpression,
         filterValues?: ExpressionAttributeValueMap
     }) {
+        this.validateTable()
         const db = new AWS.DynamoDB()
         const result = await db.scan({
             TableName: this.tableName,
@@ -41,6 +47,7 @@ export class RepositoryBase {
 
 
     protected async upsert<T>(item: T): Promise<T> {
+        this.validateTable()
         const db = new AWS.DynamoDB()
 
         const marsharlledItem = this.marshaller.marshallItem(item)
@@ -63,6 +70,7 @@ export class RepositoryBase {
             value: any
         }
     ): Promise<T[]> {
+        this.validateTable()
         const db = new AWS.DynamoDB()
 
         const value = this.marshaller.marshallValue(primaryKey.value)
@@ -94,6 +102,7 @@ export class RepositoryBase {
             value: any
         }
     ) {
+        this.validateTable()
         const db = new AWS.DynamoDB()
         var value = this.marshaller.marshallValue(primaryKey.value)
         if (!value) throw new Error(`Invalid primary key. ${JSON.stringify(primaryKey)}`)
