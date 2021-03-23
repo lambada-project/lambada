@@ -15,8 +15,7 @@ export async function ConfigureAwsEnvironment(tables: EmbroideryTables): Promise
             }
         });
     const db = new AWS.DynamoDB()
-
-
+    
     const existingTableNames = (await db.listTables().promise()).TableNames ?? []
     const delay = () => new Promise((resolve) => setTimeout(resolve, 1000))
     await delay()
@@ -60,7 +59,8 @@ export async function ConfigureAwsEnvironment(tables: EmbroideryTables): Promise
                 ProvisionedThroughput: {
                     ReadCapacityUnits: 10,
                     WriteCapacityUnits: 10
-                }
+                },
+                GlobalSecondaryIndexes: table.indexes
 
             } as CreateTableInput).promise()
         }
