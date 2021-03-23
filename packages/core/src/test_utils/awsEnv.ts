@@ -4,7 +4,7 @@ import { EmbroideryTables } from '../database/index'
 import { CreateTableInput } from 'aws-sdk/clients/dynamodb';
 
 export async function ConfigureAwsEnvironment(tables: EmbroideryTables): Promise<void> {
-    
+
     AWS.config.update(
         {
             region: 'eu-west-1',
@@ -15,7 +15,7 @@ export async function ConfigureAwsEnvironment(tables: EmbroideryTables): Promise
             }
         });
     const db = new AWS.DynamoDB()
-    
+
     const existingTableNames = (await db.listTables().promise()).TableNames ?? []
     const delay = () => new Promise((resolve) => setTimeout(resolve, 1000))
     await delay()
@@ -60,16 +60,23 @@ export async function ConfigureAwsEnvironment(tables: EmbroideryTables): Promise
                     ReadCapacityUnits: 10,
                     WriteCapacityUnits: 10
                 },
-                GlobalSecondaryIndexes: table.indexes
+                GlobalSecondaryIndexes: table.indexes?.map(x => ({
+                    IndexName: x.name,
+                    KeySchema: [
+                        { AttributeName: x.hashKey, KeyType: "HASH" }, //Partition key
+                        ...(x.rangeKey ? [{ AttributeName: x.rangeKey, KeyType: "RANGE" }] : [])
+                    ],
+                    Projection: x.projectionType
+                }))
 
             } as CreateTableInput).promise()
         }
     }
-  
+
     // const repo = new DynamoDBCurrencyRepository();
     // await repo.seed()
 
- 
+
     //TODO: lists topics, somehow without querying SNS
     // const sns = new AWS.SNS()
     // const topics = await sns.listTopics().promise()
