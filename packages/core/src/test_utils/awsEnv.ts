@@ -69,6 +69,10 @@ export async function ConfigureAwsEnvironment(tables: EmbroideryTables): Promise
                     Projection: {
                         ProjectionType: x.projectionType,
                         //NonKeyAttributes: x.nonKeyAttributes // TODO :D
+                    },
+                    ProvisionedThroughput: {
+                        ReadCapacityUnits: 10,
+                        WriteCapacityUnits: 10
                     }
                 }))
 
