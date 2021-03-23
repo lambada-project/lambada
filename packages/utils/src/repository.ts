@@ -6,9 +6,12 @@ export class RepositoryBase {
     protected marshaller = new Marshaller();
 
     protected readonly tableName: string
+
     constructor(protected readonly table: { 
-        envKeyName: string,
+        envKeyName: string
         name: string
+        primaryKey: string
+        rangeKey?: string
     }) {
         const name = process.env[this.table.envKeyName]
         if (name && name.length >= 3) //AWS rule
