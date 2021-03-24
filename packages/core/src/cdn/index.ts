@@ -109,7 +109,7 @@ export const createCloudFront = (
 
         customErrorResponses: www?.spa?.notFoundRedirection ? [
             {
-                errorCode: 404,
+                errorCode: 400,
                 responseCode: 200,
                 responsePagePath: www.spa?.entrypoint ?? '/index.html'
             }
