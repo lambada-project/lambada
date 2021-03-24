@@ -33,6 +33,7 @@ const result = run(projectName, environment,
 
         cdn: {
             useCDN: true,
+            isSpa: false
         },
         environmentVariables: {
             LAMBADA_SHOW_ALL_ERRORS: 'true'

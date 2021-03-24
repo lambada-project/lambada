@@ -20,7 +20,7 @@
 		"@pulumi/aws": "3.12.1",
 		"@pulumi/awsx": "0.22.0",
 		"@pulumi/pulumi": "2.13.2",
-		"@lambada/core": "^0.1.4-preview-1",
+		"@lambada/core": "^0.1.4-preview-2",
 		"typescript": "3.7.7"
 	}
 }
