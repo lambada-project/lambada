@@ -32,7 +32,7 @@ const result = run(projectName, environment,
         messages: topics,
 
         cdn: {
-            useCDN: false
+            useCDN: true,
         },
         environmentVariables: {
             LAMBADA_SHOW_ALL_ERRORS: 'true'

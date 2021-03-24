@@ -30,6 +30,9 @@ type EmbroideryRunArguments = {
     cdn?: {
         useCDN: boolean,
         customDomain?: string[]
+        isSpa: boolean
+        /** Overrides default: index.html. Errors are redirected here, useful for spa */
+        entrypoint?: string
     },
     endpointDefinitions?: LambadaCreator[],
     createOptionsForCors?: boolean,
@@ -162,9 +165,13 @@ export const run = (projectName: string, environment: string, args: EmbroideryRu
         },
         {
             domain: api.url.apply(x => getDomain(x)),
-            path: `/${stageName}${wwwPath}`
+            path: `/${stageName}${wwwPath}`,
+            spa: args.cdn.isSpa ? {
+                notFoundRedirection: true,
+                entrypoint: args.cdn.entrypoint
+            } : undefined
         },
-        args.cdn.customDomain
+        args.cdn.customDomain,
     ) : undefined
 
     return {
