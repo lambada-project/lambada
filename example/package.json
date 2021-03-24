@@ -8,10 +8,10 @@
 		"update-packages": "npm update"
 	},
 	"dependencies": {
-		"aws-sdk": "2.863.0",
 		"@aws/dynamodb-auto-marshaller": "^0.7.1",
-		"uuid": "^3.4.0",
-		"@lambada/utils": "^1.0.0"
+		"@lambada/utils": "^1.0.3",
+		"aws-sdk": "2.863.0",
+		"uuid": "^3.4.0"
 	},
 	"devDependencies": {
 		"ts-jest": "25.*",
@@ -20,7 +20,7 @@
 		"@pulumi/aws": "3.12.1",
 		"@pulumi/awsx": "0.22.0",
 		"@pulumi/pulumi": "2.13.2",
-		"@lambada/core": "^0.0.1",
+		"@lambada/core": "^0.1.4-preview-1",
 		"typescript": "3.7.7"
 	}
 }

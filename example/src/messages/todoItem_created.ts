@@ -1,7 +1,7 @@
 import { SubscriptionEvent, LambadaResources, EmbroiderySubscriptionCreator, subscribeToTopic, EmbroideryTopicEventSubscription } from '@lambada/core'
 import { ToDoItemCreated } from '../lib/todos/inotify'
 import { ToDoService } from '../lib/todos/service'
-import { LambdaResourceAccess } from '@lambada/core/dist/lib/lambdas';
+import { LambdaResourceAccess } from '@lambada/core/dist/lambdas';
 
 
 export const onTodoItemCreated = async (request: SubscriptionEvent): Promise<void> => {

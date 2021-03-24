@@ -1,5 +1,5 @@
 import { EmbroideryCallback, EmbroideryRequest, LambadaResources, EmbroideryEventHandlerRoute, createEndpointSimpleCors, LambadaEndpointCreator, LambadaEndpointArgs } from '@lambada/core'
-import { LambdaResourceAccess } from '@lambada/core/dist/lib/lambdas';
+import { LambdaResourceAccess } from '@lambada/core/dist/lambdas';
 
 import { ToDoService } from "../../lib/todos/service";
 
