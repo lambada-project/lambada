@@ -12,7 +12,15 @@ export const createCloudFront = (
     },
     www?: {
         domain: pulumi.Input<string>,
-        path: pulumi.Input<string>
+        path: pulumi.Input<string>,
+
+        spa?: {
+            /**
+             * If set, 404 errors will be redirected to /
+             */
+            notFoundRedirection: boolean
+            entrypoint?: string
+        }
     },
     customDomain?: string[]
 ) => {
@@ -84,8 +92,8 @@ export const createCloudFront = (
     }
 
     // Note: CF certificates MUST be on us-east-1
-    const useast1 = new aws.Provider("useast1", { region: "us-east-1" });
-    const cert = customDomain ?
+    const useast1 = customDomain ? new aws.Provider("useast1", { region: "us-east-1" }) : null;
+    const cert = customDomain && useast1 ?
         pulumi.output(aws.acm.getCertificate({
             domain: customDomain[0],
         }, {
@@ -98,6 +106,14 @@ export const createCloudFront = (
         enabled: true,
         origins: origins,
         aliases: customDomain ?? undefined,
+
+        customErrorResponses: www?.spa?.notFoundRedirection ? [
+            {
+                errorCode: 404,
+                responseCode: 200,
+                responsePagePath: www.spa?.entrypoint ?? '/index.html'
+            }
+        ] : [],
 
         orderedCacheBehaviors: behaviours,
         defaultCacheBehavior: {
@@ -136,6 +152,6 @@ export const createCloudFront = (
             acmCertificateArn: cert?.arn,
             minimumProtocolVersion: customDomain ? 'TLSv1' : undefined,
             sslSupportMethod: customDomain ? 'sni-only' : undefined
-        },  
+        },
     })
 }
