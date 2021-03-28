@@ -129,17 +129,24 @@ export const createEndpointSimpleCompat = ({
             }
 
         } catch (ex) {
+            console.error(ex)
             const showErrorDetails = ex && (ex.showError || process.env['LAMBADA_SHOW_ALL_ERRORS'] == 'true')
             if (showErrorDetails) {
                 return {
-                    statusCode: 400,
+                    statusCode: 500,
                     body: JSON.stringify({
                         error: ex.message
                     }),
                     headers: (extraHeaders || {})
                 }
             } else {
-                throw ex;
+                return {
+                    statusCode: 500,
+                    body: JSON.stringify({
+                        error: 'Bad Request'
+                    }),
+                    headers: (extraHeaders || {})
+                }
             } ``
         }
 

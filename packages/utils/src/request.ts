@@ -1,5 +1,6 @@
 import * as AWS from "aws-sdk"
 import * as awslambda from "aws-lambda"
+import { LambadaError } from "./error";
 
 export declare type Request = awslambda.APIGatewayProxyEvent;
 
@@ -15,11 +16,11 @@ export function tryGetBody<TBody>(request: Request): TBody | undefined {
 
 export function getBody<TBody>(request: Request): TBody {
     if (!request.body)
-        throw 'Invalid request'
+        throw new LambadaError('Request does not contain a body.')
 
     const body = tryGetBody<TBody>(request)
     if (!body)
-        throw 'Invalid request'
+        throw new LambadaError('Request does not contain a body.')
     return body
 }
 
