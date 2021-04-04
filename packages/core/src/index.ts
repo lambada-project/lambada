@@ -180,6 +180,7 @@ export const run = (projectName: string, environment: string, args: EmbroideryRu
         auth: {
             cognitoARN: cognitoARN,
             cognitoPoolId: cognitoPoolId
-        }
+        },
+        messaging: messaging
     }
 }
