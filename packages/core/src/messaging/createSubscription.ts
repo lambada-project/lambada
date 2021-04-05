@@ -65,8 +65,7 @@ export const subscribeToTopic = (context: LambadaResources, topic: MessagingResu
     if (topic.awsTopic)
         return topic.awsTopic.onEvent(`${topicName}_${subscription.name}_${environment}`, callback)
     else
-        // TODO: reference topics
-        throw 'REFERENCE TOPICS NOT IMPLEMENTED'
+        throw `Cannot subscribe to this topic: ${topic.definition.name}`
 }
 
 export const createTopicAndSubscribe = (

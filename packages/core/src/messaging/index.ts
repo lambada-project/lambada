@@ -54,10 +54,12 @@ export const createMessaging = (environment: string, messages?: EmbroideryMessag
             if (result[key]) {
                 throw new Error(`Cannot create a ref message with the same name of an existing topic: ${key}`)
             }
+            const topic = findTopic(message.name, environment)
 
             result[key] = {
+                awsTopic: aws.sns.Topic.get(`${message.name}-${environment}`, topic.id),
                 envKeyName: message.envKeyName,
-                ref: findTopic(message.name, environment),
+                ref: topic,
                 definition: message
             } as MessagingResultItem
         }
