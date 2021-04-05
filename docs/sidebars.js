@@ -1,8 +1,10 @@
 module.exports = {
   docs: [
     {
-      type: 'doc',
-      id: 'home'
+      type: 'category',
+      label: 'Welcome',
+      items: ['home', 'alternatives'],
+      collapsed: false
     },
     {
       type: 'category',
