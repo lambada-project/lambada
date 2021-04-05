@@ -29,6 +29,7 @@ export type LambadaEndpointArgs = {
     callbackDefinition: EmbroideryCallback,
     resources?: LambdaResource[],
     extraHeaders?: {},
+    environmentVariables: EmbroideryEnvironmentVariables,
     /** This overrides at endpoint level any default set */
     auth?: {
         useCognitoAuthorizer?: boolean,
@@ -87,7 +88,8 @@ export const createEndpointSimple = (
     callbackDefinition,
     resources,
     extraHeaders,
-    auth
+    auth,
+    environmentVariables: undefined
 }, context)
 
 export const createEndpointSimpleCompat = ({
@@ -98,6 +100,7 @@ export const createEndpointSimpleCompat = ({
     resources,
     extraHeaders,
     auth,
+    environmentVariables
 }: LambadaEndpointArgs, context: LambadaResources,) => {
 
     const lambdaName = name ?? getNameFromPath(`${context.projectName}-${path}-${method.toLowerCase()}`)
@@ -152,7 +155,7 @@ export const createEndpointSimpleCompat = ({
 
     }
 
-    return createEndpoint(lambdaName, context, path, method, newCallback, [], undefined, auth?.useCognitoAuthorizer, resources, auth?.useApiKey,)
+    return createEndpoint(lambdaName, context, path, method, newCallback, [], environmentVariables, auth?.useCognitoAuthorizer, resources, auth?.useApiKey)
 }
 
 export const createEndpoint = (
