@@ -27,7 +27,9 @@ export const createMessaging = (environment: string, messages?: EmbroideryMessag
     for (const key in messages) {
         if (messages.hasOwnProperty(key)) {
             const message = messages[key];
+            const name = `${message.name}-${environment}`
             const topic = new aws.sns.Topic(message.name, {
+                name: name,
                 tags: {
                     Environment: environment
                 }
