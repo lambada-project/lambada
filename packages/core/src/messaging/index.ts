@@ -20,7 +20,7 @@ export type EmbroideryMessages = { [id: string]: MessageDefinition }
 export type EmbroideryTopicEventSubscription = TopicEventSubscription
 export type EmbroiderySubscriptionCreator = (context: LambadaResources) => EmbroideryTopicEventSubscription
 
-export const createMessaging = (environment: string, messages: EmbroideryMessages, handlers?: EmbroiderySubscriptionCreator[], messagesRef?: EmbroideryMessages): MessagingResult => {
+export const createMessaging = (environment: string, messages?: EmbroideryMessages, handlers?: EmbroiderySubscriptionCreator[], messagesRef?: EmbroideryMessages): MessagingResult => {
 
     const result: MessagingResult = {}
 

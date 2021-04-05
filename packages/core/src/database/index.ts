@@ -72,7 +72,7 @@ export type TableDefinition = {
 
 export type EmbroideryTables = { [id: string]: TableDefinition }
 
-export const createDynamoDbTables = (environment: string, tables: EmbroideryTables, prefix?: string, kmsKeys?: SecurityResult, tableRefs?: EmbroideryTables): DatabaseResult => {
+export const createDynamoDbTables = (environment: string, tables?: EmbroideryTables, prefix?: string, kmsKeys?: SecurityResult, tableRefs?: EmbroideryTables): DatabaseResult => {
 
     const result: any = {}
     for (const key in tables) {
