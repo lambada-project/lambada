@@ -42,7 +42,10 @@ type EmbroideryRunArguments = {
     tables?: EmbroideryTables
     /** Referenced tables, does not create anything */
     tablesRef?: EmbroideryTables
+    /** Topics to create */
     messages?: EmbroideryMessages,
+    /** Referenced topics, does not create anything */
+    messagesRef?: EmbroideryMessages,
     messageHandlerDefinitions?: EmbroiderySubscriptionCreator[],
     environmentVariables?: EmbroideryEnvironmentVariables,
     secrets?: EmbroiderySecrets
