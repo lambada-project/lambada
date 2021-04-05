@@ -20,13 +20,13 @@ export type EmbroideryMessages = { [id: string]: MessageDefinition }
 export type EmbroideryTopicEventSubscription = TopicEventSubscription
 export type EmbroiderySubscriptionCreator = (context: LambadaResources) => EmbroideryTopicEventSubscription
 
-export const createMessaging = (environment: string, messages: EmbroideryMessages, handlers?: EmbroiderySubscriptionCreator[]): MessagingResult => {
+export const createMessaging = (environment: string, messages: EmbroideryMessages, handlers?: EmbroiderySubscriptionCreator[], messagesRef?: EmbroideryMessages): MessagingResult => {
 
     const result: MessagingResult = {}
 
     for (const key in messages) {
         if (messages.hasOwnProperty(key)) {
-            const message = messages[key];            
+            const message = messages[key];
             const topic = new aws.sns.Topic(message.name, {
                 tags: {
                     Environment: environment
@@ -46,16 +46,35 @@ export const createMessaging = (environment: string, messages: EmbroideryMessage
         }
     }
 
-    // TODO: MessagesRef like we have on the tables
+    for (const key in messagesRef) {
+        if (Object.prototype.hasOwnProperty.call(messagesRef, key)) {
+            const message = messagesRef[key];
+            if (result[key]) {
+                throw new Error(`Cannot create a ref message with the same name of an existing topic: ${key}`)
+            }
+
+            result[key] = {
+                envKeyName: message.envKeyName,
+                ref: findTopic(message.name, environment),
+                definition: message
+            } as MessagingResultItem
+        }
+    }
 
     return result
+}
+
+function findTopic(name: string, environment: string): pulumi.Output<TopicReference> {
+    const topicName = `${name}-${environment}`
+    return pulumi.output(aws.sns.getTopic({
+        name: topicName,
+    }, { async: true }));
 }
 
 type TopicReference = {
     name: string
     id: string
     arn: string
-    hashKey: string;
 }
 
 export type MessagingResultItem = {
@@ -65,7 +84,7 @@ export type MessagingResultItem = {
     definition: MessageDefinition
 }
 
-export type MessagingResult =  { [id: string]: MessagingResultItem }
+export type MessagingResult = { [id: string]: MessagingResultItem }
 
 
 export type MessagingContext = {

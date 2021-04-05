@@ -95,6 +95,10 @@ export const createDynamoDbTables = (environment: string, tables: EmbroideryTabl
     }
     for (const key in tableRefs) {
         if (Object.prototype.hasOwnProperty.call(tableRefs, key)) {
+            if (result[key]) {
+                throw new Error(`Cannot create a ref table with the same name of an existing table: ${key}`)
+            }
+
             const table = tableRefs[key];
             result[key] = {
                 ref: findTable(table.name, environment),

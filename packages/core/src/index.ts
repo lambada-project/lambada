@@ -89,7 +89,7 @@ export const run = (projectName: string, environment: string, args: EmbroideryRu
     const cognitoPoolId = isPool(pool) ? pool.id : undefined
 
 
-    const messaging = args.messages ? createMessaging(environment, args.messages, args.messageHandlerDefinitions) : undefined
+    const messaging = args.messages ? createMessaging(environment, args.messages, args.messageHandlerDefinitions, args.messagesRef) : undefined
     // const notifications = createNotifications(environment)
 
     const stageName = 'app'
