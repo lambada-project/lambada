@@ -29,7 +29,7 @@ export type LambadaEndpointArgs = {
     callbackDefinition: EmbroideryCallback,
     resources?: LambdaResource[],
     extraHeaders?: {},
-    environmentVariables: EmbroideryEnvironmentVariables,
+    environmentVariables?: EmbroideryEnvironmentVariables,
     /** This overrides at endpoint level any default set */
     auth?: {
         useCognitoAuthorizer?: boolean,
