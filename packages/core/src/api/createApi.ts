@@ -24,7 +24,9 @@ type CreateApiArgs = {
         path: string,
         type: `EDGE` | `REGIONAL` | `PRIVATE`
         apiEndpoints: LambadaCreator[],
-        createOptionsForCors?: boolean
+        cors?: {
+            origins: string[]
+        }
     }
     www?: {
         local: string,
@@ -72,8 +74,8 @@ export default function createApi(
         : []
 
     // TODO: Configure per endpoint?
-    const corsEndpoints = api?.createOptionsForCors && lambadaEndpoints.length > 0 ?
-        createCorsEndpoints(lambadaEndpoints, context) : []
+    const corsEndpoints = api?.cors && lambadaEndpoints.length > 0 ?
+        createCorsEndpoints(lambadaEndpoints, context, api.cors.origins) : []
 
     const staticRoutes: StaticRoute[] = []
     if (www) {

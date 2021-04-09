@@ -35,7 +35,9 @@ type EmbroideryRunArguments = {
         entrypoint?: string
     },
     endpointDefinitions?: LambadaCreator[],
-    createOptionsForCors?: boolean,
+    cors?: {
+        origins: string[]
+    },
     staticSiteLocalPath?: string
     tablePrefix?: string
     /** Tables to create */
@@ -140,7 +142,7 @@ export const run = (projectName: string, environment: string, args: EmbroideryRu
             path: apiPath,
             apiEndpoints: args.endpointDefinitions || [],
             type: args.gatewayType || 'EDGE',
-            createOptionsForCors: args.createOptionsForCors
+            cors: args.cors
         } : undefined,
         www: args.staticSiteLocalPath ? {
             local: args.staticSiteLocalPath,

@@ -6,7 +6,7 @@ import { EmbroideryEventHandlerRoute } from '.';
 import { getNameFromPath } from './utils';
 
 
-export const createCorsEndpoints = (endpoints: EmbroideryEventHandlerRoute[], embroideryContext: LambadaResources): EmbroideryEventHandlerRoute[] => {
+export const createCorsEndpoints = (endpoints: EmbroideryEventHandlerRoute[], embroideryContext: LambadaResources, origins?: string[]): EmbroideryEventHandlerRoute[] => {
 
     function uniq(a: string[]) {
         return Array.from(new Set(a));
@@ -39,11 +39,17 @@ export const createCorsEndpoints = (endpoints: EmbroideryEventHandlerRoute[], em
     const corsEndpoints: EventHandlerRoute[] = uniquePaths.map(path => {
         const name = getNameFromPath(path)
         const callback = async (req: Request): Promise<Response> => {
+            const allowedOrigins = origins?.map(x => x.trim()) ?? ["*"]
+            const requestOrigin = (req.requestContext.domainName ?? '').trim()
+
+            const origin = allowedOrigins.indexOf("*") >= 0 ? "*" :
+                allowedOrigins.find(x => x == requestOrigin) ??
+                (allowedOrigins.shift() ?? "*")
             return {
                 statusCode: 200,
                 headers: {
                     "Access-Control-Allow-Headers": "*",
-                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Origin": origin,
                     "Access-Control-Allow-Methods": "*"
                 },
                 body: JSON.stringify({
