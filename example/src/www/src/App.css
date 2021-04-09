@@ -44,7 +44,7 @@
   margin: 1rem;
 }
 
-input {
+input[type="text"] {
   padding: 12px 0px;
   font-size: 1rem;
   border-width: 2px;
@@ -54,8 +54,32 @@ input {
   text-align: center;
   outline: transparent;
   width: 100%;
+  font-size: 1.6rem;
 }
 
 button{
   box-shadow: rgba(126, 126, 139, 0.2) 0px 7px 29px 0px;
+}
+
+a{
+  color: white
+}
+a:visited{
+  color: white
+}
+
+li{
+  list-style-type: none;
+  text-align: left;
+  display: flex;
+  height: 3.4rem;
+  align-items: center;
+  font-size: 1.6rem;
+}
+
+input[type="checkbox"]{
+  width: 1.5rem;
+  height: 1.5rem;
+  margin-right: 1rem;
+  margin-top: 8px;
 }
