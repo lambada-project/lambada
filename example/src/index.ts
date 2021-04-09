@@ -23,11 +23,13 @@ const result = run(projectName, environment,
             }), [], {}, false, [], false, undefined),
             (context) => createProxyIntegration(context, '/google', "https://www.google.com")
         ],
-        createOptionsForCors: false,
+        cors: {
+            origins: ['*']
+        },
         messageHandlerDefinitions: [
             createHandlerTodoItem_created
         ],
-        staticSiteLocalPath: 'src/www',
+        staticSiteLocalPath: 'src/www/build',
         tables: tables,
         messages: topics,
 

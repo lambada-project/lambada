@@ -1,4 +1,4 @@
-import { EmbroideryTables } from '@lambada/core/dist/lib/database'
+import { EmbroideryTables } from "@lambada/core/dist/database";
 
 export const tables: EmbroideryTables = {
     'todos': {
