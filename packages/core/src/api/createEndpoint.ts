@@ -12,6 +12,7 @@ import { EmbroideryEnvironmentVariables } from '..';
 import { UserPool } from '@pulumi/aws/cognito';
 import { LambdaAuthorizer } from '@pulumi/awsx/apigateway';
 import { getNameFromPath } from './utils';
+import { getCorsHeaders } from './createCorsEndpoints';
 
 
 export type EmbroideryRequest = {
@@ -105,7 +106,7 @@ export const createEndpointSimpleCompat = ({
 
     const lambdaName = name ?? getNameFromPath(`${context.projectName}-${path}-${method.toLowerCase()}`)
     const newCallback = async (request: Request): Promise<Response> => {
-
+        extraHeaders = { ...getCorsHeaders(request.requestContext.domainName, context.api?.cors?.origins), ...(extraHeaders ?? {}) }
         const authContext = await getContext(request)
         //const user = authContext?.currentUsername && authContext ? await getUser(authContext.currentUsername, authContext) : undefined
         try {

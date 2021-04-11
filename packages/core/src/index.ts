@@ -115,7 +115,8 @@ export const run = (projectName: string, environment: string, args: EmbroideryRu
     const embroideryContext: LambadaResources = {
         projectName: projectName,
         api: apiPath ? {
-            apiPath: apiPath
+            apiPath: apiPath,
+            cors: args.cors
         } : undefined,
         authorizers: authorizers,
         messaging: messaging,

@@ -5,6 +5,21 @@ import { LambadaResources } from '../context';
 import { EmbroideryEventHandlerRoute } from '.';
 import { getNameFromPath } from './utils';
 
+export const getCorsHeaders = (domainName?: string, origins?: string[]) => {
+    const allowedOrigins = origins?.map(x => x.trim()) ?? ["*"]
+    const requestOrigin = (domainName ?? '').trim()
+
+    const origin = allowedOrigins.indexOf("*") >= 0 ? "*" :
+        allowedOrigins.find(x => x == requestOrigin) ??
+        (allowedOrigins.shift() ?? "*")
+        
+    return {
+        "Access-Control-Allow-Headers": "*",
+        "Access-Control-Allow-Origin": origin,
+        "Access-Control-Allow-Methods": "*"
+    }
+}
+
 
 export const createCorsEndpoints = (endpoints: EmbroideryEventHandlerRoute[], embroideryContext: LambadaResources, origins?: string[]): EmbroideryEventHandlerRoute[] => {
 
@@ -19,8 +34,6 @@ export const createCorsEndpoints = (endpoints: EmbroideryEventHandlerRoute[], em
     const isEventHandlerRoute = (route: EmbroideryEventHandlerRoute): route is EventHandlerRoute => {
         return typeof (route as EventHandlerRoute).eventHandler !== 'undefined'
     }
-
-
 
     // Integration routes cannot have cors
     const uniquePaths = uniq(endpoints.filter(x => {
@@ -39,19 +52,9 @@ export const createCorsEndpoints = (endpoints: EmbroideryEventHandlerRoute[], em
     const corsEndpoints: EventHandlerRoute[] = uniquePaths.map(path => {
         const name = getNameFromPath(path)
         const callback = async (req: Request): Promise<Response> => {
-            const allowedOrigins = origins?.map(x => x.trim()) ?? ["*"]
-            const requestOrigin = (req.requestContext.domainName ?? '').trim()
-
-            const origin = allowedOrigins.indexOf("*") >= 0 ? "*" :
-                allowedOrigins.find(x => x == requestOrigin) ??
-                (allowedOrigins.shift() ?? "*")
             return {
                 statusCode: 200,
-                headers: {
-                    "Access-Control-Allow-Headers": "*",
-                    "Access-Control-Allow-Origin": origin,
-                    "Access-Control-Allow-Methods": "*"
-                },
+                headers: getCorsHeaders(req.requestContext.domainName, origins),
                 body: JSON.stringify({
                     data: {}
                 }),

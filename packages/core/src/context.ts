@@ -14,6 +14,9 @@ export type LambadaResources = {
             useCognitoAuthorizer?: boolean,
             useApiKey?: boolean
         },
+        cors?: {
+            origins: string[]
+        }
     },
     authorizers: CognitoAuthorizer[]
     messaging?: MessagingResult
