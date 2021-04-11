@@ -12,7 +12,7 @@ import { EmbroideryEnvironmentVariables } from '..';
 import { UserPool } from '@pulumi/aws/cognito';
 import { LambdaAuthorizer } from '@pulumi/awsx/apigateway';
 import { getNameFromPath } from './utils';
-import { getCorsHeaders } from './createCorsEndpoints';
+import { getCorsHeaders } from '@lambada/utils';
 
 
 export type EmbroideryRequest = {

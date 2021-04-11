@@ -4,22 +4,7 @@ import { Request, Response, EventHandlerRoute, IntegrationRoute } from '@pulumi/
 import { LambadaResources } from '../context';
 import { EmbroideryEventHandlerRoute } from '.';
 import { getNameFromPath } from './utils';
-
-export const getCorsHeaders = (domainName?: string, origins?: string[]) => {
-    const allowedOrigins = origins?.map(x => x.trim()) ?? ["*"]
-    const requestOrigin = (domainName ?? '').trim()
-
-    const origin = allowedOrigins.indexOf("*") >= 0 ? "*" :
-        allowedOrigins.find(x => x == requestOrigin) ??
-        (allowedOrigins.shift() ?? "*")
-        
-    return {
-        "Access-Control-Allow-Headers": "*",
-        "Access-Control-Allow-Origin": origin,
-        "Access-Control-Allow-Methods": "*"
-    }
-}
-
+import { getCorsHeaders } from '@lambada/utils';
 
 export const createCorsEndpoints = (endpoints: EmbroideryEventHandlerRoute[], embroideryContext: LambadaResources, origins?: string[]): EmbroideryEventHandlerRoute[] => {
 
