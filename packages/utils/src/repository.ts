@@ -68,7 +68,8 @@ export class RepositoryBase {
         primaryKey: {
             name: string,
             value: any
-        }
+        },
+        indexName?: string
     ): Promise<T[]> {
         this.validateTable()
         const db = new AWS.DynamoDB()
@@ -84,7 +85,8 @@ export class RepositoryBase {
             },
             ExpressionAttributeValues: {
                 ":primaryKeyValue": value
-            }
+            },
+            IndexName: indexName
         };
         const result = await db.query(params).promise()
         const items = result.Items
@@ -119,7 +121,7 @@ export class RepositoryBase {
 
         const item = await db.getItem({
             TableName: this.tableName,
-            Key: key
+            Key: key,
         }).promise()
 
         if (!item.Item) return null
