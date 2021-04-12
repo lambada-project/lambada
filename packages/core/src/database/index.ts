@@ -4,8 +4,11 @@ import { dynamodb } from '@pulumi/aws/types/input'
 import * as awsx from "@pulumi/awsx";
 import { seedData } from './seedData'
 import { SecurityResult } from "../security";
+import { AttributeDefinition, AttributeDefinitions } from "aws-sdk/clients/dynamodb";
 
-function createTable(name: string, environment: string, primaryKeyName: string, rangeKeyName?: string, kmsKey?: aws.kms.Key, secondaryIndexes?: TableIndexDefinition[]) {
+export type TableAttribute = pulumi.Input<dynamodb.TableAttribute>
+
+function createTable(name: string, environment: string, primaryKeyName: string, rangeKeyName?: string, kmsKey?: aws.kms.Key, attributes?: TableAttribute[], secondaryIndexes?: TableIndexDefinition[]) {
     const tableName = `${name}-${environment}`
 
     return new aws.dynamodb.Table(tableName, {
@@ -21,6 +24,7 @@ function createTable(name: string, environment: string, primaryKeyName: string, 
                     type: "S",
                 }] : []
             ),
+            ...(attributes ?? [])
         ],
         billingMode: "PAY_PER_REQUEST",
         hashKey: primaryKeyName,
@@ -51,15 +55,7 @@ function findTable(name: string, environment: string): pulumi.Output<TableRefere
 }
 
 export type TableIndexDefinition = dynamodb.TableGlobalSecondaryIndex
-// {
-//     name: string //"contactNameIndex",
-//     hashKey: string //"contactName",
-//     nonKeyAttributes: string[] //["userId"],
-//     projectionType: "INCLUDE",
-//     rangeKey: "contactName",
-//     readCapacity: 10,
-//     writeCapacity: 10,
-// }
+
 
 export type TableDefinition = {
     name: string
@@ -68,6 +64,7 @@ export type TableDefinition = {
     envKeyName: string
     data?: (string | object)[]
     indexes?: TableIndexDefinition[]
+    attributes?: TableAttribute[]
 }
 
 export type EmbroideryTables = { [id: string]: TableDefinition }
@@ -79,7 +76,7 @@ export const createDynamoDbTables = (environment: string, tables?: EmbroideryTab
         if (Object.prototype.hasOwnProperty.call(tables, key)) {
             const table = tables[key];
             const tableName = prefix && prefix.length > 0 ? `${prefix}-${table.name}` : table.name
-            const awsTable = createTable(tableName, environment, table.primaryKey, table.rangeKey, kmsKeys?.dynamodb?.awsKmsKey, table.indexes)
+            const awsTable = createTable(tableName, environment, table.primaryKey, table.rangeKey, kmsKeys?.dynamodb?.awsKmsKey, table.attributes, table.indexes)
             result[key] = {
                 ref: {
                     id: awsTable.id,

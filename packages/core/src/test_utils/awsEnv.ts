@@ -26,10 +26,6 @@ export async function ConfigureAwsEnvironment(tables: EmbroideryTables): Promise
             const table = tables[key];
             process.env[table.envKeyName] = table.name
             if (existingTableNames.includes(table.name)) {
-                //     // await db.deleteTable({
-                //     //     TableName: table.name,
-                //     // }).promise()
-                //     // await delay()
                 continue;
             }
             await db.createTable({
@@ -43,7 +39,9 @@ export async function ConfigureAwsEnvironment(tables: EmbroideryTables): Promise
                         {
                             AttributeName: table.rangeKey,
                             AttributeType: 'S'
-                        } : undefined
+                        } : undefined,
+                    ...(table.attributes ?? [])
+
                 ].filter(x => typeof x !== 'undefined'),
                 KeySchema: [
                     {
@@ -93,4 +91,29 @@ export async function ConfigureAwsEnvironment(tables: EmbroideryTables): Promise
     //         process.env['ORDERBOOK_OFFER_CREATED_TOPIC_ARN'] = topicArn
     //     }
     // }
+}
+
+export async function RemoveResources(tables: EmbroideryTables): Promise<void> {
+    AWS.config.update(
+        {
+            region: 'eu-west-1',
+            accessKeyId: '123',
+            secretAccessKey: '321',
+            dynamodb: {
+                endpoint: 'http://dynamo:8000'
+            }
+        });
+    const db = new AWS.DynamoDB()
+
+    const existingTableNames = (await db.listTables().promise()).TableNames ?? []
+    
+    for (const key in existingTableNames) {
+
+        if (tables.hasOwnProperty(key)) {
+            const table = tables[key];
+            await db.deleteTable({
+                TableName: table.name,
+            }).promise()
+        }
+    }
 }
