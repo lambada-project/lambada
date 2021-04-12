@@ -40,7 +40,10 @@ export async function ConfigureAwsEnvironment(tables: EmbroideryTables): Promise
                             AttributeName: table.rangeKey,
                             AttributeType: 'S'
                         } : undefined,
-                    ...(table.attributes ?? [])
+                    ...(table.attributes ?? []).map(x=>({
+                        AttributeName: x.name,
+                        AttributeType: x.type
+                    }))
 
                 ].filter(x => typeof x !== 'undefined'),
                 KeySchema: [

@@ -6,7 +6,7 @@ import { seedData } from './seedData'
 import { SecurityResult } from "../security";
 import { AttributeDefinition, AttributeDefinitions } from "aws-sdk/clients/dynamodb";
 
-export type TableAttribute = pulumi.Input<dynamodb.TableAttribute>
+export type TableAttribute = dynamodb.TableAttribute
 
 function createTable(name: string, environment: string, primaryKeyName: string, rangeKeyName?: string, kmsKey?: aws.kms.Key, attributes?: TableAttribute[], secondaryIndexes?: TableIndexDefinition[]) {
     const tableName = `${name}-${environment}`
