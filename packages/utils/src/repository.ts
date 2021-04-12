@@ -21,17 +21,18 @@ export class RepositoryBase {
      * and a lambda that only uses one of them, then it would fail because it's expecting config for both tables, even if using one only. 
      * That's because the resource access given to each lambda also sets he environment variables needed.
      */
-    private validateTable() {
+    protected getDb() {
         if (!this.tableName || this.tableName.length < 3) //AWS rule
             throw new Error(`Could not find env var: ${this.table.envKeyName}`)
+        return new AWS.DynamoDB()
     }
 
     protected async scan<T>(args?: {
         filter?: ConditionExpression,
         filterValues?: ExpressionAttributeValueMap
     }) {
-        this.validateTable()
-        const db = new AWS.DynamoDB()
+        const db = this.getDb()
+
         const result = await db.scan({
             TableName: this.tableName,
             FilterExpression: args?.filter,
@@ -44,11 +45,10 @@ export class RepositoryBase {
 
         return result.Items?.map((x) => this.marshaller.unmarshallItem(x) as unknown as T)
     }
-
+    
 
     protected async upsert<T>(item: T): Promise<T> {
-        this.validateTable()
-        const db = new AWS.DynamoDB()
+        const db = this.getDb()
 
         const marsharlledItem = this.marshaller.marshallItem(item)
 
@@ -71,8 +71,7 @@ export class RepositoryBase {
         },
         indexName?: string
     ): Promise<T[]> {
-        this.validateTable()
-        const db = new AWS.DynamoDB()
+        const db = this.getDb()
 
         const value = this.marshaller.marshallValue(primaryKey.value)
         if (!value) throw new Error(`Invalid primary key. ${JSON.stringify(primaryKey)}`)
@@ -104,8 +103,8 @@ export class RepositoryBase {
             value: any
         }
     ) {
-        this.validateTable()
-        const db = new AWS.DynamoDB()
+        const db = this.getDb()
+
         var value = this.marshaller.marshallValue(primaryKey.value)
         if (!value) throw new Error(`Invalid primary key. ${JSON.stringify(primaryKey)}`)
 
