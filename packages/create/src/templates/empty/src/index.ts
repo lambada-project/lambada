@@ -1,4 +1,4 @@
-import { run, createEndpointSimple } from '@attire/core'
+import { run, createEndpointSimple } from '@lambada/core'
 import * as pulumi from '@pulumi/pulumi'
 
 const config = new pulumi.Config()

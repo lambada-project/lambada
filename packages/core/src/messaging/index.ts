@@ -2,7 +2,7 @@ import * as pulumi from "@pulumi/pulumi";
 import * as aws from "@pulumi/aws";
 import { TopicEventSubscription } from "@pulumi/aws/sns";
 import * as awsx from "@pulumi/awsx";
-import { EmbroideryContext } from "..";
+import { LambadaResources } from "..";
 
 import { DatabaseResult } from "../database";
 import { SecurityResult } from "../security";
@@ -18,16 +18,18 @@ export type MessageDefinition = {
 export type EmbroideryMessages = { [id: string]: MessageDefinition }
 
 export type EmbroideryTopicEventSubscription = TopicEventSubscription
-export type EmbroiderySubscriptionCreator = (context: EmbroideryContext) => EmbroideryTopicEventSubscription
+export type EmbroiderySubscriptionCreator = (context: LambadaResources) => EmbroideryTopicEventSubscription
 
-export const createMessaging = (environment: string, messages: EmbroideryMessages, handlers?: EmbroiderySubscriptionCreator[]): MessagingResult => {
+export const createMessaging = (environment: string, messages?: EmbroideryMessages, handlers?: EmbroiderySubscriptionCreator[], messagesRef?: EmbroideryMessages): MessagingResult => {
 
     const result: MessagingResult = {}
 
     for (const key in messages) {
         if (messages.hasOwnProperty(key)) {
-            const message = messages[key];            
+            const message = messages[key];
+            const name = `${message.name}-${environment}`
             const topic = new aws.sns.Topic(message.name, {
+                name: name,
                 tags: {
                     Environment: environment
                 }
@@ -46,16 +48,37 @@ export const createMessaging = (environment: string, messages: EmbroideryMessage
         }
     }
 
-    // TODO: MessagesRef like we have on the tables
+    for (const key in messagesRef) {
+        if (Object.prototype.hasOwnProperty.call(messagesRef, key)) {
+            const message = messagesRef[key];
+            if (result[key]) {
+                throw new Error(`Cannot create a ref message with the same name of an existing topic: ${key}`)
+            }
+            const topic = findTopic(message.name, environment)
+
+            result[key] = {
+                awsTopic: aws.sns.Topic.get(`${message.name}-${environment}`, topic.id),
+                envKeyName: message.envKeyName,
+                ref: topic,
+                definition: message
+            } as MessagingResultItem
+        }
+    }
 
     return result
+}
+
+function findTopic(name: string, environment: string): pulumi.Output<TopicReference> {
+    const topicName = `${name}-${environment}`
+    return pulumi.output(aws.sns.getTopic({
+        name: topicName,
+    }, { async: true }));
 }
 
 type TopicReference = {
     name: string
     id: string
     arn: string
-    hashKey: string;
 }
 
 export type MessagingResultItem = {
@@ -65,7 +88,7 @@ export type MessagingResultItem = {
     definition: MessageDefinition
 }
 
-export type MessagingResult =  { [id: string]: MessagingResultItem }
+export type MessagingResult = { [id: string]: MessagingResultItem }
 
 
 export type MessagingContext = {

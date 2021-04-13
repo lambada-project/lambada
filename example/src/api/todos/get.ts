@@ -1,5 +1,5 @@
-import { EmbroideryCallback, EmbroideryRequest, EmbroideryContext, EmbroideryEventHandlerRoute, createEndpointSimpleCors, EmbroideryApiEndpointCreator } from '@attire/core'
-import { LambdaResourceAccess } from '@attire/core/dist/lib/lambdas';
+import { EmbroideryCallback, EmbroideryRequest, LambadaResources, EmbroideryEventHandlerRoute, createEndpointSimpleCors, LambadaEndpointCreator, LambadaEndpointArgs } from '@lambada/core'
+import { LambdaResourceAccess } from '@lambada/core/dist/lambdas';
 
 import { ToDoService } from "../../lib/todos/service";
 
@@ -20,21 +20,26 @@ export const getToDos: EmbroideryCallback = async (request: EmbroideryRequest): 
     const items = await todos.getToDos('1')
     const total = await todos.getTotal('1')
 
-    return { 
-        items: items.map(x => ({ ...x })) ,
+    return {
+        items: items.map(x => ({ ...x })),
         total: total
     }
 }
 
 
-export const createGetToDos: EmbroideryApiEndpointCreator = (apiContext: EmbroideryContext): EmbroideryEventHandlerRoute => {
-    return createEndpointSimpleCors('getToDos', apiContext, '/todos', 'GET', getToDos, [
-        {
-            table: apiContext.databases?.todos,
-            access: [
-                LambdaResourceAccess.DynamoDbQuery,
-                LambdaResourceAccess.DynamoDbGetItem,
-            ],
-        }
-    ])
+export const createGetToDos: LambadaEndpointCreator = (apiContext: LambadaResources): LambadaEndpointArgs => {
+    return {
+        path: '/todos',
+        method: 'GET',
+        callbackDefinition: getToDos,
+        resources: [
+            {
+                table: apiContext.databases?.todos,
+                access: [
+                    LambdaResourceAccess.DynamoDbQuery,
+                    LambdaResourceAccess.DynamoDbGetItem,
+                ],
+            }
+        ]
+    }
 }

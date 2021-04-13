@@ -6,17 +6,17 @@ slug: /quickstart
 
 
 ## Requirements
-- You'll need npm installed locally if you want to boostrap with the npm initializer
-- A pulumi account (free), or knowledge to store the deployment state somewhere else. To know more about this refer to their docs: https://www.pulumi.com/docs/intro/concepts/state/
-- A AWS account, and credentials configured locally. If you are using several AWS profiles, please read [this page](aws-config) 
-## Installation
+- You'll need npm installed locally if you want to bootstrap with the npm initializer
+- A pulumi account (free), or knowledge on how to store the deployment state somewhere else. To know more about this refer to their docs: https://www.pulumi.com/docs/intro/concepts/state/
+- A AWS account, and credentials configured locally. If you are using several AWS profiles, please read [this page](/aws-config) 
 
+## Installation
 
 1. ** Scaffolding with the npm initializer ** 
     
     Create a directory for your project, change to it, and run the initializer:
     
-    **⚠ WARNING ⚠** At the moment, the initializer does not warn if executing on not empty directories, so be carefull where you call it from.
+    **⚠ WARNING ⚠** At the moment, the initializer does not warn if executing on not empty directories, so be careful where you call it from.
     ```bash
     mkdir <your-project-name> && cd <your-project-name>
     npm init @lambada
@@ -33,19 +33,25 @@ slug: /quickstart
 NOTE: If not using DevContainers open the `Dockerfile` and install in your local machine all the dependencies listed there.
 
 ## Build and Deploy
-First, open the `src/index.ts` file and as you can see, the default template comes with a simple one-liner healthcheck. 
+First, open the `src/index.ts` file and as you can see, the default template comes with a simple one-liner health-check. 
 
 ```typescript
 const result = run(projectName, environment,
 {
     endpointDefinitions: [
-        (context) => createEndpointSimple('health', context, '/health', 'GET', async (event) => ({ ok: true }), [])
+        (context) => ({
+            path: '/test',
+            method: 'GET',
+            callbackDefinition: async (event) => ({ ok: true })
+        })
     ]
 })
 
+export const apiUrl = result.api.url
+
 ```
 
-Every endpoint is a function that returns an object that describes your infrastructure. In this case we return an endpoint that describes our healthcheck api (listen on GET /health) and it has a callback that returns a simple object `{ ok: true }`  that will be serialized to json with a `200` status code.
+Every endpoint is a function that returns an object that describes your infrastructure. In this case we return an endpoint that describes our test api (listen on GET /test) and it has a callback that returns a simple object `{ ok: true }`  that will be serialized to json with a `200` status code.
 
 Now, we want our new api up and running, and to do so we call the pulumi cli (comes installed in the dockerfile).
 
@@ -59,10 +65,10 @@ This will ask to create several resources in AWS:
 - Execution, access, etc
 
 Evaluate the resources to be created and press `Y` once you confirmed all is good.
-In a few minutes you'll have your api in AWS and you can call it with your favourite client. The url of the ApiGateway will be shown as an output of the last operation.
+In a few seconds you'll have your api in AWS and you can call it with your favourite client. The url of the ApiGateway will be shown as an output of the last operation, in our case we called it `apiUrl`.
 
 If you want to know more about Pulumi, check out their amazing documentation: https://www.pulumi.com/docs/intro/
 
 
 ### Final steps
-Congratulations!!, you have saved hours by using this took and not doing the `ClickyClicky` (Trademark pending) 
+Congratulations!!, you have saved hours by using this tool and not doing the `ClickyClicky` (Trademark pending) 

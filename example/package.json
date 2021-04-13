@@ -4,23 +4,24 @@
 	"private": true,
 	"scripts": {
 		"test": "jest lib",
-		"build": "tsc"
+		"build": "tsc",
+		"update-packages": "npm update"
 	},
 	"dependencies": {
-		"aws-sdk": "2.795.0",
 		"@aws/dynamodb-auto-marshaller": "^0.7.1",
+		"@lambada/utils": "1.0.4",
+		"aws-sdk": "2.863.0",
 		"uuid": "^3.4.0"
 	},
 	"devDependencies": {
-        "@types/jest" : "26.*",
-		"ts-jest" : "26.*",
-		"jest" : "26.*",
-		"@types/uuid": "^8.3.0",
-
-		"@attire/core": "*",
-		"@pulumi/pulumi": "^2.13.2",
-		"@types/node": "^10.0.0",
-		"ts-node": "^9.0.0",
-		"typescript": "^4.0.5"
+		"ts-jest": "25.*",
+		"@types/jest": "25.*",
+		"@types/uuid": "3.4.0",
+		"@pulumi/aws": "3.12.1",
+		"@pulumi/awsx": "0.22.0",
+		"@pulumi/pulumi": "2.13.2",
+		"@lambada/core": "0.1.4-preview-12",
+		"typescript": "3.7.7",
+		"@types/aws-lambda": "^8.10.72"
 	}
 }

@@ -2,24 +2,20 @@ import * as aws from "@pulumi/aws";
 import * as awsx from "@pulumi/awsx";
 import * as pulumi from "@pulumi/pulumi";
 
-import { CognitoAuthorizer } from "@pulumi/awsx/apigateway/cognitoAuthorizer";
-
-import { EventHandlerRoute, IntegrationRoute, RawDataRoute, Route, StaticRoute } from "@pulumi/awsx/apigateway/api";
+import { Route, StaticRoute } from "@pulumi/awsx/apigateway/api";
 
 //import { MessagingResult } from "../messaging";
 
 //import { NotificationResult } from "../notifications";
-import { DatabaseResult } from "../database";
-import { SecretsResult, SecurityResult } from "../security";
-import { createEndpoint } from "./createEndpoint";
-import { createLambda, lambdaAsumeRole } from "../lambdas";
-import { Request, Response } from '@pulumi/awsx/apigateway/api'
 import { createCorsEndpoints } from "./createCorsEndpoints";
-import { EmbroideryContext } from "../context";
-import { MessagingResult } from "../messaging";
-import { NotificationResult } from "../notifications";
-import { createStaticEndpoint, EmbroideryApiEndpointCreator } from ".";
-import { EmbroideryEnvironmentVariables } from "..";
+import { LambadaResources } from "../context";
+import { createStaticEndpoint, EmbroideryApiEndpointCreator, LambadaEndpointCreator, LambadaProxyCreator, ProxyIntegrationArgs } from ".";
+import { createEndpointSimple, createEndpointSimpleCompat, LambadaEndpointArgs } from "./createEndpoint";
+import { createProxyIntegration, createProxyIntegrationCompat } from "./createProxyIntegration";
+
+export type LambadaCreator = EmbroideryApiEndpointCreator | LambadaEndpointCreator | LambadaProxyCreator
+type LambadaCreatorReturn = Route | LambadaEndpointArgs | ProxyIntegrationArgs
+
 
 type CreateApiArgs = {
     projectName: string
@@ -27,14 +23,16 @@ type CreateApiArgs = {
     api?: {
         path: string,
         type: `EDGE` | `REGIONAL` | `PRIVATE`
-        apiEndpoints: EmbroideryApiEndpointCreator[],
-        createOptionsForCors?: boolean      
+        apiEndpoints: LambadaCreator[],
+        cors?: {
+            origins: string[]
+        }
     }
     www?: {
         local: string,
         path: string
     },
-    context: EmbroideryContext
+    context: LambadaResources
     // authorizerProviderARNs?:  (pulumi.Input<string> | aws.cognito.UserPool)[]
     // messaging?: MessagingResult
     // notifications?: NotificationResult
@@ -62,11 +60,22 @@ export default function createApi(
 ): awsx.apigateway.API {
 
     const stageName = 'app'
+    const IsCallback = (route: LambadaCreatorReturn): route is LambadaEndpointArgs => {
+        return typeof (route as LambadaEndpointArgs).callbackDefinition !== 'undefined'
+    }
+    const IsProxy = (route: LambadaCreatorReturn): route is ProxyIntegrationArgs => {
+        return typeof (route as ProxyIntegrationArgs).targetUri !== 'undefined'
+    }
 
-    const routes = api?.apiEndpoints  ? api.apiEndpoints.map(createEndpoint => createEndpoint(context)) : []
+    const lambadaEndpoints = api?.apiEndpoints ? api.apiEndpoints
+        .map(create => create(context))
+        .map(x => IsCallback(x) ? createEndpointSimpleCompat(x, context) : x)
+        .map(x => IsProxy(x) ? createProxyIntegrationCompat(x, context) : x)
+        : []
 
     // TODO: Configure per endpoint?
-    const endpointsWithCors = api?.createOptionsForCors ? createCorsEndpoints(routes, context) : routes
+    const corsEndpoints = api?.cors && lambadaEndpoints.length > 0 ?
+        createCorsEndpoints(lambadaEndpoints, context, api.cors.origins) : []
 
     const staticRoutes: StaticRoute[] = []
     if (www) {
@@ -74,7 +83,8 @@ export default function createApi(
     }
 
     const allRoutes: Route[] = [
-        ...endpointsWithCors,
+        ...lambadaEndpoints,
+        ...corsEndpoints,
         ...staticRoutes
     ]
 

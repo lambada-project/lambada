@@ -1,7 +1,7 @@
 import { IToDoRepository } from '../todos/itodo-repo'
 import { ToDoItem } from '../todos/todo'
 
-import { RepositoryBase } from '@attire/core/dist/lib/database/repository'
+import { RepositoryBase } from '@lambada/utils'
 
 import { tables } from './tables'
 

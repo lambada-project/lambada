@@ -214,7 +214,7 @@ export const createLambda = <E, R>(
     }
     else {
         pulumi.log.error(`Invalid lambda definition: ${JSON.stringify(definition)}`)
-        throw Error('Invalid lambda definition. I can only be a callack or te location of the folder to deploy')
+        throw Error('Invalid lambda definition. I can only be a callback or te location of the folder to deploy')
     }
 }
 

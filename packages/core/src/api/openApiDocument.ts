@@ -1,6 +1,6 @@
 import * as AWS from 'aws-sdk'
-import { EmbroideryContext } from '..'
-import { createEndpoint, EmbroideryCallback } from './createEndpoint'
+import { LambadaResources } from '..'
+import { createEndpoint } from './createEndpoint'
 import { Request, Response, Route } from '@pulumi/awsx/apigateway/api'
 import { Callback } from '@pulumi/aws/lambda'
 
@@ -32,7 +32,7 @@ export const getOpenApiDocument: Callback<Request, Response> = async (request: R
     }
 }
 
-export const createOpenApiDocumentEndpoint = (context: EmbroideryContext) => {
+export const createOpenApiDocumentEndpoint = (context: LambadaResources) => {
     return createEndpoint('openapi', context, '/openapi', 'GET', getOpenApiDocument, [], undefined, false, [
         {
             arn: 'arn:aws:apigateway',

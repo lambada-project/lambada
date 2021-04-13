@@ -2,10 +2,9 @@ import * as pulumi from "@pulumi/pulumi";
 import * as aws from "@pulumi/aws";
 import * as awsx from "@pulumi/awsx";
 
-import { EmbroideryApiEndpointCreator, EmbroideryEventHandlerRoute } from './api'
-import createApi from './api/createApi'
+import createApi, { LambadaCreator } from './api/createApi'
 import { createCloudFront } from './cdn/index'
-import { EmbroideryContext } from './context'
+import { LambadaResources } from './context'
 
 // import createUserPool from './auth'
 // import createApi from './api/createApi'
@@ -31,16 +30,24 @@ type EmbroideryRunArguments = {
     cdn?: {
         useCDN: boolean,
         customDomain?: string[]
+        isSpa: boolean
+        /** Overrides default: index.html. Errors are redirected here, useful for spa */
+        entrypoint?: string
     },
-    endpointDefinitions?: EmbroideryApiEndpointCreator[],
-    createOptionsForCors?: boolean,
+    endpointDefinitions?: LambadaCreator[],
+    cors?: {
+        origins: string[]
+    },
     staticSiteLocalPath?: string
     tablePrefix?: string
     /** Tables to create */
     tables?: EmbroideryTables
     /** Referenced tables, does not create anything */
     tablesRef?: EmbroideryTables
+    /** Topics to create */
     messages?: EmbroideryMessages,
+    /** Referenced topics, does not create anything */
+    messagesRef?: EmbroideryMessages,
     messageHandlerDefinitions?: EmbroiderySubscriptionCreator[],
     environmentVariables?: EmbroideryEnvironmentVariables,
     secrets?: EmbroiderySecrets
@@ -53,7 +60,7 @@ type EmbroideryRunArguments = {
     auth?: {
         useCognito?: boolean | pulumi.Input<string> | UserPool
         cognitoOptions?: {
-            useEmailAsUsername? : boolean
+            useEmailAsUsername?: boolean
             preventResourceDeletion: boolean
         }
     }
@@ -67,8 +74,8 @@ export const run = (projectName: string, environment: string, args: EmbroideryRu
 
     const encryptionKeys = args.keys ? CreateKMSKeys(projectName, environment, args.keys) : {}
     const secrets = args.secrets ? createSecrets(projectName, environment, args.secrets) : {}
-    const databases = args.tables ? createDynamoDbTables(environment, args.tables, args.tablePrefix, encryptionKeys, args.tablesRef) : undefined
-    
+    const databases = createDynamoDbTables(environment, args.tables, args.tablePrefix, encryptionKeys, args.tablesRef)
+
     const pool: pulumi.Input<string> | UserPool | undefined = args.auth && args.auth.useCognito ?
         args.auth.useCognito === true ? createUserPool(projectName, environment, encryptionKeys, {
             useEmailAsUsername: args?.auth?.cognitoOptions?.useEmailAsUsername,
@@ -84,7 +91,7 @@ export const run = (projectName: string, environment: string, args: EmbroideryRu
     const cognitoPoolId = isPool(pool) ? pool.id : undefined
 
 
-    const messaging = args.messages ? createMessaging(environment, args.messages, args.messageHandlerDefinitions) : undefined
+    const messaging = createMessaging(environment, args.messages, args.messageHandlerDefinitions, args.messagesRef)
     // const notifications = createNotifications(environment)
 
     const stageName = 'app'
@@ -105,9 +112,11 @@ export const run = (projectName: string, environment: string, args: EmbroideryRu
     ];
 
     // TODO: option to add projectName as prefix to all functions
-    const embroideryContext: EmbroideryContext = {
+    const embroideryContext: LambadaResources = {
+        projectName: projectName,
         api: apiPath ? {
-            apiPath: apiPath
+            apiPath: apiPath,
+            cors: args.cors
         } : undefined,
         authorizers: authorizers,
         messaging: messaging,
@@ -134,7 +143,7 @@ export const run = (projectName: string, environment: string, args: EmbroideryRu
             path: apiPath,
             apiEndpoints: args.endpointDefinitions || [],
             type: args.gatewayType || 'EDGE',
-            createOptionsForCors: args.createOptionsForCors
+            cors: args.cors
         } : undefined,
         www: args.staticSiteLocalPath ? {
             local: args.staticSiteLocalPath,
@@ -162,9 +171,13 @@ export const run = (projectName: string, environment: string, args: EmbroideryRu
         },
         {
             domain: api.url.apply(x => getDomain(x)),
-            path: `/${stageName}${wwwPath}`
+            path: `/${stageName}${wwwPath}`,
+            spa: args.cdn.isSpa ? {
+                notFoundRedirection: true,
+                entrypoint: args.cdn.entrypoint
+            } : undefined
         },
-        args.cdn.customDomain
+        args.cdn.customDomain,
     ) : undefined
 
     return {
@@ -173,6 +186,7 @@ export const run = (projectName: string, environment: string, args: EmbroideryRu
         auth: {
             cognitoARN: cognitoARN,
             cognitoPoolId: cognitoPoolId
-        }
+        },
+        messaging: messaging
     }
 }

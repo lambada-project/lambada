@@ -1,10 +1,14 @@
 import * as pulumi from "@pulumi/pulumi";
 import * as aws from "@pulumi/aws";
+import { dynamodb } from '@pulumi/aws/types/input'
 import * as awsx from "@pulumi/awsx";
 import { seedData } from './seedData'
 import { SecurityResult } from "../security";
+import { AttributeDefinition, AttributeDefinitions } from "aws-sdk/clients/dynamodb";
 
-function createTable(name: string, environment: string, primaryKeyName: string, rangeKeyName?: string, kmsKey?: aws.kms.Key) {
+export type TableAttribute = dynamodb.TableAttribute
+
+function createTable(name: string, environment: string, primaryKeyName: string, rangeKeyName?: string, kmsKey?: aws.kms.Key, attributes?: TableAttribute[], secondaryIndexes?: TableIndexDefinition[]) {
     const tableName = `${name}-${environment}`
 
     return new aws.dynamodb.Table(tableName, {
@@ -20,6 +24,7 @@ function createTable(name: string, environment: string, primaryKeyName: string, 
                     type: "S",
                 }] : []
             ),
+            ...(attributes ?? [])
         ],
         billingMode: "PAY_PER_REQUEST",
         hashKey: primaryKeyName,
@@ -32,15 +37,7 @@ function createTable(name: string, environment: string, primaryKeyName: string, 
         //     attributeName: "TimeToExist",
         //     enabled: false,
         // },
-        // globalSecondaryIndexes: [{
-        //     hashKey: "contactName",
-        //     name: "contactNameIndex",
-        //     nonKeyAttributes: ["userId"],
-        //     projectionType: "INCLUDE",
-        //     rangeKey: "contactName",
-        //     readCapacity: 10,
-        //     writeCapacity: 10,
-        // }],
+        globalSecondaryIndexes: secondaryIndexes,
         //writeCapacity: 20,
         serverSideEncryption: {
             enabled: kmsKey ? true : false,
@@ -57,24 +54,29 @@ function findTable(name: string, environment: string): pulumi.Output<TableRefere
     }, { async: true }));
 }
 
+export type TableIndexDefinition = dynamodb.TableGlobalSecondaryIndex
+
+
 export type TableDefinition = {
     name: string
     primaryKey: string
     rangeKey?: string
     envKeyName: string
     data?: (string | object)[]
+    indexes?: TableIndexDefinition[]
+    attributes?: TableAttribute[]
 }
 
 export type EmbroideryTables = { [id: string]: TableDefinition }
 
-export const createDynamoDbTables = (environment: string, tables: EmbroideryTables, prefix?: string, kmsKeys?: SecurityResult, tableRefs?: EmbroideryTables): DatabaseResult => {
+export const createDynamoDbTables = (environment: string, tables?: EmbroideryTables, prefix?: string, kmsKeys?: SecurityResult, tableRefs?: EmbroideryTables): DatabaseResult => {
 
     const result: any = {}
     for (const key in tables) {
         if (Object.prototype.hasOwnProperty.call(tables, key)) {
             const table = tables[key];
             const tableName = prefix && prefix.length > 0 ? `${prefix}-${table.name}` : table.name
-            const awsTable = createTable(tableName, environment, table.primaryKey, table.rangeKey, kmsKeys?.dynamodb?.awsKmsKey)
+            const awsTable = createTable(tableName, environment, table.primaryKey, table.rangeKey, kmsKeys?.dynamodb?.awsKmsKey, table.attributes, table.indexes)
             result[key] = {
                 ref: {
                     id: awsTable.id,
@@ -90,6 +92,10 @@ export const createDynamoDbTables = (environment: string, tables: EmbroideryTabl
     }
     for (const key in tableRefs) {
         if (Object.prototype.hasOwnProperty.call(tableRefs, key)) {
+            if (result[key]) {
+                throw new Error(`Cannot create a ref table with the same name of an existing table: ${key}`)
+            }
+
             const table = tableRefs[key];
             result[key] = {
                 ref: findTable(table.name, environment),

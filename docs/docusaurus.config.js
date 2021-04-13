@@ -13,7 +13,7 @@ module.exports = {
       title: 'Lambada Project',
       logo: {
         alt: 'My Site Logo',
-        src: 'img/logo.svg',
+        src: 'img/logo-black.png',
       },
       items: [
         // {
@@ -71,7 +71,7 @@ module.exports = {
             // },
             {
               label: 'GitHub',
-              href: 'https://github.com/facebook/docusaurus',
+              href: 'https://github.com/lambada-project/lambada',
             },
           ],
         },

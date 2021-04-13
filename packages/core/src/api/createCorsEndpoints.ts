@@ -1,37 +1,45 @@
 import * as aws from '@pulumi/aws'
 import { createLambda, lambdaAsumeRole } from '../lambdas';
-import { Request, Response, EventHandlerRoute } from '@pulumi/awsx/apigateway/api'
-import { EmbroideryContext } from '../context';
+import { Request, Response, EventHandlerRoute, IntegrationRoute } from '@pulumi/awsx/apigateway/api'
+import { LambadaResources } from '../context';
 import { EmbroideryEventHandlerRoute } from '.';
+import { getNameFromPath } from './utils';
+import { getCorsHeaders } from '@lambada/utils';
 
-
-export const createCorsEndpoints = (endpoints: EmbroideryEventHandlerRoute[], embroideryContext: EmbroideryContext): EmbroideryEventHandlerRoute[] => {
+export const createCorsEndpoints = (endpoints: EmbroideryEventHandlerRoute[], embroideryContext: LambadaResources, origins?: string[]): EmbroideryEventHandlerRoute[] => {
 
     function uniq(a: string[]) {
         return Array.from(new Set(a));
     }
 
-    function replaceAll(input: string, search: string, replace: string) {
-        return input.split(search).join(replace);
+    const isIntegrationRoute = (route: EmbroideryEventHandlerRoute): route is IntegrationRoute => {
+        return typeof (route as IntegrationRoute).target !== 'undefined'
     }
 
-    const uniquePaths = uniq(endpoints.map(x => x.path))
+    const isEventHandlerRoute = (route: EmbroideryEventHandlerRoute): route is EventHandlerRoute => {
+        return typeof (route as EventHandlerRoute).eventHandler !== 'undefined'
+    }
 
+    // Integration routes cannot have cors
+    const uniquePaths = uniq(endpoints.filter(x => {
+        if (isEventHandlerRoute(x)) {
+            return true
+        }
+        return false
+    }).map(x => x.path))
+
+    if (uniquePaths.length == 0) return []
 
     const sharedCorsRole = new aws.iam.Role(`cors-shared-role-${embroideryContext.environment}`, {
         assumeRolePolicy: lambdaAsumeRole,
     })
 
     const corsEndpoints: EventHandlerRoute[] = uniquePaths.map(path => {
-        const name = replaceAll(replaceAll(replaceAll(path.startsWith('/') ? path.substr(1) : path, "{", ""), "}", ""), "/", "-")
+        const name = getNameFromPath(path)
         const callback = async (req: Request): Promise<Response> => {
             return {
                 statusCode: 200,
-                headers: {
-                    "Access-Control-Allow-Headers": "*",
-                    "Access-Control-Allow-Origin": "*",
-                    "Access-Control-Allow-Methods": "*"
-                },
+                headers: getCorsHeaders(req.requestContext.domainName, origins),
                 body: JSON.stringify({
                     data: {}
                 }),
@@ -46,8 +54,5 @@ export const createCorsEndpoints = (endpoints: EmbroideryEventHandlerRoute[], em
         }
     })
 
-    return [
-        ...endpoints,
-        ...corsEndpoints
-    ]
+    return corsEndpoints
 }

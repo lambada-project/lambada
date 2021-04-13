@@ -1,5 +1,6 @@
 import { Request } from '@pulumi/awsx/apigateway/api'
-import { EmbroideryRequest, getContext } from "../api";
+import { EmbroideryRequest } from "../api";
+import { getContext } from '@lambada/utils';
 
 export const getMockRequest = (authenticated: boolean, body?: any): EmbroideryRequest => {
     const request = {

@@ -1,4 +1,4 @@
-import { getMockRequest, ConfigureAwsEnvironment } from '@attire/core/dist/lib'
+import { getMockRequest, ConfigureAwsEnvironment } from '@lambada/core/dist/lib'
 
 import { getToDos, ToDoItemView } from './get'
 import { postToDo } from './post'

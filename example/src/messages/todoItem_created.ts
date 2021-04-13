@@ -1,7 +1,7 @@
-import { SubscriptionEvent, EmbroideryContext, EmbroiderySubscriptionCreator, subscribeToTopic, EmbroideryTopicEventSubscription } from '@attire/core'
+import { SubscriptionEvent, LambadaResources, EmbroiderySubscriptionCreator, subscribeToTopic, EmbroideryTopicEventSubscription } from '@lambada/core'
 import { ToDoItemCreated } from '../lib/todos/inotify'
 import { ToDoService } from '../lib/todos/service'
-import { LambdaResourceAccess } from '@attire/core/dist/lib/lambdas';
+import { LambdaResourceAccess } from '@lambada/core/dist/lambdas';
 
 
 export const onTodoItemCreated = async (request: SubscriptionEvent): Promise<void> => {
@@ -14,7 +14,7 @@ export const onTodoItemCreated = async (request: SubscriptionEvent): Promise<voi
 }
 
 
-export const createHandlerTodoItem_created: EmbroiderySubscriptionCreator = (context: EmbroideryContext): EmbroideryTopicEventSubscription => {
+export const createHandlerTodoItem_created: EmbroiderySubscriptionCreator = (context: LambadaResources): EmbroideryTopicEventSubscription => {
     if (context.messaging?.todoItemCreated)
         return subscribeToTopic(context, context.messaging.todoItemCreated, {
             name: 'onTodoItemCreated',

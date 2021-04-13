@@ -4,12 +4,16 @@ import * as AWS from "aws-sdk"
 import * as aws from "@pulumi/aws";
 import * as awsx from "@pulumi/awsx";
 import { createLambda, FolderLambda, LambdaResource } from '../lambdas';
-import { EmbroideryContext } from '../context';
-import { Callback, CallbackFactory } from '@pulumi/aws/lambda';
+import { LambadaResources } from '../context';
+import { Callback } from '@pulumi/aws/lambda';
 import { PolicyStatement } from "@pulumi/aws/iam";
-import { AuthExecutionContext, getUser, getContext, tryGetBody, getBody } from './utils';
+import { AuthExecutionContext, getContext } from '@lambada/utils';
 import { EmbroideryEnvironmentVariables } from '..';
 import { UserPool } from '@pulumi/aws/cognito';
+import { LambdaAuthorizer } from '@pulumi/awsx/apigateway';
+import { getNameFromPath } from './utils';
+import { getCorsHeaders } from '@lambada/utils';
+
 
 export type EmbroideryRequest = {
     user?: AuthExecutionContext
@@ -18,6 +22,22 @@ export type EmbroideryRequest = {
 
 export type EmbroideryCallback = (event: EmbroideryRequest) => Promise<object>
 export type EmbroideryEventHandlerRoute = Route
+export type LambadaEndpointArgs = {
+    /** Custom name for your lambda, if empty it will take a name based on the path-verb */
+    name?: string,
+    path: string,
+    method: "GET" | "POST" | "DELETE",
+    callbackDefinition: EmbroideryCallback,
+    resources?: LambdaResource[],
+    extraHeaders?: {},
+    environmentVariables?: EmbroideryEnvironmentVariables,
+    /** This overrides at endpoint level any default set */
+    auth?: {
+        useCognitoAuthorizer?: boolean,
+        useApiKey?: boolean,
+        lambdaAuthorizer?: LambdaAuthorizer
+    }
+}
 
 const isResponse = (result: any): boolean => {
     return result && (
@@ -27,7 +47,7 @@ const isResponse = (result: any): boolean => {
 
 export const createEndpointSimpleCors = <T>(
     name: string,
-    embroideryContext: EmbroideryContext,
+    embroideryContext: LambadaResources,
     path: string,
     method: "GET" | "POST" | "DELETE",
     callbackDefinition: EmbroideryCallback,
@@ -50,7 +70,7 @@ export const createEndpointSimpleCors = <T>(
 
 export const createEndpointSimple = (
     name: string,
-    embroideryContext: EmbroideryContext,
+    context: LambadaResources,
     path: string,
     method: "GET" | "POST" | "DELETE",
     callbackDefinition: EmbroideryCallback,
@@ -58,12 +78,35 @@ export const createEndpointSimple = (
     extraHeaders?: {},
     /** This overrides at endpoint level any default set */
     auth?: {
-        useCognitoAuthorizer?: boolean
-        useApiKey?: boolean
+        useCognitoAuthorizer?: boolean,
+        useApiKey?: boolean,
+        lambdaAuthorizer?: LambdaAuthorizer
     },
-) => {
-    const newCallback = async (request: Request): Promise<Response> => {
+) => createEndpointSimpleCompat({
+    name,
+    path,
+    method,
+    callbackDefinition,
+    resources,
+    extraHeaders,
+    auth,
+    environmentVariables: undefined
+}, context)
 
+export const createEndpointSimpleCompat = ({
+    name,
+    path,
+    method,
+    callbackDefinition,
+    resources,
+    extraHeaders,
+    auth,
+    environmentVariables
+}: LambadaEndpointArgs, context: LambadaResources,) => {
+
+    const lambdaName = name ?? getNameFromPath(`${context.projectName}-${path}-${method.toLowerCase()}`)
+    const newCallback = async (request: Request): Promise<Response> => {
+        extraHeaders = { ...getCorsHeaders(request.requestContext.domainName, context.api?.cors?.origins), ...(extraHeaders ?? {}) }
         const authContext = await getContext(request)
         //const user = authContext?.currentUsername && authContext ? await getUser(authContext.currentUsername, authContext) : undefined
         try {
@@ -88,30 +131,37 @@ export const createEndpointSimple = (
                 body: JSON.stringify(result ?? {}),
                 headers: (extraHeaders || {})
             }
-            
+
         } catch (ex) {
+            console.error(ex)
             const showErrorDetails = ex && (ex.showError || process.env['LAMBADA_SHOW_ALL_ERRORS'] == 'true')
             if (showErrorDetails) {
                 return {
-                    statusCode: 400,
+                    statusCode: 500,
                     body: JSON.stringify({
                         error: ex.message
                     }),
                     headers: (extraHeaders || {})
                 }
             } else {
-                throw ex;
-            }``
+                return {
+                    statusCode: 500,
+                    body: JSON.stringify({
+                        error: 'Bad Request'
+                    }),
+                    headers: (extraHeaders || {})
+                }
+            } ``
         }
 
     }
 
-    return createEndpoint(name, embroideryContext, path, method, newCallback, [], undefined, auth?.useCognitoAuthorizer, resources, auth?.useApiKey)
+    return createEndpoint(lambdaName, context, path, method, newCallback, [], environmentVariables, auth?.useCognitoAuthorizer, resources, auth?.useApiKey)
 }
 
 export const createEndpoint = (
     name: string,
-    embroideryContext: EmbroideryContext,
+    embroideryContext: LambadaResources,
     path: string,
     method: "GET" | "POST" | "DELETE" | "OPTIONS",
     callbackDefinition: Callback<Request, Response> | FolderLambda,
@@ -120,6 +170,7 @@ export const createEndpoint = (
     enableAuth = true,
     resources?: LambdaResource[],
     apiKeyRequired?: boolean,
+    lambdaAuthorizer?: LambdaAuthorizer
 ): EmbroideryEventHandlerRoute => {
 
     var environment = embroideryContext.environment
@@ -174,10 +225,16 @@ export const createEndpoint = (
         resources
     )
 
+    let auth = []
+    if (lambdaAuthorizer)
+        auth.push(lambdaAuthorizer)
+    if (embroideryContext?.api?.auth?.useCognitoAuthorizer === true || enableAuth)
+        auth = [...auth, ...(embroideryContext.authorizers ?? [])]
+
     return {
         path: `${embroideryContext.api?.apiPath ?? ''}${path}`,
         method: method,
-        authorizers: embroideryContext?.api?.auth?.useCognitoAuthorizer === true || enableAuth ? embroideryContext.authorizers : [],
+        authorizers: auth,
         eventHandler: callback,
         apiKeyRequired: embroideryContext?.api?.auth?.useApiKey === true || apiKeyRequired
     }

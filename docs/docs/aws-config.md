@@ -5,7 +5,7 @@ slug: /aws-config
 ---
 
 ## AWS Credentials
-Instead of logging in everytime the devcontainer is rebuilt, we recommend using a credentials file.
+Instead of logging in every time the devcontainer is rebuilt, we recommend using a credentials file.
 
 
 ## Linux 
@@ -30,8 +30,8 @@ For more information and other OS go to [AWS Credentials file](https://docs.aws.
 
 
 ## AWS Profiles
-We recommend using profiles. Once you have it setup open `.devcontainer/Dockerfile` and replace `<profilename>` with the name of your profile here
+We recommend using profiles. Once you have it setup open `.devcontainer/Dockerfile` and replace `<profile-name>` with the name of your profile here
 
 ```dockerfile
-ENV AWS_PROFILE=<profilename>
+ENV AWS_PROFILE=<profile-name>
 ```

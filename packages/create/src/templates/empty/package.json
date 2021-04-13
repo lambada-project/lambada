@@ -7,19 +7,19 @@
 		"build": "tsc"
 	},
 	"dependencies": {
-		"aws-sdk": "2.795.0",
-		"@attire/core": "^1.0.0",
+		"aws-sdk": "2.795.0",		
 		"@aws/dynamodb-auto-marshaller": "^0.7.1",
 		"uuid": "^3.4.0"
 	},
 	"devDependencies": {
-        "@types/jest" : "26.*",
-		"ts-jest" : "26.*",
-		"jest" : "26.*",
+		"@lambada/core": "^0.1.0",
+		"@types/jest": "26.*",
+		"ts-jest": "26.*",
+		"jest": "26.*",
 		"@types/uuid": "^8.3.0",
-		"@pulumi/aws": "^3.19.0",
-		"@pulumi/awsx": "^0.22.0",
-		"@pulumi/pulumi": "^2.13.2",
+		"@pulumi/aws": "3.12.1",
+		"@pulumi/awsx": "0.22.0",
+		"@pulumi/pulumi": "2.13.2",
 		"@types/node": "^10.0.0",
 		"ts-node": "^9.0.0",
 		"typescript": "^4.0.5"

@@ -1,0 +1,154 @@
+{
+    "version": 3,
+    "deployment": {
+        "manifest": {
+            "time": "2021-03-14T14:29:32.9967224Z",
+            "magic": "94592db9536de5e7104a9178d135d36c6df2f321f7c86cf30cb149dc72ed5a8a",
+            "version": "v2.13.2"
+        },
+        "secrets_providers": {
+            "type": "service",
+            "state": {
+                "url": "https://api.pulumi.com",
+                "owner": "andreujuanc",
+                "project": "embroidery-example",
+                "stack": "cleanup-2"
+            }
+        },
+        "resources": [
+            {
+                "urn": "urn:pulumi:cleanup-2::embroidery-example::pulumi:pulumi:Stack::embroidery-example-cleanup-2",
+                "custom": false,
+                "type": "pulumi:pulumi:Stack"
+            },
+            {
+                "urn": "urn:pulumi:cleanup-2::embroidery-example::aws:apigateway:x:API::lambada-example-cleanup-2",
+                "custom": false,
+                "type": "aws:apigateway:x:API",
+                "parent": "urn:pulumi:cleanup-2::embroidery-example::pulumi:pulumi:Stack::embroidery-example-cleanup-2"
+            },
+            {
+                "urn": "urn:pulumi:cleanup-2::embroidery-example::pulumi:providers:aws::default_3_12_1",
+                "custom": true,
+                "id": "ce8ede2c-43c3-47ad-a128-00b843ee0d16",
+                "type": "pulumi:providers:aws",
+                "inputs": {
+                    "region": "eu-west-1",
+                    "version": "3.12.1"
+                },
+                "outputs": {
+                    "region": "eu-west-1",
+                    "version": "3.12.1"
+                }
+            },
+            {
+                "urn": "urn:pulumi:cleanup-2::embroidery-example::aws:apigateway:x:API$aws:iam/role:Role::lambada-example-cleanup-24c238266",
+                "custom": true,
+                "id": "lambada-example-cleanup-24c238266-a777788",
+                "type": "aws:iam/role:Role",
+                "inputs": {
+                    "__defaults": [
+                        "forceDetachPolicies",
+                        "maxSessionDuration",
+                        "name",
+                        "path"
+                    ],
+                    "assumeRolePolicy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Action\":\"sts:AssumeRole\",\"Principal\":{\"Service\":\"lambda.amazonaws.com\"},\"Effect\":\"Allow\",\"Sid\":\"\"}]}",
+                    "forceDetachPolicies": false,
+                    "maxSessionDuration": 3600,
+                    "name": "lambada-example-cleanup-24c238266-a777788",
+                    "path": "/"
+                },
+                "outputs": {
+                    "arn": "arn:aws:iam::325047155657:role/lambada-example-cleanup-24c238266-a777788",
+                    "assumeRolePolicy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"lambda.amazonaws.com\"},\"Action\":\"sts:AssumeRole\"}]}",
+                    "createDate": "2021-03-14T14:27:11Z",
+                    "description": "",
+                    "forceDetachPolicies": false,
+                    "id": "lambada-example-cleanup-24c238266-a777788",
+                    "maxSessionDuration": 3600,
+                    "name": "lambada-example-cleanup-24c238266-a777788",
+                    "path": "/",
+                    "tags": {},
+                    "uniqueId": "AROAUXLSR7PEU53IL3HJ5"
+                },
+                "parent": "urn:pulumi:cleanup-2::embroidery-example::aws:apigateway:x:API::lambada-example-cleanup-2",
+                "provider": "urn:pulumi:cleanup-2::embroidery-example::pulumi:providers:aws::default_3_12_1::ce8ede2c-43c3-47ad-a128-00b843ee0d16",
+                "propertyDependencies": {
+                    "assumeRolePolicy": null
+                }
+            },
+            {
+                "urn": "urn:pulumi:cleanup-2::embroidery-example::aws:apigateway:x:API$aws:apigateway/restApi:RestApi::lambada-example-cleanup-2",
+                "custom": true,
+                "id": "5qy4pn3qr4",
+                "type": "aws:apigateway/restApi:RestApi",
+                "inputs": {
+                    "__defaults": [
+                        "apiKeySource",
+                        "minimumCompressionSize"
+                    ],
+                    "apiKeySource": "HEADER",
+                    "binaryMediaTypes": [
+                        "*/*"
+                    ],
+                    "body": "{\"swagger\":\"2.0\",\"info\":{\"title\":\"lambada-example-cleanup-2\",\"version\":\"1.0\"},\"paths\":{\"/\":{\"get\":{\"x-amazon-apigateway-integration\":{\"uri\":\"arn:aws:apigateway:eu-west-1:lambda:path/2015-03-31/functions/undefined/invocations\",\"passthroughBehavior\":\"when_no_match\",\"httpMethod\":\"POST\",\"type\":\"aws_proxy\"}}}},\"x-amazon-apigateway-binary-media-types\":[\"*/*\"],\"x-amazon-apigateway-gateway-responses\":{\"MISSING_AUTHENTICATION_TOKEN\":{\"statusCode\":404,\"responseTemplates\":{\"application/json\":\"{\\\"message\\\": \\\"404 Not found\\\" }\"}},\"ACCESS_DENIED\":{\"statusCode\":404,\"responseTemplates\":{\"application/json\":\"{\\\"message\\\": \\\"404 Not found\\\" }\"}}},\"x-amazon-apigateway-api-key-source\":\"HEADER\"}",
+                    "minimumCompressionSize": -1,
+                    "name": "lambada-example-cleanup-2"
+                },
+                "outputs": {
+                    "apiKeySource": "HEADER",
+                    "binaryMediaTypes": [
+                        "*/*"
+                    ],
+                    "body": "{\"swagger\":\"2.0\",\"info\":{\"title\":\"lambada-example-cleanup-2\",\"version\":\"1.0\"},\"paths\":{\"/\":{\"get\":{\"x-amazon-apigateway-integration\":{\"uri\":\"arn:aws:apigateway:eu-west-1:lambda:path/2015-03-31/functions/undefined/invocations\",\"passthroughBehavior\":\"when_no_match\",\"httpMethod\":\"POST\",\"type\":\"aws_proxy\"}}}},\"x-amazon-apigateway-binary-media-types\":[\"*/*\"],\"x-amazon-apigateway-gateway-responses\":{\"MISSING_AUTHENTICATION_TOKEN\":{\"statusCode\":404,\"responseTemplates\":{\"application/json\":\"{\\\"message\\\": \\\"404 Not found\\\" }\"}},\"ACCESS_DENIED\":{\"statusCode\":404,\"responseTemplates\":{\"application/json\":\"{\\\"message\\\": \\\"404 Not found\\\" }\"}}},\"x-amazon-apigateway-api-key-source\":\"HEADER\"}",
+                    "id": "5qy4pn3qr4",
+                    "minimumCompressionSize": -1,
+                    "name": "lambada-example-cleanup-2"
+                },
+                "parent": "urn:pulumi:cleanup-2::embroidery-example::aws:apigateway:x:API::lambada-example-cleanup-2",
+                "dependencies": [
+                    ""
+                ],
+                "initErrors": [
+                    "creating urn:pulumi:cleanup-2::embroidery-example::aws:apigateway:x:API$aws:apigateway/restApi:RestApi::lambada-example-cleanup-2: 1 error occurred:\n\t* error creating API Gateway specification: BadRequestException: Errors found during import:\n\tUnable to put integration on 'GET' for resource at path '/': Invalid lambda function\n\n"
+                ],
+                "provider": "urn:pulumi:cleanup-2::embroidery-example::pulumi:providers:aws::default_3_12_1::ce8ede2c-43c3-47ad-a128-00b843ee0d16",
+                "propertyDependencies": {
+                    "binaryMediaTypes": null,
+                    "body": [
+                        ""
+                    ],
+                    "name": null
+                }
+            },
+            {
+                "urn": "urn:pulumi:cleanup-2::embroidery-example::aws:apigateway:x:API$aws:iam/rolePolicyAttachment:RolePolicyAttachment::lambada-example-cleanup-24c238266-32be53a2",
+                "custom": true,
+                "id": "lambada-example-cleanup-24c238266-a777788-20210314142710940400000001",
+                "type": "aws:iam/rolePolicyAttachment:RolePolicyAttachment",
+                "inputs": {
+                    "__defaults": [],
+                    "policyArn": "arn:aws:iam::aws:policy/AWSLambdaFullAccess",
+                    "role": "lambada-example-cleanup-24c238266-a777788"
+                },
+                "outputs": {
+                    "id": "lambada-example-cleanup-24c238266-a777788-20210314142710940400000001",
+                    "policyArn": "arn:aws:iam::aws:policy/AWSLambdaFullAccess",
+                    "role": "lambada-example-cleanup-24c238266-a777788"
+                },
+                "parent": "urn:pulumi:cleanup-2::embroidery-example::aws:apigateway:x:API::lambada-example-cleanup-2",
+                "dependencies": [
+                    "urn:pulumi:cleanup-2::embroidery-example::aws:apigateway:x:API$aws:iam/role:Role::lambada-example-cleanup-24c238266"
+                ],
+                "provider": "urn:pulumi:cleanup-2::embroidery-example::pulumi:providers:aws::default_3_12_1::ce8ede2c-43c3-47ad-a128-00b843ee0d16",
+                "propertyDependencies": {
+                    "policyArn": null,
+                    "role": [
+                        "urn:pulumi:cleanup-2::embroidery-example::aws:apigateway:x:API$aws:iam/role:Role::lambada-example-cleanup-24c238266"
+                    ]
+                }
+            }
+        ]
+    }
+}

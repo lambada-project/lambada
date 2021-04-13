@@ -4,7 +4,7 @@ import { MessagingContext, MessagingResultItem } from ".";
 import { Callback } from '@pulumi/aws/lambda';
 import { TopicEvent, TopicEventSubscription } from "@pulumi/aws/sns";
 import { String } from "aws-sdk/clients/cloudsearch";
-import { EmbroideryContext, EmbroideryEnvironmentVariables } from "..";
+import { LambadaResources, EmbroideryEnvironmentVariables } from "..";
 
 export type SubscriptionEvent = TopicEvent
 export type SubscriptionCallback = Callback<SubscriptionEvent, void>
@@ -29,7 +29,7 @@ export type LambdaSubscriptionSimple = {
 //     kmsKeys
 // }
 
-export const subscribeToTopic = (context: EmbroideryContext, topic: MessagingResultItem, subscription: LambdaSubscription): TopicEventSubscription => {
+export const subscribeToTopic = (context: LambadaResources, topic: MessagingResultItem, subscription: LambdaSubscription): TopicEventSubscription => {
     const environment = context.environment
     const topicName = topic.definition.name
     // policyStatements.push({
@@ -65,8 +65,7 @@ export const subscribeToTopic = (context: EmbroideryContext, topic: MessagingRes
     if (topic.awsTopic)
         return topic.awsTopic.onEvent(`${topicName}_${subscription.name}_${environment}`, callback)
     else
-        // TODO: reference topics
-        throw 'REFERENCE TOPICS NOT IMPLEMENTED'
+        throw `Cannot subscribe to this topic: ${topic.definition.name}`
 }
 
 export const createTopicAndSubscribe = (

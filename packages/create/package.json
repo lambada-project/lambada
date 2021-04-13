@@ -1,6 +1,6 @@
 {
   "name": "@lambada/create",
-  "version": "0.0.14",
+  "version": "0.1.0",
   "description": "Create a Lambada project",
   "main": "dist/index.js",
   "scripts": {
