@@ -139,7 +139,9 @@ export const createEndpointSimpleCompat = ({
                 return {
                     statusCode: 500,
                     body: JSON.stringify({
-                        error: ex.message
+                        error: ex.message, // NOTE: DEPRECATED
+                        errorMessage: ex.message,
+                        errorCode: ex.errorCode
                     }),
                     headers: (extraHeaders || {})
                 }
