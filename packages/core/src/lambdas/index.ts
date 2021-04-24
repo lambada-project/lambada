@@ -79,6 +79,19 @@ export const createLambda = <E, R>(
                     Effect: 'Allow'
                 }
             )
+
+            if (access.table.definition.indexes) {
+                for (const index of access.table.definition.indexes) {
+                    policyStatements.push(
+                        {
+                            Action: access.access,
+                            Resource: pulumi.interpolate `${access.table.ref.arn}/index/${index.name}`,
+                            Effect: 'Allow'
+                        }
+                    )
+                }
+            }
+
         }
         else if (access.topic) {
             //PubSub connections need the topic ARN to talk to SNS
@@ -174,7 +187,7 @@ export const createLambda = <E, R>(
         variables
     } : undefined
 
-    const memorySize = 768
+    const memorySize = 768 // TODO: This should be exposed per lambda
 
     if (typeof definition === 'function') {
         const callbackDefinition = definition as Callback<E, R>
