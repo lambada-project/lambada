@@ -85,7 +85,7 @@ export const createLambda = <E, R>(
                     policyStatements.push(
                         {
                             Action: access.access,
-                            Resource: pulumi.interpolate `${access.table.ref.arn}/index/${index.name}`,
+                            Resource: pulumi.interpolate`${access.table.ref.arn}/index/${index.name}`,
                             Effect: 'Allow'
                         }
                     )
@@ -279,7 +279,7 @@ export class LambdaResourceAccess {
     public static DynamoDbUpdateItem: LambdaResourceAccessItem = "dynamodb:UpdateItem"
     public static DynamoDbDeleteItem: LambdaResourceAccessItem = "dynamodb:DeleteItem"
     public static DynamoDbPutItem: LambdaResourceAccessItem = "dynamodb:PutItem"
-
+    public static SNSPublish: LambdaResourceAccessItem = "sns:Publish"
 }
 
 export type LambdaDynamoDbResource = {

@@ -54,12 +54,14 @@ export const subscribeToTopic = (context: LambadaResources, topic: MessagingResu
             })
     }
 
+    const envVars = { ...(context.environmentVariables || {}), ...(subscription.environmentVariables || {}) }
+
     const callback = createLambda<TopicEvent, void>(
         subscription.name,
         environment,
         subscription.callback,
         subscription.policyStatements,
-        subscription.environmentVariables,
+        envVars,
         subscription.resources
     )
     if (topic.awsTopic)
