@@ -159,8 +159,10 @@ export const run = (projectName: string, environment: string, args: EmbroideryRu
         // messaging: messaging
     })
 
+    let apiKey: awsx.apigateway.AssociatedAPIKeys | undefined = undefined
+
     if (args.auth?.useApiKey) {
-        awsx.apigateway.createAssociatedAPIKeys(`${projectName}-api-keys-${environment}`, {
+        apiKey = awsx.apigateway.createAssociatedAPIKeys(`${projectName}-api-keys-${environment}`, {
             apis: [api],
             apiKeys: [{
                 name: "internal-key",
@@ -197,6 +199,7 @@ export const run = (projectName: string, environment: string, args: EmbroideryRu
             cognitoARN: cognitoARN,
             cognitoPoolId: cognitoPoolId
         },
-        messaging: messaging
+        messaging: messaging,
+        apiKey: apiKey
     }
 }
