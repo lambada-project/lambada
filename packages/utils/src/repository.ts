@@ -1,7 +1,6 @@
 import * as AWS from "aws-sdk"
 import { AttributeValue, AttributeMap } from 'aws-sdk/clients/dynamodb'
 import { ConditionExpression, ExpressionAttributeValueMap, PutItemInput, QueryInput, Key } from "aws-sdk/clients/dynamodb"
-import { Marshaller } from '@aws/dynamodb-auto-marshaller'
 
 export interface IMarshaller {
     marshallItem(item: {
