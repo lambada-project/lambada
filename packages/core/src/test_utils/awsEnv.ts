@@ -110,7 +110,7 @@ export async function RemoveResources(tables: EmbroideryTables): Promise<void> {
 
     const existingTableNames = (await db.listTables().promise()).TableNames ?? []
     
-    for (const key in existingTableNames) {
+    for (const key of existingTableNames) {
 
         if (tables.hasOwnProperty(key)) {
             const table = tables[key];
