@@ -1,9 +1,28 @@
 import * as AWS from "aws-sdk"
+import { AttributeValue, AttributeMap } from 'aws-sdk/clients/dynamodb'
 import { ConditionExpression, ExpressionAttributeValueMap, PutItemInput, QueryInput, Key } from "aws-sdk/clients/dynamodb"
 import { Marshaller } from '@aws/dynamodb-auto-marshaller'
 
+export interface IMarshaller {
+    marshallItem(item: {
+        [key: string]: any;
+    }): AttributeMap;
+
+    marshallValue(value: any): AttributeValue | undefined;
+    unmarshallItem(item: AttributeMap): any;
+
+    unmarshallValue(item: AttributeValue): any;
+}
+
+export const DefaultMarshaller: IMarshaller = {
+    marshallItem: AWS.DynamoDB.Converter.marshall,
+    unmarshallItem: AWS.DynamoDB.Converter.unmarshall,
+    marshallValue: AWS.DynamoDB.Converter.input,
+    unmarshallValue: AWS.DynamoDB.Converter.output,
+}
+
 export class RepositoryBase {
-    protected marshaller = new Marshaller();
+    protected marshaller: IMarshaller
 
     protected readonly tableName: string
 
@@ -12,8 +31,13 @@ export class RepositoryBase {
         name: string
         primaryKey: string
         rangeKey?: string
-    }) {
+    }, customMarshaller?: IMarshaller) {
         this.tableName = process.env[this.table.envKeyName] ?? ''
+        if (customMarshaller) {
+            this.marshaller = customMarshaller
+        } else {
+            this.marshaller = DefaultMarshaller
+        }
     }
 
     /**
@@ -45,7 +69,7 @@ export class RepositoryBase {
 
         return result.Items?.map((x) => this.marshaller.unmarshallItem(x) as unknown as T)
     }
-    
+
 
     protected async upsert<T>(item: T): Promise<T> {
         const db = this.getDb()
