@@ -62,7 +62,8 @@ type EmbroideryRunArguments = {
         cognitoOptions?: {
             useEmailAsUsername?: boolean
             preventResourceDeletion: boolean
-        }
+        },
+        useApiKey?: boolean
     }
 }
 
@@ -157,6 +158,15 @@ export const run = (projectName: string, environment: string, args: EmbroideryRu
         // kmsKeys: encryptionKeys,
         // messaging: messaging
     })
+
+    if (args.auth?.useApiKey) {
+        awsx.apigateway.createAssociatedAPIKeys(`${projectName}-api-keys-${environment}`, {
+            apis: [api],
+            apiKeys: [{
+                name: "internal-key",
+            }],
+        })
+    }
 
 
     const getDomain = (x: string) => x.substr(8, x.indexOf('.com') - 8 + 4)
