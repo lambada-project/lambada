@@ -22,7 +22,10 @@ export const createCloudFront = (
             entrypoint?: string
         }
     },
-    customDomain?: string[]
+    customDomain?: {
+        domainWithCert: string
+        aliases: string[]
+    }
 ) => {
 
     const wwwOriginId = 'wwwOriginId'
@@ -95,7 +98,7 @@ export const createCloudFront = (
     const useast1 = customDomain ? new aws.Provider("useast1", { region: "us-east-1" }) : null;
     const cert = customDomain && useast1 ?
         pulumi.output(aws.acm.getCertificate({
-            domain: customDomain[0],
+            domain: customDomain.domainWithCert,
         }, {
             provider: useast1
         })) : undefined
@@ -105,7 +108,7 @@ export const createCloudFront = (
     return new aws.cloudfront.Distribution(`${projectName}-${environment}`, {
         enabled: true,
         origins: origins,
-        aliases: customDomain ?? undefined,
+        aliases: customDomain?.aliases ?? undefined,
 
         customErrorResponses: www?.spa?.notFoundRedirection ? [
             {

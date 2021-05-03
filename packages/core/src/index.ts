@@ -29,7 +29,10 @@ type EmbroideryRunArguments = {
     generateOpenAPIDocument?: boolean
     cdn?: {
         useCDN: boolean,
-        customDomain?: string[]
+        customDomain?: {
+            domainWithCert: string
+            aliases: string[]
+        }
         isSpa: boolean
         /** Overrides default: index.html. Errors are redirected here, useful for spa */
         entrypoint?: string
