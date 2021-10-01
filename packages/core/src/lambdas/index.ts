@@ -208,7 +208,7 @@ export const createLambda = <E, R>(
 
     // TODO: This should be exposed per lambda and as global defaults
     const memorySize = options?.memorySize ?? 384
-    const timeout = options?.timeout ?? 1
+    const timeout = options?.timeout ?? 90
     const reservedConcurrentExecutions = options?.reservedConcurrentExecutions ?? -1
 
     if (typeof definition === 'function') {
