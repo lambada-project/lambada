@@ -1,15 +1,11 @@
 import { Request, Response, Route } from '@pulumi/awsx/apigateway/api'
-import * as pulumi from "@pulumi/pulumi";
-import * as AWS from "aws-sdk"
 import * as aws from "@pulumi/aws";
-import * as awsx from "@pulumi/awsx";
-import { createLambda, FolderLambda, LambdaResource } from '../lambdas';
+import { createLambda, FolderLambda, LambdaOptions, LambdaResource } from '../lambdas';
 import { LambadaResources } from '../context';
 import { Callback } from '@pulumi/aws/lambda';
 import { PolicyStatement } from "@pulumi/aws/iam";
 import { AuthExecutionContext, getContext } from '@lambada/utils';
 import { EmbroideryEnvironmentVariables } from '..';
-import { UserPool } from '@pulumi/aws/cognito';
 import { LambdaAuthorizer } from '@pulumi/awsx/apigateway';
 import { getNameFromPath } from './utils';
 import { getCorsHeaders } from '@lambada/utils';
@@ -36,7 +32,8 @@ export type LambadaEndpointArgs = {
         useCognitoAuthorizer?: boolean,
         useApiKey?: boolean,
         lambdaAuthorizer?: LambdaAuthorizer
-    }
+    },
+    options?: LambdaOptions
 }
 
 const isResponse = (result: any): boolean => {
@@ -57,6 +54,7 @@ export const createEndpointSimpleCors = <T>(
         useCognitoAuthorizer?: boolean
         useApiKey?: boolean
     },
+    options?: LambdaOptions
 ) => {
     return createEndpointSimple(name, embroideryContext, path, method, callbackDefinition, resources,
         {
@@ -65,6 +63,7 @@ export const createEndpointSimpleCors = <T>(
             "Access-Control-Allow-Methods": "*",
         },
         auth,
+        options
     )
 }
 
@@ -82,6 +81,7 @@ export const createEndpointSimple = (
         useApiKey?: boolean,
         lambdaAuthorizer?: LambdaAuthorizer
     },
+    options?: LambdaOptions
 ) => createEndpointSimpleCompat({
     name,
     path,
@@ -90,7 +90,8 @@ export const createEndpointSimple = (
     resources,
     extraHeaders,
     auth,
-    environmentVariables: undefined
+    environmentVariables: undefined,
+    options
 }, context)
 
 export const createEndpointSimpleCompat = ({
@@ -101,7 +102,8 @@ export const createEndpointSimpleCompat = ({
     resources,
     extraHeaders,
     auth,
-    environmentVariables
+    environmentVariables,
+    options
 }: LambadaEndpointArgs, context: LambadaResources,) => {
 
     const lambdaName = name ?? getNameFromPath(`${context.projectName}-${path}-${method.toLowerCase()}`)
@@ -132,7 +134,7 @@ export const createEndpointSimpleCompat = ({
                 headers: (extraHeaders || {})
             }
 
-        } catch (ex) {
+        } catch (ex: any) {
             console.error(ex)
             const showErrorDetails = ex && (ex.showError || process.env['LAMBADA_SHOW_ALL_ERRORS'] == 'true')
             if (showErrorDetails) {
@@ -170,7 +172,14 @@ export const createEndpointSimpleCompat = ({
 
     }
 
-    return createEndpoint(lambdaName, context, path, method, newCallback, [], environmentVariables, auth?.useCognitoAuthorizer, resources, auth?.useApiKey)
+    return createEndpoint(
+        lambdaName, context,
+        path, method, newCallback, [],
+        environmentVariables, auth?.useCognitoAuthorizer,
+        resources, auth?.useApiKey,
+        undefined,
+        options
+    )
 }
 
 export const createEndpoint = (
@@ -184,7 +193,8 @@ export const createEndpoint = (
     enableAuth = true,
     resources?: LambdaResource[],
     apiKeyRequired?: boolean,
-    lambdaAuthorizer?: LambdaAuthorizer
+    lambdaAuthorizer?: LambdaAuthorizer,
+    options?: LambdaOptions
 ): EmbroideryEventHandlerRoute => {
 
     var environment = embroideryContext.environment
@@ -236,7 +246,9 @@ export const createEndpoint = (
         callbackDefinition,
         policyStatements,
         envVars,
-        resources
+        resources,
+        undefined,
+        options
     )
 
     let auth = []

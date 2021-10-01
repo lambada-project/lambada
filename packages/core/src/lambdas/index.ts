@@ -44,6 +44,24 @@ export type FolderLambda = {
      */
     handler: string
 }
+
+export type LambdaOptions = {
+    /**
+    * Amount of memory in MB your Lambda Function can use at runtime. Defaults to `128`. See [Limits](https://docs.aws.amazon.com/lambda/latest/dg/limits.html)
+    */
+    memorySize?: number
+
+    /**
+     *  Timeout in minutes 
+     * */
+    timeout?: number
+
+    /**
+     * The amount of reserved concurrent executions for this lambda function. A value of `0` disables lambda from being triggered and `-1` removes any concurrency limitations. Defaults to Unreserved Concurrency Limits `-1`. See [Managing Concurrency](https://docs.aws.amazon.com/lambda/latest/dg/concurrent-executions.html) 
+     * */
+    reservedConcurrentExecutions?: number
+}
+
 export const createLambda = <E, R>(
     name: string,
     environment: string,
@@ -51,7 +69,8 @@ export const createLambda = <E, R>(
     policyStatements: aws.iam.PolicyStatement[],
     environmentVariables: EmbroideryEnvironmentVariables,
     resources: LambdaResource[],
-    overrideRole?: aws.iam.Role
+    overrideRole?: aws.iam.Role,
+    options?: LambdaOptions
 ): aws.lambda.EventHandler<E, R> => {
 
     let lambdaRole = overrideRole
@@ -187,7 +206,10 @@ export const createLambda = <E, R>(
         variables
     } : undefined
 
-    const memorySize = 768 // TODO: This should be exposed per lambda
+    // TODO: This should be exposed per lambda and as global defaults
+    const memorySize = options?.memorySize ?? 384
+    const timeout = options?.timeout ?? 1
+    const reservedConcurrentExecutions = options?.reservedConcurrentExecutions ?? -1
 
     if (typeof definition === 'function') {
         const callbackDefinition = definition as Callback<E, R>
@@ -196,7 +218,9 @@ export const createLambda = <E, R>(
             role: lambdaRole,
             description: `Lambda ${name} - ${environment}`,
             environment: functionEnvironment,
-            memorySize: memorySize
+            memorySize: memorySize,
+            timeout: timeout,
+            reservedConcurrentExecutions: reservedConcurrentExecutions,
         })
     }
     else if ((definition as FolderLambda).functionFolder) {
@@ -213,12 +237,13 @@ export const createLambda = <E, R>(
                 }),
                 memorySize: memorySize,
                 //code: new pulumi.asset.FileAsset('./auth/lambdas/postConfirmation.js'),
-                timeout: 5,
+                timeout: timeout,
                 //THE CONTENT OF DIST 1:1 
                 handler: handlerInfo.handler, //"./auth/lambdas/src/index.main",
                 role: lambdaRole.arn,
                 layers: [],
-                environment: functionEnvironment // TODO:
+                environment: functionEnvironment, // TODO:
+                reservedConcurrentExecutions: reservedConcurrentExecutions
             });
         }
         else {

@@ -1,5 +1,5 @@
 import * as aws from "@pulumi/aws";
-import { createLambda, LambdaResource } from '../lambdas'
+import { createLambda, LambdaOptions, LambdaResource } from '../lambdas'
 import { MessagingContext, MessagingResultItem } from ".";
 import { Callback } from '@pulumi/aws/lambda';
 import { TopicEvent, TopicEventSubscription } from "@pulumi/aws/sns";
@@ -29,7 +29,7 @@ export type LambdaSubscriptionSimple = {
 //     kmsKeys
 // }
 
-export const subscribeToTopic = (context: LambadaResources, topic: MessagingResultItem, subscription: LambdaSubscription): TopicEventSubscription => {
+export const subscribeToTopic = (context: LambadaResources, topic: MessagingResultItem, subscription: LambdaSubscription, options?: LambdaOptions): TopicEventSubscription => {
     const environment = context.environment
     const topicName = topic.definition.name
     // policyStatements.push({
@@ -62,7 +62,9 @@ export const subscribeToTopic = (context: LambadaResources, topic: MessagingResu
         subscription.callback,
         subscription.policyStatements,
         envVars,
-        subscription.resources
+        subscription.resources,
+        undefined,
+        options
     )
     if (topic.awsTopic)
         return topic.awsTopic.onEvent(`${topicName}_${subscription.name}_${environment}`, callback)
