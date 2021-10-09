@@ -1,6 +1,7 @@
 import * as pulumi from '@pulumi/pulumi'
 import * as aws from "@pulumi/aws";
 import { Callback } from '@pulumi/aws/lambda';
+import { Input } from "@pulumi/pulumi";
 
 import { PolicyDocument, PolicyStatement } from "@pulumi/aws/iam";
 import { DatabaseResultItem } from '../database';
@@ -315,7 +316,7 @@ export type LambdaDynamoDbResource = {
     notification?: NotificationResult
     kmsKey?: SecurityResultItem
     secret?: SecretResultItem
-    arn?: string
+    arn?: Input<string> | Input<Input<string>[]>
     access: LambdaResourceAccessItem[]
 }
 
