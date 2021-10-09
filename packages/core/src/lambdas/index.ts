@@ -266,10 +266,12 @@ export const createLambdaRoleAndPolicies = (name: string, environment: string, p
     if (!policyStatements) policyStatements = []
 
     const role = new aws.iam.Role(`${dashedNamed}-role`, {
+        name:`${dashedNamed}-role`,
         assumeRolePolicy: lambdaAsumeRole,
     })
 
     const policy = new aws.iam.Policy(`${dashedNamed}-policy`, {
+        name: `${dashedNamed}-policy`,
         path: "/",
         policy: {
             Version: "2012-10-17",
