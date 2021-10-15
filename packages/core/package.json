@@ -1,6 +1,6 @@
 {
   "name": "@lambada/core",
-  "version": "0.1.17",
+  "version": "0.1.18",
   "description": "",
   "main": "dist/index.js",
   "module": "dist/index.js",
@@ -19,18 +19,18 @@
   "author": "Juan C. Andreu",
   "peerDependencies": {
     "@aws/dynamodb-auto-marshaller": "^0.7.1",
-    "@pulumi/aws": "3.12.1",
-    "@pulumi/awsx": "0.22.0",
-    "@pulumi/pulumi": "2.13.2",
+    "@pulumi/aws": "3.38.1",
+    "@pulumi/awsx": "0.25.0",
+    "@pulumi/pulumi": "2.25.2",
     "@lambada/utils": "^1.0.5",
     "aws-sdk": "2.795.0"
   },
   "devDependencies": {
     "@lambada/utils": "^1.0.5",
     "@aws/dynamodb-auto-marshaller": "^0.7.1",
-    "@pulumi/aws": "3.12.1",
-    "@pulumi/awsx": "0.22.0",
-    "@pulumi/pulumi": "2.13.2",
+    "@pulumi/aws": "3.38.1",
+    "@pulumi/awsx": "0.25.0",
+    "@pulumi/pulumi": "2.25.2",
     "@types/node": "^12.12.2",
     "aws-sdk": "2.795.0",
     "rimraf": "^3.0.2",
