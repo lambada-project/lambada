@@ -197,6 +197,7 @@ export const createLambda = <E, R>(
     }
 
     const variables = {
+        AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1',
         ...envVarsFromResources,
         ...environmentVariables
     }
