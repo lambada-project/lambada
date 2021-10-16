@@ -1,6 +1,7 @@
 import * as AWS from "aws-sdk"
 import * as awslambda from "aws-lambda"
 import { LambadaError } from "./error";
+import { AttributeListType } from 'aws-sdk/clients/cognitoidentityserviceprovider'
 
 export declare type Request = awslambda.APIGatewayProxyEvent;
 
@@ -24,7 +25,14 @@ export function getBody<TBody>(request: Request): TBody {
     return body
 }
 
-type AuthenticatedUser = {}
+type AuthenticatedUser = {
+    id: string
+    attributes: AttributeListType
+    username: string
+    name?: string
+    email: string
+}
+
 async function _FindUser(userPoolId: string, userId?: string, username?: string): Promise<AuthenticatedUser> {
     //@ts-ignore
     global.globalCognitoIdp = global.globalCognitoIdp ?? new AWS.CognitoIdentityServiceProvider({ apiVersion: '2016-04-18' });
@@ -65,12 +73,14 @@ async function _FindUser(userPoolId: string, userId?: string, username?: string)
             var cutomAttributes = cu.UserAttributes.filter(x => x.Name.startsWith('dev:custom:'))
             userId = cu.UserAttributes.find(x => x.Name == 'sub')?.Value;
             var email = cu.UserAttributes.find(x => x.Name == 'email')?.Value
+            var name = cu.UserAttributes.find(x => x.Name == 'name')?.Value
 
             if (!userId) throw 'Invalid user, has no sub'
 
             user = {
                 id: userId,
                 username,
+                name,
                 email: email ?? '',
                 attributes: cutomAttributes
             }
@@ -87,18 +97,21 @@ async function _FindUser(userPoolId: string, userId?: string, username?: string)
                 const cu = cusers.Users[0]
                 if (!cu) throw 'User not found'
                 if (!cu.Attributes) throw 'User has no attributes'
+                
+                username = cu.Username
 
                 var cutomAttributes = cu.Attributes.filter(x => x.Name.startsWith('dev:custom:'));
                 var sub = cu.Attributes.find(x => x.Name == 'sub')?.Value;
-                username = cu.Attributes.find(x => x.Name == 'username')?.Value
+                var name = cu.Attributes.find(x => x.Name == 'name')?.Value
                 var email = cu.Attributes.find(x => x.Name == 'email')?.Value
 
                 if (!sub) throw 'Invalid user, has no sub'
-                if (!username) throw 'Wallet is empty'
+                if (!username) throw 'username is empty'
 
                 user = {
                     id: sub,
                     attributes: cutomAttributes,
+                    name,
                     username,
                     email: email ?? ''
                 }
@@ -149,7 +162,7 @@ export function getContext(request: Request): AuthExecutionContext | undefined {
         //hash.update(accessToken, "utf8").digest('hex');
 
         const userIp = request.requestContext.identity.sourceIp
-        
+
         return {
             userId: userSub ?? undefined,
             poolId: poolId ?? undefined,
