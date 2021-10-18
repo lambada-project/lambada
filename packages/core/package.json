@@ -1,6 +1,6 @@
 {
   "name": "@lambada/core",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "",
   "main": "dist/index.js",
   "module": "dist/index.js",
@@ -23,7 +23,7 @@
     "@pulumi/awsx": "0.25.0",
     "@pulumi/pulumi": "2.25.2",
     "@lambada/utils": "^1.0.5",
-    "aws-sdk": "2.795.0"
+    "aws-sdk": "2.1009.0"
   },
   "devDependencies": {
     "@lambada/utils": "^1.0.5",

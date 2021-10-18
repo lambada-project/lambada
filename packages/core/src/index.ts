@@ -107,12 +107,12 @@ export const run = (projectName: string, environment: string, args: EmbroideryRu
     }
 
 
-    const authorizerProviderARNs = pool ? [pool, ...(args.auth?.extraAuthorizers ?? [])] : undefined
+    const authorizerProviderARNs = pool ? [pool, ...(args.auth?.extraAuthorizers ?? [])] : (args.auth?.extraAuthorizers ?? [])
     const authorizers: CognitoAuthorizer[] = [
-        ...(authorizerProviderARNs ? [awsx.apigateway.getCognitoAuthorizer({
+        awsx.apigateway.getCognitoAuthorizer({
             providerARNs: authorizerProviderARNs,
             //methodsToAuthorize: ["https://yourdomain.com/user.read"]
-        })] : []),
+        })
     ];
 
     // TODO: option to add projectName as prefix to all functions
