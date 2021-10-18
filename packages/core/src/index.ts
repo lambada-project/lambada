@@ -61,7 +61,8 @@ type EmbroideryRunArguments = {
         stageName?: string
     },
     auth?: {
-        useCognito?: boolean | pulumi.Input<string> | UserPool
+        createCognito?: boolean
+        extraAuthorizers: (pulumi.Input<string> | UserPool)[],
         cognitoOptions?: {
             useEmailAsUsername?: boolean
             preventResourceDeletion: boolean
@@ -80,12 +81,11 @@ export const run = (projectName: string, environment: string, args: EmbroideryRu
     const secrets = args.secrets ? createSecrets(projectName, environment, args.secrets) : {}
     const databases = createDynamoDbTables(environment, args.tables, args.tablePrefix, encryptionKeys, args.tablesRef)
 
-    const pool: pulumi.Input<string> | UserPool | undefined = args.auth && args.auth.useCognito ?
-        args.auth.useCognito === true ? createUserPool(projectName, environment, encryptionKeys, {
+    const pool: UserPool | undefined = args.auth && args.auth.createCognito ?
+        createUserPool(projectName, environment, encryptionKeys, {
             useEmailAsUsername: args?.auth?.cognitoOptions?.useEmailAsUsername,
             protect: args?.auth?.cognitoOptions?.preventResourceDeletion
-        }) : args.auth.useCognito
-        : undefined
+        }) : undefined
 
     const isPool = (userPool: pulumi.Input<string> | UserPool | undefined): userPool is UserPool => {
         return typeof userPool !== 'undefined' && (userPool as UserPool).arn !== undefined
@@ -107,7 +107,7 @@ export const run = (projectName: string, environment: string, args: EmbroideryRu
     }
 
 
-    const authorizerProviderARNs = pool ? [pool] : undefined
+    const authorizerProviderARNs = pool ? [pool, ...(args.auth?.extraAuthorizers ?? [])] : undefined
     const authorizers: CognitoAuthorizer[] = [
         ...(authorizerProviderARNs ? [awsx.apigateway.getCognitoAuthorizer({
             providerARNs: authorizerProviderARNs,
