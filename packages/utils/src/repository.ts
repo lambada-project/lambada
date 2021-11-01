@@ -144,6 +144,7 @@ export class RepositoryBase {
         const item = await db.getItem({
             TableName: this.tableName,
             Key: key,
+            ConsistentRead: true
         }).promise()
 
         if (!item.Item) return null
