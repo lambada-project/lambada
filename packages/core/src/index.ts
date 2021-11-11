@@ -203,6 +203,7 @@ export const run = (projectName: string, environment: string, args: EmbroideryRu
             cognitoPoolId: cognitoPoolId
         },
         messaging: messaging,
+        databases: databases,
         apiKey: apiKey
     }
 }
