@@ -108,12 +108,11 @@ export const run = (projectName: string, environment: string, args: EmbroideryRu
 
 
     const authorizerProviderARNs = pool ? [pool, ...(args.auth?.extraAuthorizers ?? [])] : (args.auth?.extraAuthorizers ?? [])
-    const authorizers: CognitoAuthorizer[] = [
-        awsx.apigateway.getCognitoAuthorizer({
-            providerARNs: authorizerProviderARNs,
-            //methodsToAuthorize: ["https://yourdomain.com/user.read"]
-        })
-    ];
+    const authorizer = awsx.apigateway.getCognitoAuthorizer({
+        providerARNs: authorizerProviderARNs,
+        //methodsToAuthorize: ["https://yourdomain.com/user.read"]
+    })
+    const authorizers: CognitoAuthorizer[] = authorizerProviderARNs.length > 0 ? [authorizer] : [];
 
     // TODO: option to add projectName as prefix to all functions
     const embroideryContext: LambadaResources = {
