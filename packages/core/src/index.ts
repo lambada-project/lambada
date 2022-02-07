@@ -9,7 +9,7 @@ import { LambadaResources } from './context'
 // import createUserPool from './auth'
 // import createApi from './api/createApi'
 import { createMessaging, EmbroideryMessages, EmbroiderySubscriptionCreator } from './messaging'
-//import createNotifications from './notifications'
+import createNotifications, { NotificationConfig } from './notifications'
 import { EmbroideryTables, createDynamoDbTables } from './database'
 import { CreateKMSKeys, createSecrets, EmbroideryEncryptionKeys, EmbroiderySecrets } from "./security";
 import { createOpenApiDocumentEndpoint } from "./api/openApiDocument";
@@ -55,6 +55,7 @@ type EmbroideryRunArguments = {
     environmentVariables?: EmbroideryEnvironmentVariables,
     secrets?: EmbroiderySecrets
     keys?: EmbroideryEncryptionKeys
+    notifications?: NotificationConfig
     naming?: { // TODO: Should I do this? or not
         apiPath?: string
         wwwPath?: string
@@ -96,7 +97,7 @@ export const run = (projectName: string, environment: string, args: EmbroideryRu
 
 
     const messaging = createMessaging(environment, args.messages, args.messageHandlerDefinitions, args.messagesRef)
-    // const notifications = createNotifications(environment)
+    const notifications = createNotifications(projectName, environment, args?.notifications)
 
     const stageName = 'app'
     const wwwPath = '/www'
@@ -123,7 +124,7 @@ export const run = (projectName: string, environment: string, args: EmbroideryRu
         } : undefined,
         authorizers: authorizers,
         messaging: messaging,
-        //notifications: notifications, // TODO: 
+        notifications: notifications, // TODO: 
         databases: databases,
         environment: environment,
         kmsKeys: encryptionKeys,
