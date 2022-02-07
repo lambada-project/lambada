@@ -4,7 +4,7 @@ import * as awsx from "@pulumi/awsx";
 import * as pulumi from "@pulumi/pulumi";
 
 export type NotificationConfig = {
-    GCMCredential?: string
+    GCMCredential?: pulumi.Input<string>
 }
 
 export default function createNotification(projectName: string, env: string, config?: NotificationConfig): NotificationResult {
