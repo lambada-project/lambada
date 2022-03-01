@@ -4,7 +4,6 @@ import { dynamodb } from '@pulumi/aws/types/input'
 import * as awsx from "@pulumi/awsx";
 import { seedData } from './seedData'
 import { SecurityResult } from "../security";
-import { AttributeDefinition, AttributeDefinitions } from "aws-sdk/clients/dynamodb";
 
 export type TableAttribute = dynamodb.TableAttribute
 
