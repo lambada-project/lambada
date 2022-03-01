@@ -92,6 +92,10 @@ export class RepositoryBase {
             name: string,
             value: any
         },
+        rangeKey?: {
+            name: string,
+            value: any
+        },
         indexName?: string
     ): Promise<T[]> {
         const db = this.getDb()
@@ -99,7 +103,7 @@ export class RepositoryBase {
         const value = this.marshaller.marshallValue(primaryKey.value)
         if (!value) throw new Error(`Invalid primary key. ${JSON.stringify(primaryKey)}`)
 
-        var params: QueryInput = {
+        let params: QueryInput = {
             TableName: this.tableName,
             KeyConditionExpression: "#primaryKey = :primaryKeyValue",
             ExpressionAttributeNames: {
@@ -110,6 +114,14 @@ export class RepositoryBase {
             },
             IndexName: indexName
         };
+
+        if (rangeKey?.name && rangeKey?.value && params.ExpressionAttributeNames && params.ExpressionAttributeValues) {
+            params.KeyConditionExpression += " AND #rangeKey = :rangeKeyValue"
+            params.ExpressionAttributeNames["#rangeKey"] = rangeKey.name
+            params.ExpressionAttributeValues[":rangeKeyValue"] = this.marshaller.marshallValue(rangeKey.value) as any
+        }
+
+
         const result = await db.query(params).promise()
         const items = result.Items
         if (!items) return []
@@ -128,7 +140,7 @@ export class RepositoryBase {
     ) {
         const db = this.getDb()
 
-        var value = this.marshaller.marshallValue(primaryKey.value)
+        let value = this.marshaller.marshallValue(primaryKey.value)
         if (!value) throw new Error(`Invalid primary key. ${JSON.stringify(primaryKey)}`)
 
         const key: Key = {
@@ -144,7 +156,7 @@ export class RepositoryBase {
         const item = await db.getItem({
             TableName: this.tableName,
             Key: key,
-            ConsistentRead: true
+            ConsistentRead: true,
         }).promise()
 
         if (!item.Item) return null

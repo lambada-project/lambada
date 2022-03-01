@@ -9,7 +9,7 @@
 	},
 	"dependencies": {
 		"@aws/dynamodb-auto-marshaller": "^0.7.1",
-		"@lambada/utils": "~1.0.10",
+		"@lambada/utils": "~1.1.0",
 		"aws-sdk": "2.1009.0",
 		"uuid": "^3.4.0"
 	},
