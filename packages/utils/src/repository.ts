@@ -95,13 +95,20 @@ export class RepositoryBase {
         rangeKey?: {
             name: string,
             value: any
-        },
+        } | string,
         indexName?: string
     ): Promise<T[]> {
+
+        if (typeof rangeKey === 'string') {
+            indexName = rangeKey
+            rangeKey = undefined
+        }
+
         const db = this.getDb()
 
         const value = this.marshaller.marshallValue(primaryKey.value)
         if (!value) throw new Error(`Invalid primary key. ${JSON.stringify(primaryKey)}`)
+
 
         let params: QueryInput = {
             TableName: this.tableName,
