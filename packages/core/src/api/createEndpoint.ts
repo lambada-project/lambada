@@ -141,19 +141,18 @@ export const createEndpointSimpleCompat = ({
                 return {
                     statusCode: 500,
                     body: JSON.stringify({
-                        //TODO: LEGACY, MIGRATE TO ERROR OR ERRORS 
-                        message: ex.message ?? ex.errorMessage,
-                        code: ex.code ?? ex.errorCode,
-
+                        
                         error: {
                             message: ex.message ?? ex.errorMessage,
-                            code: ex.code ?? ex.errorCode
+                            code: ex.code ?? ex.errorCode,
+                            data: ex.data
                         },
 
                         errors: [
                             {
                                 message: ex.message ?? ex.errorMessage,
-                                code: ex.code ?? ex.errorCode
+                                code: ex.code ?? ex.errorCode,
+                                data: ex.data
                             }
                         ]
                     }),
