@@ -1,40 +1,34 @@
 {
-  "name": "@lambada/core",
-  "version": "1.0.0-preview-2",
-  "description": "",
-  "main": "dist/index.js",
-  "module": "dist/index.js",
-  "typings": "dist/index.d.ts",
-  "files": [
-    "dist"
-  ],
-  "publishConfig": {
-    "access": "public"
-  },
-  "scripts": {
-    "prebuild": "rimraf dist",
-    "build": "tsc",
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "author": "Juan C. Andreu",
-  "peerDependencies": {
-    "@aws/dynamodb-auto-marshaller": "^0.7.1",
-    "@pulumi/aws": "~4.23.0",
-    "@pulumi/awsx": "~0.33.0",
-    "@pulumi/pulumi": "~3.0.0",
-    "@lambada/utils": "~1.2.0",
-    "aws-sdk": "2.1009.0"
-  },
-  "devDependencies": {
-    "@aws/dynamodb-auto-marshaller": "^0.7.1",
-    "@lambada/utils": "~1.1.0",
-    "@pulumi/aws": "~4.23.0",
-    "@pulumi/awsx": "~0.33.0",
-    "@pulumi/pulumi": "~3.0.0",
-    "@types/node": "^12.20.46",
-    "aws-sdk": "2.1009.0",
-    "rimraf": "^3.0.2",
-    "typescript": "^4.5.5"
-  },
-  "gitHead": "714253c6ea32a35d689efe3040ad182306d20b67"
+	"name": "@lambada/core",
+	"version": "1.0.0-preview-2",
+	"description": "",
+	"main": "dist/index.js",
+	"module": "dist/index.js",
+	"typings": "dist/index.d.ts",
+	"files": [
+		"dist"
+	],
+	"publishConfig": {
+		"access": "public"
+	},
+	"author": "Juan C. Andreu",
+	"peerDependencies": {
+		"@aws/dynamodb-auto-marshaller": "^0.7.1",
+		"@lambada/utils": "~1.2.0",
+		"@pulumi/aws": "~4.23.0",
+		"@pulumi/awsx": "~0.33.0",
+		"@pulumi/pulumi": "~3.0.0",
+		"aws-sdk": "2.1009.0"
+	},
+	"devDependencies": {
+		"@aws/dynamodb-auto-marshaller": "^0.7.1",
+		"@lambada/utils": "~1.2.0",
+		"@pulumi/aws": "~4.23.0",
+		"@pulumi/awsx": "~0.33.0",
+		"@pulumi/pulumi": "~3.0.0",
+		"@types/node": "^12.20.46",
+		"rimraf": "^3.0.2",
+		"typescript": "^4.5.5"
+	},
+	"gitHead": "714253c6ea32a35d689efe3040ad182306d20b67"
 }
