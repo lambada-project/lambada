@@ -22,7 +22,7 @@
     "@pulumi/aws": "~4.23.0",
     "@pulumi/awsx": "~0.33.0",
     "@pulumi/pulumi": "~3.0.0",
-    "@lambada/utils": "~1.1.0",
+    "@lambada/utils": "~1.2.0",
     "aws-sdk": "2.1009.0"
   },
   "devDependencies": {
