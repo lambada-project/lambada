@@ -1,6 +1,6 @@
 {
 	"name": "@lambada/core",
-	"version": "1.0.1",
+	"version": "1.0.2",
 	"description": "",
 	"main": "dist/index.js",
 	"module": "dist/index.js",
@@ -12,6 +12,10 @@
 		"access": "public"
 	},
 	"author": "Juan C. Andreu",
+	"scripts": {
+		"prebuild": "rimraf dist",
+		"build": "tsc"
+	},
 	"peerDependencies": {
 		"@aws/dynamodb-auto-marshaller": "^0.7.1",
 		"@lambada/utils": "~1.2.0",
