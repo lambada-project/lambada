@@ -9,7 +9,7 @@ import { Route, StaticRoute } from "@pulumi/awsx/apigateway/api";
 //import { NotificationResult } from "../notifications";
 import { createCorsEndpoints } from "./createCorsEndpoints";
 import { LambadaResources } from "../context";
-import { createStaticEndpoint, EmbroideryApiEndpointCreator, LambadaEndpointCreator, LambadaProxyCreator, ProxyIntegrationArgs } from ".";
+import { createStaticEndpoint, EmbroideryApiEndpointCreator, LambadaCreatorTypes, LambadaEndpointCreator, LambadaProxyCreator, ProxyIntegrationArgs } from ".";
 import { createEndpointSimple, createEndpointSimpleCompat, LambadaEndpointArgs } from "./createEndpoint";
 import { createProxyIntegration, createProxyIntegrationCompat } from "./createProxyIntegration";
 
@@ -23,7 +23,7 @@ type CreateApiArgs = {
     api?: {
         path: string,
         type: `EDGE` | `REGIONAL` | `PRIVATE`
-        apiEndpoints: LambadaCreator[],
+        apiEndpoints: (LambadaCreator)[],
         cors?: {
             origins: string[]
         }
@@ -69,6 +69,8 @@ export default function createApi(
 
     const lambadaEndpoints = api?.apiEndpoints ? api.apiEndpoints
         .map(create => create(context))
+        .filter(x => !!x)
+        .map(x => x as NonNullable<LambadaCreatorTypes>)
         .map(x => IsCallback(x) ? createEndpointSimpleCompat(x, context) : x)
         .map(x => IsProxy(x) ? createProxyIntegrationCompat(x, context) : x)
         : []
