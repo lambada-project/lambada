@@ -30,7 +30,7 @@ export const createCorsEndpoints = (endpoints: EmbroideryEventHandlerRoute[], em
 
     if (uniquePaths.length == 0) return []
 
-    const sharedCorsRole = new aws.iam.Role(`cors-shared-role-${embroideryContext.environment}`, {
+    const sharedCorsRole = new aws.iam.Role(`${embroideryContext.projectName}-cors-shared-role-${embroideryContext.environment}`, {
         assumeRolePolicy: lambdaAsumeRole,
     })
 
