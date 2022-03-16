@@ -1,5 +1,5 @@
 {
-	"name": "Node.js",
+	"name": "Lambada Project",
 	"build": {
 		"dockerfile": "Dockerfile",
 		// Update 'VARIANT' to pick a Node version: 10, 12, 14

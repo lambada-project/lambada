@@ -183,7 +183,7 @@ export const createEndpointSimpleCompat = ({
 
 export const createEndpoint = (
     name: string,
-    embroideryContext: LambadaResources,
+    context: LambadaResources,
     path: string,
     method: "GET" | "POST" | "DELETE" | "OPTIONS",
     callbackDefinition: Callback<Request, Response> | FolderLambda,
@@ -196,7 +196,7 @@ export const createEndpoint = (
     options?: LambdaOptions
 ): EmbroideryEventHandlerRoute => {
 
-    var environment = embroideryContext.environment
+    var environment = context.environment
     resources = resources || []
 
     if (!policyStatements) {
@@ -223,10 +223,10 @@ export const createEndpoint = (
     //     }
     // }
 
-    if (embroideryContext.kmsKeys && embroideryContext.kmsKeys.dynamodb) {
+    if (context.kmsKeys && context.kmsKeys.dynamodb) {
         resources.push(
             {
-                kmsKey: embroideryContext.kmsKeys.dynamodb,
+                kmsKey: context.kmsKeys.dynamodb,
                 access: [
                     "kms:Encrypt",
                     "kms:Decrypt",
@@ -237,7 +237,7 @@ export const createEndpoint = (
             })
     }
 
-    const envVars = { ...(embroideryContext.environmentVariables || {}), ...(environmentVariables || {}) }
+    const envVars = { ...(context.environmentVariables || {}), ...(environmentVariables || {}) }
 
     const callback = createLambda<Request, Response>(
         name,
@@ -247,20 +247,21 @@ export const createEndpoint = (
         envVars,
         resources,
         undefined,
-        options
+        options,
+        context.tags
     )
 
     let auth = []
     if (lambdaAuthorizer)
         auth.push(lambdaAuthorizer)
-    if (embroideryContext?.api?.auth?.useCognitoAuthorizer === true || enableAuth)
-        auth = [...auth, ...(embroideryContext.authorizers ?? [])]
+    if (context?.api?.auth?.useCognitoAuthorizer === true || enableAuth)
+        auth = [...auth, ...(context.authorizers ?? [])]
 
     return {
-        path: `${embroideryContext.api?.apiPath ?? ''}${path}`,
+        path: `${context.api?.apiPath ?? ''}${path}`,
         method: method,
         authorizers: auth,
         eventHandler: callback,
-        apiKeyRequired: embroideryContext?.api?.auth?.useApiKey === true || apiKeyRequired
+        apiKeyRequired: context?.api?.auth?.useApiKey === true || apiKeyRequired
     }
 }

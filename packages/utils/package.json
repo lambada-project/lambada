@@ -27,6 +27,7 @@
     "ts-jest": "^26.5.5"
   },
   "dependencies": {
+    "aws-sdk": "~2.1009.0",
     "@aws/dynamodb-auto-marshaller": "0.7.1"
   },
   "description": ""

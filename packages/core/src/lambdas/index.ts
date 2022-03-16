@@ -71,7 +71,8 @@ export const createLambda = <E, R>(
     environmentVariables: EmbroideryEnvironmentVariables,
     resources: LambdaResource[],
     overrideRole?: aws.iam.Role,
-    options?: LambdaOptions
+    options?: LambdaOptions,
+    tags?: pulumi.Input<{ [key: string]: pulumi.Input<string> }>
 ): aws.lambda.EventHandler<E, R> => {
 
     let lambdaRole = overrideRole
@@ -213,6 +214,7 @@ export const createLambda = <E, R>(
     const timeout = options?.timeout ?? 90
     const reservedConcurrentExecutions = options?.reservedConcurrentExecutions ?? -1
 
+
     if (typeof definition === 'function') {
         const callbackDefinition = definition as Callback<E, R>
         return new aws.lambda.CallbackFunction(`${name}-${environment}`, {
@@ -223,6 +225,7 @@ export const createLambda = <E, R>(
             memorySize: memorySize,
             timeout: timeout,
             reservedConcurrentExecutions: reservedConcurrentExecutions,
+            tags: tags
         })
     }
     else if ((definition as FolderLambda).functionFolder) {
@@ -245,7 +248,8 @@ export const createLambda = <E, R>(
                 role: lambdaRole.arn,
                 layers: [],
                 environment: functionEnvironment, // TODO:
-                reservedConcurrentExecutions: reservedConcurrentExecutions
+                reservedConcurrentExecutions: reservedConcurrentExecutions,
+                tags: tags
             });
         }
         else {
@@ -268,7 +272,7 @@ export const createLambdaRoleAndPolicies = (name: string, environment: string, p
     if (!policyStatements) policyStatements = []
 
     const role = new aws.iam.Role(`${dashedNamed}-role`, {
-        name:`${dashedNamed}-role`,
+        name: `${dashedNamed}-role`,
         assumeRolePolicy: lambdaAsumeRole,
     })
 

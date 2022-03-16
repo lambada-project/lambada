@@ -63,7 +63,8 @@ export const subscribeToTopic = (context: LambadaResources, topic: MessagingResu
         envVars,
         subscription.resources,
         undefined,
-        options
+        options,
+        context.tags
     )
     if (topic.awsTopic)
         return topic.awsTopic.onEvent(`${topicName}_${subscription.name}_${environment}`, callback)

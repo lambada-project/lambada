@@ -20,7 +20,13 @@ export type EmbroideryMessages = { [id: string]: MessageDefinition }
 export type EmbroideryTopicEventSubscription = TopicEventSubscription
 export type EmbroiderySubscriptionCreator = (context: LambadaResources) => EmbroideryTopicEventSubscription
 
-export const createMessaging = (environment: string, messages?: EmbroideryMessages, handlers?: EmbroiderySubscriptionCreator[], messagesRef?: EmbroideryMessages): MessagingResult => {
+export const createMessaging = (
+    environment: string,
+    messages?: EmbroideryMessages,
+    handlers?: EmbroiderySubscriptionCreator[],
+    messagesRef?: EmbroideryMessages,
+    tags?: pulumi.Input<{ [key: string]: pulumi.Input<string> }>
+): MessagingResult => {
 
     const result: MessagingResult = {}
 
@@ -30,9 +36,7 @@ export const createMessaging = (environment: string, messages?: EmbroideryMessag
             const name = `${message.name}-${environment}`
             const topic = new aws.sns.Topic(message.name, {
                 name: name,
-                tags: {
-                    Environment: environment
-                }
+                tags: tags
             });
 
             result[key] = {

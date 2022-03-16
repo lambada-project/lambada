@@ -1,5 +1,4 @@
 import { DefaultMarshaller, IMarshaller, RepositoryBase } from './repository'
-import * as AWS from 'aws-sdk'
 
 describe("Repository", () => {
     test("Marshaller", async () => {

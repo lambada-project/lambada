@@ -77,6 +77,11 @@ export type EmbroideryEnvironmentVariables = pulumi.Input<{
 }> | undefined
 
 export const run = (projectName: string, environment: string, args: EmbroideryRunArguments) => {
+    
+    const tags = {
+        "Lambada:Project": projectName,
+        "Lambada:Environment": environment
+    }
 
     const encryptionKeys = args.keys ? CreateKMSKeys(projectName, environment, args.keys) : {}
     const secrets = args.secrets ? createSecrets(projectName, environment, args.secrets) : {}
@@ -96,7 +101,7 @@ export const run = (projectName: string, environment: string, args: EmbroideryRu
     const cognitoPoolId = isPool(pool) ? pool.id : undefined
 
 
-    const messaging = createMessaging(environment, args.messages, args.messageHandlerDefinitions, args.messagesRef)
+    const messaging = createMessaging(environment, args.messages, args.messageHandlerDefinitions, args.messagesRef, tags)
     const notifications = createNotifications(projectName, environment, args?.notifications)
 
     const stageName = 'app'
@@ -129,7 +134,8 @@ export const run = (projectName: string, environment: string, args: EmbroideryRu
         environment: environment,
         kmsKeys: encryptionKeys,
         environmentVariables: args.environmentVariables || {},
-        secrets: secrets
+        secrets: secrets,
+        tags: tags
     }
 
     // TODO: Move to file
