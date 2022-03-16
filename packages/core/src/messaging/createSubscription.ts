@@ -3,7 +3,6 @@ import { createLambda, LambdaOptions, LambdaResource } from '../lambdas'
 import { MessagingContext, MessagingResultItem } from ".";
 import { Callback } from '@pulumi/aws/lambda';
 import { TopicEvent, TopicEventSubscription } from "@pulumi/aws/sns";
-import { String } from "aws-sdk/clients/cloudsearch";
 import { LambadaResources, EmbroideryEnvironmentVariables } from "..";
 
 export type SubscriptionEvent = TopicEvent
