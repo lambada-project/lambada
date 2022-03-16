@@ -188,7 +188,7 @@ export const createLambda = <E, R>(
             )
         }
         else {
-            throw 'Access must have the resource, eg. topic, table, messaging, etc. ' + JSON.stringify(access)
+            throw name + '-' + environment + ': Access must have the resource, eg. topic, table, messaging, etc. ' + JSON.stringify(access);
         }
     }
 
