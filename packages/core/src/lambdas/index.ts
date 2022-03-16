@@ -249,7 +249,7 @@ export const createLambda = <E, R>(
             });
         }
         else {
-            throw Error(`No role for the lambda ${name} was specifed`)
+            throw Error(`No role for the lambda ${name} was specified`)
         }
     }
     else {
