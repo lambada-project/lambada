@@ -139,7 +139,7 @@ export const createEndpointSimpleCompat = ({
             const showErrorDetails = ex && (ex.showError || process.env['LAMBADA_SHOW_ALL_ERRORS'] == 'true')
             if (showErrorDetails) {
                 return {
-                    statusCode: 500,
+                    statusCode: ex.statusCode ?? 500,
                     body: JSON.stringify({
                         
                         error: {
