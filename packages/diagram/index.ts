@@ -13,33 +13,47 @@ const main = async () => {
     const lambdas = await getAllLambdas()
     const topics = await getAllSNSTopics()
     const subscriptions = await getSubscriptions()
-    const tags = await getAllTags("Environment", "dev")
+    const tags = await getAllTags("Lambada:Environment", "dev")
 
 
     const events = await getEvents(tags, lambdas, topics, subscriptions)
-
+    // console.log(JSON.stringify(events, undefined, 2))
+    // console.log(topics.filter(x => x.TopicArn?.toLowerCase().includes('matiClientWebhookMock'.toLowerCase())))
+    // console.log(lambdas.filter(x => x.FunctionArn?.toLowerCase().includes('matiClientWebhookMock'.toLowerCase())))
     generateDiagramData(events)
 }
 
 main()
 
-type Event = { subscription: Subscription, handler: FunctionConfiguration, sender: string }
+type Event = { subscription: Subscription, handler: FunctionConfiguration, sender: string, receiver: string, topic: Topic }
+
 function generateDiagramData(events: Event[]) {
     let data = ''
     for (const e of events) {
-        data+= `${e.sender}->${e.handler.FunctionName} ${e.subscription.TopicArn}\n`;
+
+        const receiver = e.receiver //h..find(x => x.ResourceARN?.toLowerCase() == subscription.TopicArn?.toLowerCase())?.Tags?.find(x => x.Key == "Lambada:Project")?.Value,
+        const topic = e.topic.TopicArn?.split(':')[e.topic.TopicArn?.split(':').length - 1]
+        const handler = e.handler.FunctionName?.split(':')[e.handler.FunctionName?.split(':').length - 1]
+        data += `${e.sender}->${receiver}:${topic} ${handler}\n`;
+
     }
     console.log(data)
 }
 
 function getEvents(tags: ResourceTagMapping[], lambdas: FunctionConfiguration[], topics: Topic[], subscriptions: Subscription[]): Event[] {
+    const findTag = (arn: string | undefined) => tags.find(x => x.ResourceARN?.toLowerCase() === arn?.toLowerCase())
     return subscriptions
-        .map(subscription => ({
-            subscription: subscription.TopicArn?.includes('lockReverted-dev') ? subscription : undefined,
-            handler: lambdas.find(lambda => lambda.FunctionArn == subscription.Endpoint),
-            sender: 'SOMEONE'
-        }))
-        .filter((x): x is Event => x.subscription !== undefined && x.handler !== undefined)
+        .map(subscription => {
+            const lambda = lambdas.find(lambda => lambda.FunctionArn?.toLowerCase() == subscription.Endpoint?.toLowerCase())
+            return {
+                subscription: subscription,
+                topic: topics.find(x => x.TopicArn?.toLowerCase() === subscription.TopicArn?.toLowerCase()),
+                handler: lambda,
+                sender: findTag(subscription.TopicArn)?.Tags?.find(x => x.Key == "Lambada:Project")?.Value,
+                receiver: findTag(lambda?.FunctionArn)?.Tags?.find(x => x.Key == "Lambada:Project")?.Value,
+            }
+        })
+        .filter((x): x is Event => x.subscription !== undefined && x.handler !== undefined && x.sender !== undefined)
 }
 
 
