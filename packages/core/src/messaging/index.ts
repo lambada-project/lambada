@@ -14,46 +14,46 @@ export type MessageDefinition = {
     envKeyName: string
     deliveryPolicy?: {
         http?: {
-            "defaultHealthyRetryPolicy"?: {
+            defaultHealthyRetryPolicy?: {
                 /*
                  * The minimum delay for a retry. Unit: Seconds
                  */
-                "minDelayTarget"?: 10,
+                minDelayTarget?: number,
                 /*
                 * The maximum delay for a retry. Unit: Seconds
                 */
-                "maxDelayTarget"?: 600,
+                maxDelayTarget?: number,
                 /*
                 *  The total number of retries, including immediate, pre-backoff, backoff, and post-backoff retries
                 */
-                "numRetries"?: 10,
+                numRetries?: number,
                 /*
                 * The number of retries in the post-backoff phase, with the maximum delay between them.	
                 */
-                "numMaxDelayRetries"?: 0,
+                numMaxDelayRetries?: number,
                 /*
                 * The number of retries to be done immediately, with no delay between them.	
                 */
-                "numNoDelayRetries"?: 0,
+                numNoDelayRetries?: number,
                 /*
                 * The number of retries in the pre-backoff phase, with the specified minimum delay between them.
                 */
-                "numMinDelayRetries"?: 0,
+                numMinDelayRetries?: number,
                 /*
                 * The model for backoff between retries. Values: arithmetic, exponential, geometric, linear
                 */
-                "backoffFunction"?: "linear"
+                backoffFunction?: "linear" | "arithmetic" | "exponential" | "geometric"
 
             },
             /**
              * Apply this policy to all subscriptions, even if they have their own policies.
              */
-            "disableSubscriptionOverrides"?: false,
-            "defaultThrottlePolicy?": {
+            disableSubscriptionOverrides?: false,
+            defaultThrottlePolicy?: {
                 /**
                  * The maximum number of deliveries per second, per subscription.	
                  */
-                "maxReceivesPerSecond"?: 1
+                maxReceivesPerSecond?: 1
             }
         }
     }
