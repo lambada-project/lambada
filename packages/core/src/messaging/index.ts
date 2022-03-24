@@ -15,31 +15,31 @@ export type MessageDefinition = {
     deliveryPolicy?: {
         http?: {
             defaultHealthyRetryPolicy?: {
-                /*
+                /**
                  * The minimum delay for a retry. Unit: Seconds
                  */
                 minDelayTarget?: number,
-                /*
+                /**
                 * The maximum delay for a retry. Unit: Seconds
                 */
                 maxDelayTarget?: number,
-                /*
+                /**
                 *  The total number of retries, including immediate, pre-backoff, backoff, and post-backoff retries
                 */
                 numRetries?: number,
-                /*
+                /**
                 * The number of retries in the post-backoff phase, with the maximum delay between them.	
                 */
                 numMaxDelayRetries?: number,
-                /*
+                /**
                 * The number of retries to be done immediately, with no delay between them.	
                 */
                 numNoDelayRetries?: number,
-                /*
+                /**
                 * The number of retries in the pre-backoff phase, with the specified minimum delay between them.
                 */
                 numMinDelayRetries?: number,
-                /*
+                /**
                 * The model for backoff between retries. Values: arithmetic, exponential, geometric, linear
                 */
                 backoffFunction?: "linear" | "arithmetic" | "exponential" | "geometric"
