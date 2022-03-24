@@ -64,14 +64,16 @@ export type EmbroideryMessages = { [id: string]: MessageDefinition }
 export type EmbroideryTopicEventSubscription = TopicEventSubscription
 export type EmbroiderySubscriptionCreator = (context: LambadaResources) => EmbroideryTopicEventSubscription
 
-const tryParse = (value: any): any => {
+const tryParse = (value: any) => {
+    if (!value) return undefined
     try {
-        return JSON.parse(value)
+        return JSON.stringify(value);
     }
     catch (e) {
-        return undefined
+        console.error(`Failed to parse delivery policy. ${(e as any)?.message}. ${JSON.stringify(value, undefined, 2)}`);
+        return undefined;
     }
-}
+};
 
 export const createMessaging = (
     environment: string,
