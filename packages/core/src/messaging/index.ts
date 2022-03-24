@@ -12,7 +12,51 @@ export * from './createSubscription'
 export type MessageDefinition = {
     name: string
     envKeyName: string
-    // data?: (string | object)[]
+    deliveryPolicy?: {
+        http?: {
+            "defaultHealthyRetryPolicy"?: {
+                /*
+                 * The minimum delay for a retry. Unit: Seconds
+                 */
+                "minDelayTarget"?: 10,
+                /*
+                * The maximum delay for a retry. Unit: Seconds
+                */
+                "maxDelayTarget"?: 600,
+                /*
+                *  The total number of retries, including immediate, pre-backoff, backoff, and post-backoff retries
+                */
+                "numRetries"?: 10,
+                /*
+                * The number of retries in the post-backoff phase, with the maximum delay between them.	
+                */
+                "numMaxDelayRetries"?: 0,
+                /*
+                * The number of retries to be done immediately, with no delay between them.	
+                */
+                "numNoDelayRetries"?: 0,
+                /*
+                * The number of retries in the pre-backoff phase, with the specified minimum delay between them.
+                */
+                "numMinDelayRetries"?: 0,
+                /*
+                * The model for backoff between retries. Values: arithmetic, exponential, geometric, linear
+                */
+                "backoffFunction"?: "linear"
+
+            },
+            /**
+             * Apply this policy to all subscriptions, even if they have their own policies.
+             */
+            "disableSubscriptionOverrides"?: false,
+            "defaultThrottlePolicy?": {
+                /**
+                 * The maximum number of deliveries per second, per subscription.	
+                 */
+                "maxReceivesPerSecond"?: 1
+            }
+        }
+    }
 }
 
 export type EmbroideryMessages = { [id: string]: MessageDefinition }
@@ -20,7 +64,21 @@ export type EmbroideryMessages = { [id: string]: MessageDefinition }
 export type EmbroideryTopicEventSubscription = TopicEventSubscription
 export type EmbroiderySubscriptionCreator = (context: LambadaResources) => EmbroideryTopicEventSubscription
 
-export const createMessaging = (environment: string, messages?: EmbroideryMessages, handlers?: EmbroiderySubscriptionCreator[], messagesRef?: EmbroideryMessages): MessagingResult => {
+const tryParse = (value: any): any => {
+    try {
+        return JSON.parse(value)
+    }
+    catch (e) {
+        return undefined
+    }
+}
+
+export const createMessaging = (
+    environment: string,
+    messages?: EmbroideryMessages,
+    handlers?: EmbroiderySubscriptionCreator[],
+    messagesRef?: EmbroideryMessages
+): MessagingResult => {
 
     const result: MessagingResult = {}
 
@@ -30,6 +88,7 @@ export const createMessaging = (environment: string, messages?: EmbroideryMessag
             const name = `${message.name}-${environment}`
             const topic = new aws.sns.Topic(message.name, {
                 name: name,
+                deliveryPolicy: tryParse(message.deliveryPolicy),
                 tags: {
                     Environment: environment
                 }
