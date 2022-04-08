@@ -1,7 +1,3 @@
-export function replaceAll(input: string, search: string, replace: string) {
-    return input.split(search).join(replace);
-}
-
 const replaceList: {
     [key: string]: string
 } = {
@@ -14,14 +10,11 @@ const replaceList: {
 
 
 export function getNameFromPath(path: string) {
-    if (typeof path === 'undefined') {
-        throw new Error('getNameFromPath argument "path" is undefined')
-    }
-    path = path.startsWith('/') ? path.substr(1) : path
-
-    for (const item of Object.keys(replaceList)) {
-        path = replaceAll(path, item, replaceList[item])
+    if (typeof path !== 'string') {
+        throw new Error('getNameFromPath argument "path" must be a string')
     }
 
-    return replaceAll(replaceAll(replaceAll(path, "{", ""), "}", ""), "/", "-");
+    const regexp = new RegExp(`(^[\/])|${Object.keys(replaceList).join('|')}`, 'g')
+
+    return path.replace(regexp, (dict, initSlash) => initSlash ? '' : replaceList[dict])
 }

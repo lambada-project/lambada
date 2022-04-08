@@ -12,7 +12,7 @@ import { NotificationResult } from '../notifications';
 import { EmbroideryEnvironmentVariables } from '..';
 //import { NotificationResult, NotificationResultItem } from '../notifications';
 
-export const lambdaAsumeRole: PolicyDocument = {
+export const lambdaAssumeRole: PolicyDocument = {
     Version: "2012-10-17",
     Statement: [
         {
@@ -249,7 +249,7 @@ export const createLambda = <E, R>(
             });
         }
         else {
-            throw Error(`No role for the lambda ${name} was specifed`)
+            throw Error(`No role for the lambda ${name} was specified`)
         }
     }
     else {
@@ -269,7 +269,7 @@ export const createLambdaRoleAndPolicies = (name: string, environment: string, p
 
     const role = new aws.iam.Role(`${dashedNamed}-role`, {
         name:`${dashedNamed}-role`,
-        assumeRolePolicy: lambdaAsumeRole,
+        assumeRolePolicy: lambdaAssumeRole,
     })
 
     const policy = new aws.iam.Policy(`${dashedNamed}-policy`, {
