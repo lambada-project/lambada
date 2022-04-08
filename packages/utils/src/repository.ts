@@ -25,18 +25,22 @@ export class RepositoryBase {
 
     protected readonly tableName: string
 
+    protected clientConfig?: AWS.DynamoDB.ClientConfiguration
+
     constructor(protected readonly table: {
         envKeyName: string
         name: string
         primaryKey: string
         rangeKey?: string
-    }, customMarshaller?: IMarshaller) {
+    }, customMarshaller?: IMarshaller
+    , clientConfig?: AWS.DynamoDB.ClientConfiguration) {
         this.tableName = process.env[this.table.envKeyName] ?? ''
         if (customMarshaller) {
             this.marshaller = customMarshaller
         } else {
             this.marshaller = DefaultMarshaller
         }
+        this.clientConfig = clientConfig
     }
 
     /**
@@ -47,7 +51,7 @@ export class RepositoryBase {
     protected getDb() {
         if (!this.tableName || this.tableName.length < 3) //AWS rule
             throw new Error(`Could not find env var: ${this.table.envKeyName}`)
-        return new AWS.DynamoDB()
+        return new AWS.DynamoDB(this.clientConfig)
     }
 
     protected async scan<T>(args?: {
