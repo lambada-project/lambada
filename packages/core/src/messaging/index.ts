@@ -67,7 +67,7 @@ export type EmbroiderySubscriptionCreator = (context: LambadaResources) => Embro
 const tryParse = (value: any) => {
     if (!value) return undefined
     try {
-        return JSON.stringify(value, undefined, 2));
+        return JSON.stringify(value, undefined, 2);
     }
     catch (e) {
         console.error(`Failed to parse delivery policy. ${(e as any)?.message}. ${JSON.stringify(value, undefined, 2)}`);
