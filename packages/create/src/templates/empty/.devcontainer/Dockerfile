@@ -2,7 +2,7 @@ ARG VARIANT="14-buster"
 FROM mcr.microsoft.com/vscode/devcontainers/javascript-node:0-${VARIANT}
 
 # PULUMI CLI
-RUN curl -fsSL https://get.pulumi.com | sudo sh -s -- --version 3.24.1
+RUN curl -fsSL https://get.pulumi.com | sudo sh -s -- --version 3.26.1
 RUN mv ~/.pulumi /pulumi
 ENV PATH "/pulumi/bin:${PATH}"
 
