@@ -1,7 +1,7 @@
 {
     "compilerOptions": {
         "strict": true,
-        "target": "ES6",
+        "target": "es2019",
         "module": "commonjs",
         "noEmit": true,
         "noImplicitAny": true,

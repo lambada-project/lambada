@@ -10,6 +10,7 @@ import { SecretResultItem, SecurityResultItem } from '../security';
 import { MessagingResultItem } from '../messaging';
 import { NotificationResult } from '../notifications';
 import { EmbroideryEnvironmentVariables } from '..';
+import { enums } from '@pulumi/aws/types';
 //import { NotificationResult, NotificationResultItem } from '../notifications';
 
 export const lambdaAsumeRole: PolicyDocument = {
@@ -212,6 +213,9 @@ export const createLambda = <E, R>(
     const memorySize = options?.memorySize ?? 384
     const timeout = options?.timeout ?? 90
     const reservedConcurrentExecutions = options?.reservedConcurrentExecutions ?? -1
+    
+    // Cannot make it a param because its not an input
+    const runtime = aws.lambda.Runtime.NodeJS14dX
 
     if (typeof definition === 'function') {
         const callbackDefinition = definition as Callback<E, R>
@@ -223,6 +227,7 @@ export const createLambda = <E, R>(
             memorySize: memorySize,
             timeout: timeout,
             reservedConcurrentExecutions: reservedConcurrentExecutions,
+            runtime: runtime,
         })
     }
     else if ((definition as FolderLambda).functionFolder) {
@@ -230,7 +235,7 @@ export const createLambda = <E, R>(
             const handlerInfo = (definition as FolderLambda)
 
             return new aws.lambda.Function(`${name}-${environment}`, {
-                runtime: aws.lambda.Runtime.NodeJS12dX,
+                runtime: runtime,
                 code: new pulumi.asset.AssetArchive({
                     ".": new pulumi.asset.FileArchive(
                         handlerInfo.functionFolder
@@ -268,7 +273,7 @@ export const createLambdaRoleAndPolicies = (name: string, environment: string, p
     if (!policyStatements) policyStatements = []
 
     const role = new aws.iam.Role(`${dashedNamed}-role`, {
-        name:`${dashedNamed}-role`,
+        name: `${dashedNamed}-role`,
         assumeRolePolicy: lambdaAsumeRole,
     })
 
