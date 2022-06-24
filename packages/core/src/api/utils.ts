@@ -23,5 +23,6 @@ export function getNameFromPath(path: string) {
         path = replaceAll(path, item, replaceList[item])
     }
 
-    return replaceAll(replaceAll(replaceAll(path, "{", ""), "}", ""), "/", "-");
+    const result = replaceAll(replaceAll(replaceAll(path, "{", ""), "}", ""), "/", "-");
+    return result.slice(0, 64 - 7) //7 random characters at the end.
 }
