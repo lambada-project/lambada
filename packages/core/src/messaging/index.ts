@@ -131,9 +131,21 @@ export const createMessaging = (
 
 function findTopic(name: string, environment: string): pulumi.Output<TopicReference> {
     const topicName = `${name}-${environment}`
-    return pulumi.output(aws.sns.getTopic({
-        name: topicName,
-    }, { async: true }));
+
+    const getTopic = async (name: string) => {
+        try {
+            const topic = await aws.sns.getTopic({
+                name: name,
+            }, { async: true })
+            return topic
+        } catch (e) {
+            console.error('Failed to get topic', name);
+            throw e
+        }
+
+    }
+
+    return pulumi.output(getTopic(topicName));
 }
 
 type TopicReference = {

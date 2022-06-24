@@ -35,7 +35,8 @@ export const createCorsEndpoints = (endpoints: EmbroideryEventHandlerRoute[], em
     })
 
     const corsEndpoints: EventHandlerRoute[] = uniquePaths.map(path => {
-        const name = getNameFromPath(path, 64 - 7 - 5)  //7 random characters at the end. plus "cors-"
+        //7 random characters at the end. minus "cors-", minus environment name, minus 2 separators
+        const name = getNameFromPath(path, 64 - 7 - 5 - embroideryContext.environment.length - 2) 
         const callback = async (req: Request): Promise<Response> => {
             return {
                 statusCode: 200,
