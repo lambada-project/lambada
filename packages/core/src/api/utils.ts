@@ -13,7 +13,7 @@ const replaceList: {
 }
 
 
-export function getNameFromPath(path: string) {
+export function getNameFromPath(path: string, maxLength?: number): string {
     if (typeof path === 'undefined') {
         throw new Error('getNameFromPath argument "path" is undefined')
     }
@@ -24,5 +24,5 @@ export function getNameFromPath(path: string) {
     }
 
     const result = replaceAll(replaceAll(replaceAll(path, "{", ""), "}", ""), "/", "-");
-    return result.slice(0, 64 - 7) //7 random characters at the end.
+    return maxLength ? result.slice(0, maxLength) : result
 }
