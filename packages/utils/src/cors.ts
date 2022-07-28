@@ -9,6 +9,7 @@ export const getCorsHeaders = (domainName?: string, origins?: string[]) => {
     return {
         "Access-Control-Allow-Headers": "*",
         "Access-Control-Allow-Origin": origin,
-        "Access-Control-Allow-Methods": "*"
+        "Access-Control-Allow-Methods": "*",
+        "Access-Control-Max-Age": '86400'
     }
 }
