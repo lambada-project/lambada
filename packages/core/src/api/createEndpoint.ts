@@ -118,7 +118,13 @@ export const createEndpointSimpleCompat = ({
             })
 
             if (isResponse(result)) {
+                
                 const resultTyped = result as any
+                
+                if(typeof resultTyped.body !== 'string' ){
+                    resultTyped.body = JSON.stringify(resultTyped.body)
+                }
+
                 return {
                     ...resultTyped,
                     headers: {
