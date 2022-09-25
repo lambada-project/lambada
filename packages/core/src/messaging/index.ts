@@ -59,10 +59,10 @@ export type MessageDefinition = {
     }
 }
 
-export type EmbroideryMessages = { [id: string]: MessageDefinition }
+export type LambadaMessages = { [id: string]: MessageDefinition }
 
-export type EmbroideryTopicEventSubscription = TopicEventSubscription
-export type EmbroiderySubscriptionCreator = (context: LambadaResources) => EmbroideryTopicEventSubscription
+export type LambadaTopicEventSubscription = TopicEventSubscription
+export type LambadaSubscriptionCreator = (context: LambadaResources) => LambadaTopicEventSubscription
 
 const tryParse = (value: any) => {
     if (!value) return undefined
@@ -77,9 +77,8 @@ const tryParse = (value: any) => {
 
 export const createMessaging = (
     environment: string,
-    messages?: EmbroideryMessages,
-    handlers?: EmbroiderySubscriptionCreator[],
-    messagesRef?: EmbroideryMessages
+    messages?: LambadaMessages,
+    messagesRef?: LambadaMessages
 ): MessagingResult => {
 
     const result: MessagingResult = {}

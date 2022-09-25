@@ -8,7 +8,7 @@ import { LambadaResources } from './context'
 
 // import createUserPool from './auth'
 // import createApi from './api/createApi'
-import { createMessaging, EmbroideryMessages, EmbroiderySubscriptionCreator } from './messaging'
+import { createMessaging, LambadaMessages, LambadaSubscriptionCreator } from './messaging'
 import createNotifications, { NotificationConfig } from './notifications'
 import { EmbroideryTables, createDynamoDbTables } from './database'
 import { CreateKMSKeys, createSecrets, EmbroideryEncryptionKeys, EmbroiderySecrets } from "./security";
@@ -16,6 +16,8 @@ import { createOpenApiDocumentEndpoint } from "./api/openApiDocument";
 import { UserPool } from "@pulumi/aws/cognito/userPool";
 import createUserPool from "./auth";
 import { CognitoAuthorizer } from "@pulumi/awsx/apigateway";
+import { createQueues, LambadaQueues, LambadaQueueSubscriptionCreator } from "./queue";
+import { createQueueHandler } from "./queue/createQueueHandler";
 
 export * from './context'
 export * from './api/index'
@@ -24,7 +26,7 @@ export * from './test_utils'
 export * from './messaging'
 export * from './security'
 
-type EmbroideryRunArguments = {
+type LambadaRunArguments = {
     gatewayType?: 'EDGE' | 'REGIONAL' | 'PRIVATE'
     generateOpenAPIDocument?: boolean
     cdn?: {
@@ -42,16 +44,23 @@ type EmbroideryRunArguments = {
         origins: string[]
     },
     staticSiteLocalPath?: string
+
     tablePrefix?: string
     /** Tables to create */
     tables?: EmbroideryTables
     /** Referenced tables, does not create anything */
     tablesRef?: EmbroideryTables
+
     /** Topics to create */
-    messages?: EmbroideryMessages,
+    messages?: LambadaMessages,
     /** Referenced topics, does not create anything */
-    messagesRef?: EmbroideryMessages,
-    messageHandlerDefinitions?: EmbroiderySubscriptionCreator[],
+    messagesRef?: LambadaMessages,
+    messageHandlerDefinitions?: LambadaSubscriptionCreator[],
+
+    queues?: LambadaQueues,
+    queuesRef?: LambadaQueues,
+    queueHandlerDefinitions?: LambadaQueueSubscriptionCreator[]
+
     environmentVariables?: EmbroideryEnvironmentVariables,
     secrets?: EmbroiderySecrets
     keys?: EmbroideryEncryptionKeys
@@ -76,7 +85,7 @@ export type EmbroideryEnvironmentVariables = pulumi.Input<{
     [key: string]: pulumi.Input<string>;
 }> | undefined
 
-export const run = (projectName: string, environment: string, args: EmbroideryRunArguments) => {
+export const run = (projectName: string, environment: string, args: LambadaRunArguments) => {
 
     const encryptionKeys = args.keys ? CreateKMSKeys(projectName, environment, args.keys) : {}
     const secrets = args.secrets ? createSecrets(projectName, environment, args.secrets) : {}
@@ -96,7 +105,8 @@ export const run = (projectName: string, environment: string, args: EmbroideryRu
     const cognitoPoolId = isPool(pool) ? pool.id : undefined
 
 
-    const messaging = createMessaging(environment, args.messages, args.messageHandlerDefinitions, args.messagesRef)
+    const messaging = createMessaging(environment, args.messages, args.messagesRef)
+    const queues = createQueues(environment, args.queues, args.queuesRef)
     const notifications = createNotifications(projectName, environment, args?.notifications)
 
     const stageName = 'app'
@@ -116,7 +126,7 @@ export const run = (projectName: string, environment: string, args: EmbroideryRu
     const authorizers: CognitoAuthorizer[] = authorizerProviderARNs.length > 0 ? [authorizer] : [];
 
     // TODO: option to add projectName as prefix to all functions
-    const embroideryContext: LambadaResources = {
+    const lambadaContext: LambadaResources = {
         projectName: projectName,
         api: apiPath ? {
             apiPath: apiPath,
@@ -124,6 +134,7 @@ export const run = (projectName: string, environment: string, args: EmbroideryRu
         } : undefined,
         authorizers: authorizers,
         messaging: messaging,
+        queues: queues,
         notifications: notifications, // TODO: 
         databases: databases,
         environment: environment,
@@ -132,10 +143,15 @@ export const run = (projectName: string, environment: string, args: EmbroideryRu
         secrets: secrets
     }
 
-    // TODO: Move to file
     if (args.messageHandlerDefinitions) {
         for (const handler of args.messageHandlerDefinitions) {
-            handler(embroideryContext)
+            handler(lambadaContext)
+        }
+    }
+
+    if (args.queueHandlerDefinitions) {
+        for (const handler of args.queueHandlerDefinitions) {
+            createQueueHandler(lambadaContext, handler(lambadaContext))
         }
     }
 
@@ -153,7 +169,7 @@ export const run = (projectName: string, environment: string, args: EmbroideryRu
             local: args.staticSiteLocalPath,
             path: wwwPath,
         } : undefined,
-        context: embroideryContext
+        context: lambadaContext
         // databases: databases,
         // environmentVariables: args.environmentVariables || {},
         // secrets: secrets,

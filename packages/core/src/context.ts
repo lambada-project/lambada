@@ -1,10 +1,10 @@
-import { CognitoAuthorizer, LambdaAuthorizer } from "@pulumi/awsx/apigateway";
+import { CognitoAuthorizer } from "@pulumi/awsx/apigateway";
 import { DatabaseResult } from "./database";
 import { SecretsResult, SecurityResult } from "./security";
-import * as aws from '@pulumi/aws'
 import { MessagingResult } from "./messaging";
 import { NotificationResult } from "./notifications";
 import { EmbroideryEnvironmentVariables } from ".";
+import { QueuesResult } from "./queue";
 
 export type LambadaResources = {
     projectName: string
@@ -20,6 +20,7 @@ export type LambadaResources = {
     },
     authorizers: CognitoAuthorizer[]
     messaging?: MessagingResult
+    queues?: QueuesResult
     notifications?: NotificationResult
     databases?: DatabaseResult
     environment: string
