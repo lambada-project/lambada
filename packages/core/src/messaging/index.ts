@@ -1,6 +1,6 @@
 import * as pulumi from "@pulumi/pulumi";
 import * as aws from "@pulumi/aws";
-import { TopicEventSubscription } from "@pulumi/aws/sns";
+import { TopicArgs, TopicEventSubscription } from "@pulumi/aws/sns";
 import * as awsx from "@pulumi/awsx";
 import { LambadaResources } from "..";
 
@@ -12,6 +12,7 @@ export * from './createSubscription'
 export type MessageDefinition = {
     name: string
     envKeyName: string
+    options: TopicArgs,
     deliveryPolicy?: {
         http?: {
             defaultHealthyRetryPolicy?: {
@@ -88,6 +89,7 @@ export const createMessaging = (
             const message = messages[key];
             const name = `${message.name}-${environment}`
             const topic = new aws.sns.Topic(message.name, {
+                ...(message.options ?? {}),
                 name: name,
                 deliveryPolicy: tryParse(message.deliveryPolicy),
                 tags: {

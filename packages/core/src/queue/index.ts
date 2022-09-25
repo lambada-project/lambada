@@ -1,6 +1,6 @@
 import * as pulumi from "@pulumi/pulumi";
 import * as aws from "@pulumi/aws";
-import { QueueEventSubscription } from "@pulumi/aws/sqs";
+import { QueueArgs, QueueEventSubscription } from "@pulumi/aws/sqs";
 import * as awsx from "@pulumi/awsx";
 import { LambadaResources } from "..";
 
@@ -13,6 +13,7 @@ import { LambdaQueueHandler } from "./createQueueHandler";
 export type QueueDefinition = {
     name: string
     envKeyName: string
+    options?: QueueArgs
 }
 
 export type LambadaQueues = { [id: string]: QueueDefinition }
@@ -34,6 +35,7 @@ export const createQueues = (
             const queueDef = queues[key];
             const name = `${queueDef.name}-${environment}`
             const queue = new aws.sqs.Queue(queueDef.name, {
+                ...(queueDef.options ?? {}),
                 name: name,
                 tags: {
                     Environment: environment
