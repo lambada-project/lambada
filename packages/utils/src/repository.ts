@@ -73,7 +73,7 @@ export class RepositoryBase {
     protected async upsert<T>(item: T): Promise<T> {
         const db = this.getDb()
 
-        const marsharlledItem = this.marshaller.marshallItem(item)
+        const marsharlledItem = this.marshaller.marshallItem(item as any)
 
         const command: PutItemInput = {
             Item: marsharlledItem,
