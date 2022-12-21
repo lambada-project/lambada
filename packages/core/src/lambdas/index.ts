@@ -1,6 +1,6 @@
 import * as pulumi from '@pulumi/pulumi'
 import * as aws from "@pulumi/aws";
-import { Callback } from '@pulumi/aws/lambda';
+import { Callback, Runtime } from '@pulumi/aws/lambda';
 import { Input } from "@pulumi/pulumi";
 
 import { PolicyDocument, PolicyStatement } from "@pulumi/aws/iam";
@@ -57,6 +57,13 @@ export type LambdaOptions = {
      *  Timeout in minutes 
      * */
     timeout?: number
+
+    /**
+     * Runtime as per AWS documentation
+     */
+    runtime?: Runtime
+
+    architecture: "x8664" | "arm64"
 
     /**
      * The amount of reserved concurrent executions for this lambda function. A value of `0` disables lambda from being triggered and `-1` removes any concurrency limitations. Defaults to Unreserved Concurrency Limits `-1`. See [Managing Concurrency](https://docs.aws.amazon.com/lambda/latest/dg/concurrent-executions.html) 
@@ -213,9 +220,9 @@ export const createLambda = <E, R>(
     const memorySize = options?.memorySize ?? 384
     const timeout = options?.timeout ?? 90
     const reservedConcurrentExecutions = options?.reservedConcurrentExecutions ?? -1
-    
-    // Cannot make it a param because its not an input
-    const runtime = aws.lambda.Runtime.NodeJS14dX
+    const runtime = options?.runtime ?? aws.lambda.Runtime.NodeJS16dX
+    const architectures = options?.architecture ? [options?.architecture] : undefined
+
 
     if (typeof definition === 'function') {
         const callbackDefinition = definition as Callback<E, R>
@@ -228,6 +235,7 @@ export const createLambda = <E, R>(
             timeout: timeout,
             reservedConcurrentExecutions: reservedConcurrentExecutions,
             runtime: runtime,
+            architectures: architectures
         })
     }
     else if ((definition as FolderLambda).functionFolder) {
