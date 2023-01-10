@@ -63,7 +63,10 @@ export type LambdaOptions = {
      */
     runtime?: Runtime
 
-    architecture: "x8664" | "arm64"
+    /**
+     * OS Runtime Architecture as per AWS documentation
+     */
+    architecture?: "x8664" | "arm64"
 
     /**
      * The amount of reserved concurrent executions for this lambda function. A value of `0` disables lambda from being triggered and `-1` removes any concurrency limitations. Defaults to Unreserved Concurrency Limits `-1`. See [Managing Concurrency](https://docs.aws.amazon.com/lambda/latest/dg/concurrent-executions.html) 
@@ -244,6 +247,7 @@ export const createLambda = <E, R>(
 
             return new aws.lambda.Function(`${name}-${environment}`, {
                 runtime: runtime,
+                architectures: architectures,
                 code: new pulumi.asset.AssetArchive({
                     ".": new pulumi.asset.FileArchive(
                         handlerInfo.functionFolder
