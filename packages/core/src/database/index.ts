@@ -6,6 +6,11 @@ import { seedData } from './seedData'
 import { SecurityResult } from "../security";
 
 export type TableAttribute = dynamodb.TableAttribute
+type TableOptions = {
+    pointInTimeRecoveryEnabled?: boolean,
+    streamEnabled?: boolean,
+    streamViewType: `KEYS_ONLY` | `NEW_IMAGE` | `OLD_IMAGE` | `NEW_AND_OLD_IMAGES`
+}
 
 function createTable(
     name: string,
@@ -15,7 +20,8 @@ function createTable(
     kmsKey?: aws.kms.Key,
     attributes?: TableAttribute[],
     secondaryIndexes?: TableIndexDefinition[],
-    ttl?: { attributeName: string, enabled: boolean }
+    ttl?: { attributeName: string, enabled: boolean },
+    options?: TableOptions
 ) {
     const tableName = `${name}-${environment}`
 
@@ -51,6 +57,11 @@ function createTable(
             enabled: kmsKey ? true : false,
             kmsKeyArn: kmsKey ? kmsKey.arn : undefined
         },
+        pointInTimeRecovery: {
+            enabled: options?.pointInTimeRecoveryEnabled ?? false
+        },
+        streamEnabled: options?.streamEnabled,
+        streamViewType: options?.streamEnabled ? options?.streamViewType : undefined
     })
 }
 
@@ -72,7 +83,8 @@ export type TableDefinition = {
     data?: (string | object)[]
     indexes?: TableIndexDefinition[]
     attributes?: TableAttribute[]
-    ttl?: { attributeName: string, enabled: boolean }
+    ttl?: { attributeName: string, enabled: boolean },
+    options?: TableOptions
 }
 
 export type EmbroideryTables = { [id: string]: TableDefinition }
@@ -84,7 +96,13 @@ export const createDynamoDbTables = (environment: string, tables?: EmbroideryTab
         if (Object.prototype.hasOwnProperty.call(tables, key)) {
             const table = tables[key];
             const tableName = prefix && prefix.length > 0 ? `${prefix}-${table.name}` : table.name
-            const awsTable = createTable(tableName, environment, table.primaryKey, table.rangeKey, kmsKeys?.dynamodb?.awsKmsKey, table.attributes, table.indexes, table.ttl)
+            const awsTable = createTable(
+                tableName, environment, table.primaryKey, table.rangeKey,
+                kmsKeys?.dynamodb?.awsKmsKey,
+                table.attributes, table.indexes, table.ttl,
+                table.options
+            )
+
             result[key] = {
                 ref: {
                     id: awsTable.id,
