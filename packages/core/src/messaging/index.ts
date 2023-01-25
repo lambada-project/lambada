@@ -12,7 +12,7 @@ export * from './createSubscription'
 export type MessageDefinition = {
     name: string
     envKeyName: string
-    options: TopicArgs,
+    options?: TopicArgs,
     deliveryPolicy?: {
         http?: {
             defaultHealthyRetryPolicy?: {
