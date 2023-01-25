@@ -9,7 +9,7 @@ export type TableAttribute = dynamodb.TableAttribute
 type TableOptions = {
     pointInTimeRecoveryEnabled?: boolean,
     streamEnabled?: boolean,
-    streamViewType: `KEYS_ONLY` | `NEW_IMAGE` | `OLD_IMAGE` | `NEW_AND_OLD_IMAGES`
+    streamViewType?: `KEYS_ONLY` | `NEW_IMAGE` | `OLD_IMAGE` | `NEW_AND_OLD_IMAGES`
 }
 
 function createTable(
@@ -57,9 +57,9 @@ function createTable(
             enabled: kmsKey ? true : false,
             kmsKeyArn: kmsKey ? kmsKey.arn : undefined
         },
-        pointInTimeRecovery: {
+        pointInTimeRecovery: options?.pointInTimeRecoveryEnabled ? {
             enabled: options?.pointInTimeRecoveryEnabled ?? false
-        },
+        } : undefined,
         streamEnabled: options?.streamEnabled,
         streamViewType: options?.streamEnabled ? options?.streamViewType : undefined
     })
