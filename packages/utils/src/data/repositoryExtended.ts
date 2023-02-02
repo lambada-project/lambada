@@ -171,6 +171,26 @@ export class RepositoryExtended extends RepositoryBase {
         return this.marshaller.unmarshallItem(response.Attributes) as T
     }
 
+    /**
+     * Reads all items of the table
+     * @param params 
+     * @returns 
+     */
+    protected async fullScan<T>(params: DynamoDB.ScanInput): Promise<T[]> {
+        let lastEvaluatedKey: DynamoDB.Key | undefined = params.ExclusiveStartKey
+        let items: T[] = []
+        do {
+            const command: DynamoDB.ScanInput = {
+                ...params,
+                ExclusiveStartKey: lastEvaluatedKey,
+            }
+            const response = await this.getDb().scan(command).promise()
+            lastEvaluatedKey = response.LastEvaluatedKey
+            items = items.concat((response.Items ?? []).map(item => this.fromItem<T>(item)))
+
+        } while (lastEvaluatedKey)
+        return items
+    }
 
     private fromItem<T>(item: DynamoDB.AttributeMap): T {
         return this.marshaller.unmarshallItem(item) as T
