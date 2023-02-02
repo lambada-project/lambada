@@ -8,7 +8,7 @@ export class RepositoryExtended extends RepositoryBase {
      * @param params 
      * @returns 
      */
-    public async queryBegins_with<T>(params: {
+    protected async queryBegins_with<T>(params: {
         primaryKey: {
             name: string & keyof T
             value: any
@@ -53,7 +53,7 @@ export class RepositoryExtended extends RepositoryBase {
      * @param params 
      * @returns 
      */
-    public async queryCondition<T>(params: {
+    protected async queryCondition<T>(params: {
         primaryKey: {
             name: string & keyof T
             value: any
@@ -115,7 +115,7 @@ export class RepositoryExtended extends RepositoryBase {
      * @param params update params
      * @returns all updated items
      */
-    public async updateItem<T extends { [key: string]: any }>(params: {
+    protected async updateItem<T extends { [key: string]: any }>(params: {
         primaryKey: {
             name: string & keyof T
             value: any
