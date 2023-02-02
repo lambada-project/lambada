@@ -9,7 +9,7 @@
 	},
 	"dependencies": {
 		"@aws/dynamodb-auto-marshaller": "^0.7.1",
-		"@lambada/utils": "~1.1.0",
+		"@lambada/utils": "~1.4.0",
 		"aws-sdk": "2.1009.0",
 		"uuid": "^3.4.0"
 	},
@@ -20,7 +20,7 @@
 		"@pulumi/aws": "~4.23.0",
 		"@pulumi/awsx": "~0.33.0",
 		"@pulumi/pulumi": "~3.0.0",
-		"@lambada/core": "1.0.0-preview-1",
+		"@lambada/core": "1.5.1",
 		"typescript": "^4.5.5",
 		"@types/aws-lambda": "^8.10.72"
 	}
