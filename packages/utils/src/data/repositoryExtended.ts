@@ -3,17 +3,8 @@ import { IMarshaller, RepositoryBase } from "../repository";
 
 export class RepositoryExtended extends RepositoryBase {
 
-    constructor(
-        protected readonly table: {
-            envKeyName: string
-            name: string
-            primaryKey: string
-            rangeKey?: string
-        },
-        customMarshaller?: IMarshaller,
-        clientConfig?: AWS.DynamoDB.ClientConfiguration
-    ) {
-        super(table, customMarshaller, clientConfig)
+    constructor(...args: ConstructorParameters<typeof RepositoryBase>) {
+        super(...args)
     }
 
     /**
