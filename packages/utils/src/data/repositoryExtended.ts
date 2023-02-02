@@ -19,7 +19,8 @@ export class RepositoryExtended extends RepositoryBase {
         }
         indexName?: string,
         limit?: number,
-        lastKey?: string
+        lastKey?: string,
+        scanForward?: boolean
 
     }): Promise<{ data: T[], lastKey?: string }> {
         const { primaryKey, rangeKey, indexName } = params
@@ -37,6 +38,7 @@ export class RepositoryExtended extends RepositoryBase {
                 ...(rangeKey ? { ':SK': this.marshaller.marshallValue(rangeKey.value) } : {}),
             },
             Limit: params.limit,
+            ScanIndexForward: params.scanForward,
             ExclusiveStartKey: params.lastKey ? JSON.parse(params.lastKey) : undefined,
         }
 
