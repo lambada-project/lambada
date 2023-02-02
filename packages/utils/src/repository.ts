@@ -27,13 +27,16 @@ export class RepositoryBase {
 
     protected clientConfig?: AWS.DynamoDB.ClientConfiguration
 
-    constructor(protected readonly table: {
-        envKeyName: string
-        name: string
-        primaryKey: string
-        rangeKey?: string
-    }, customMarshaller?: IMarshaller
-    , clientConfig?: AWS.DynamoDB.ClientConfiguration) {
+    constructor(
+        protected readonly table: {
+            envKeyName: string
+            name: string
+            primaryKey: string
+            rangeKey?: string
+        },
+        customMarshaller?: IMarshaller,
+        clientConfig?: AWS.DynamoDB.ClientConfiguration
+    ) {
         this.tableName = process.env[this.table.envKeyName] ?? ''
         if (customMarshaller) {
             this.marshaller = customMarshaller
