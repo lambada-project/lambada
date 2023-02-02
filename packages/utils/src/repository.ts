@@ -37,7 +37,7 @@ export class RepositoryBase {
         customMarshaller?: IMarshaller,
         clientConfig?: AWS.DynamoDB.ClientConfiguration
     ) {
-        this.tableName = process.env[this.table.envKeyName] ?? ''
+        this.tableName = process.env[table.envKeyName] ?? ''
         if (customMarshaller) {
             this.marshaller = customMarshaller
         } else {

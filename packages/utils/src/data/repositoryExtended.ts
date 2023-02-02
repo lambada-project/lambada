@@ -1,7 +1,20 @@
 import DynamoDB, { ExpressionAttributeNameMap, ExpressionAttributeValueMap } from "aws-sdk/clients/dynamodb";
-import { RepositoryBase } from "../repository";
+import { IMarshaller, RepositoryBase } from "../repository";
 
 export class RepositoryExtended extends RepositoryBase {
+
+    constructor(
+        protected readonly table: {
+            envKeyName: string
+            name: string
+            primaryKey: string
+            rangeKey?: string
+        },
+        customMarshaller?: IMarshaller,
+        clientConfig?: AWS.DynamoDB.ClientConfiguration
+    ) {
+        super(table, customMarshaller, clientConfig)
+    }
 
     /**
      * Executes a query and filters with a `begins_with` in the sort key
