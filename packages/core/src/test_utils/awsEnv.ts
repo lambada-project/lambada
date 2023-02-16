@@ -69,7 +69,7 @@ export async function ConfigureAwsEnvironment(tables: EmbroideryTables): Promise
                     ],
                     Projection: {
                         ProjectionType: x.projectionType,
-                        //NonKeyAttributes: x.nonKeyAttributes // TODO :D
+                        NonKeyAttributes: x.projectionType == 'INCLUDE' ?  x.nonKeyAttributes : undefined
                     },
                     ProvisionedThroughput: {
                         ReadCapacityUnits: 10,
