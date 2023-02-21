@@ -22,8 +22,8 @@ type CreateApiArgs = {
     environment: string
     api?: {
         path: string,
-        type: `EDGE` | `REGIONAL` | `PRIVATE`
-        vpcEndpointIds: pulumi.Input<pulumi.Input<string>[]>,
+        type?: `EDGE` | `REGIONAL` | `PRIVATE`
+        vpcEndpointIds?: pulumi.Input<pulumi.Input<string>[]> | undefined,
         apiEndpoints: (LambadaCreator)[],
         cors?: {
             origins: string[]
@@ -99,8 +99,8 @@ export default function createApi(
         routes: allRoutes,
         stageName: stageName,
         restApiArgs: {
-            endpointConfiguration: api ? {
-                types: api.type,
+            endpointConfiguration: api?.type || api?.vpcEndpointIds ? {
+                types: api.type ?? 'EDGE',
                 vpcEndpointIds: api.vpcEndpointIds
             } : undefined
         }
