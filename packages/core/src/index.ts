@@ -28,6 +28,7 @@ export * from './security'
 
 type LambadaRunArguments = {
     gatewayType?: 'EDGE' | 'REGIONAL' | 'PRIVATE'
+    vpcEndpointIds?: pulumi.Input<pulumi.Input<string>[]> | undefined,
     generateOpenAPIDocument?: boolean
     cdn?: {
         useCDN: boolean,
@@ -78,6 +79,9 @@ type LambadaRunArguments = {
             preventResourceDeletion: boolean
         },
         useApiKey?: boolean
+    },
+    options?:{
+        dependsOn: pulumi.Input<pulumi.Resource> | pulumi.Input<pulumi.Input<pulumi.Resource>[]> | undefined;
     }
 }
 
@@ -163,19 +167,21 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
             path: apiPath,
             apiEndpoints: args.endpointDefinitions || [],
             type: args.gatewayType || 'EDGE',
-            cors: args.cors
+            cors: args.cors,
+            vpcEndpointIds: args.vpcEndpointIds
         } : undefined,
         www: args.staticSiteLocalPath ? {
             local: args.staticSiteLocalPath,
             path: wwwPath,
         } : undefined,
-        context: lambadaContext
+        context: lambadaContext,
         // databases: databases,
         // environmentVariables: args.environmentVariables || {},
         // secrets: secrets,
         // authorizerProviderARNs: pool ? [pool] : undefined,
         // kmsKeys: encryptionKeys,
         // messaging: messaging
+        options: args.options
     })
 
     let apiKey: awsx.apigateway.AssociatedAPIKeys | undefined = undefined
