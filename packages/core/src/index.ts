@@ -27,9 +27,13 @@ export * from './messaging'
 export * from './security'
 
 type LambadaRunArguments = {
-    gatewayType?: 'EDGE' | 'REGIONAL' | 'PRIVATE'
-    vpcEndpointIds?: pulumi.Input<pulumi.Input<string>[]> | undefined,
-    generateOpenAPIDocument?: boolean
+    api?: {
+        endpointDefinitions?: LambadaCreator[],
+        gatewayType?: 'EDGE' | 'REGIONAL' | 'PRIVATE'
+        vpcEndpointIds?: pulumi.Input<pulumi.Input<string>[]> | undefined,
+        policy?: pulumi.Input<string> | undefined,
+        generateOpenAPIDocument?: boolean
+    },
     cdn?: {
         useCDN: boolean,
         customDomain?: {
@@ -40,7 +44,6 @@ type LambadaRunArguments = {
         /** Overrides default: index.html. Errors are redirected here, useful for spa */
         entrypoint?: string
     },
-    endpointDefinitions?: LambadaCreator[],
     cors?: {
         origins: string[]
     },
@@ -80,7 +83,7 @@ type LambadaRunArguments = {
         },
         useApiKey?: boolean
     },
-    options?:{
+    options?: {
         dependsOn: pulumi.Input<pulumi.Resource> | pulumi.Input<pulumi.Input<pulumi.Resource>[]> | undefined;
     }
 }
@@ -117,8 +120,8 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
     const wwwPath = '/www'
     const apiPath = '/api'
 
-    if (args.generateOpenAPIDocument && args.endpointDefinitions) {
-        args.endpointDefinitions.push(createOpenApiDocumentEndpoint)
+    if (args?.api?.generateOpenAPIDocument && args?.api?.endpointDefinitions) {
+        args.api.endpointDefinitions.push(createOpenApiDocumentEndpoint)
     }
 
 
@@ -163,12 +166,13 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
     const api = createApi({
         projectName,
         environment,
-        api: args.endpointDefinitions ? {
+        api: args.api?.endpointDefinitions ? {
             path: apiPath,
-            apiEndpoints: args.endpointDefinitions || [],
-            type: args.gatewayType || 'EDGE',
+            apiEndpoints: args.api.endpointDefinitions || [],
+            type: args.api.gatewayType || 'EDGE',
             cors: args.cors,
-            vpcEndpointIds: args.vpcEndpointIds
+            vpcEndpointIds: args.api.vpcEndpointIds,
+            policy: args.api.policy
         } : undefined,
         www: args.staticSiteLocalPath ? {
             local: args.staticSiteLocalPath,

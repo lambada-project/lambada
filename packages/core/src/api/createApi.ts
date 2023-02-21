@@ -25,6 +25,7 @@ type CreateApiArgs = {
         type?: `EDGE` | `REGIONAL` | `PRIVATE`
         vpcEndpointIds?: pulumi.Input<pulumi.Input<string>[]> | undefined,
         apiEndpoints: (LambadaCreator)[],
+        policy?: pulumi.Input<string> | undefined,
         cors?: {
             origins: string[]
         }
@@ -102,8 +103,10 @@ export default function createApi(
             endpointConfiguration: api?.type || api?.vpcEndpointIds ? {
                 types: api.type ?? 'EDGE',
                 vpcEndpointIds: api.vpcEndpointIds
-            } : undefined
-        }
+            } : undefined,
+            policy: api?.policy
+        },
+
     }, {
         dependsOn: options?.dependsOn,
     });
