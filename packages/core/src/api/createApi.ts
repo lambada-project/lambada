@@ -23,6 +23,7 @@ type CreateApiArgs = {
     api?: {
         path: string,
         type: `EDGE` | `REGIONAL` | `PRIVATE`
+        vpcEndpointIds: pulumi.Input<pulumi.Input<string>[]>,
         apiEndpoints: (LambadaCreator)[],
         cors?: {
             origins: string[]
@@ -40,6 +41,9 @@ type CreateApiArgs = {
     // kmsKeys?: SecurityResult
     // environmentVariables?: EmbroideryEnvironmentVariables
     // secrets?: SecretsResult
+    options?: {
+        dependsOn: pulumi.Input<pulumi.Resource> | pulumi.Input<pulumi.Input<pulumi.Resource>[]> | undefined
+    }
 }
 
 export default function createApi(
@@ -48,7 +52,7 @@ export default function createApi(
         environment,
         api,
         www,
-        context
+        context,
         // authorizerProviderARNs,
         // messaging,
         // notifications,
@@ -56,6 +60,7 @@ export default function createApi(
         // kmsKeys,
         // environmentVariables,
         // secrets
+        options,
     }: CreateApiArgs
 ): awsx.apigateway.API {
 
@@ -96,10 +101,11 @@ export default function createApi(
         restApiArgs: {
             endpointConfiguration: api ? {
                 types: api.type,
+                vpcEndpointIds: api.vpcEndpointIds
             } : undefined
         }
     }, {
-
+        dependsOn: options?.dependsOn,
     });
 
     return apigateway;
