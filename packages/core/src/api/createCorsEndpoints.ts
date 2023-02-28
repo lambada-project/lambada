@@ -5,9 +5,9 @@ import { LambadaResources } from '../context';
 import { EmbroideryEventHandlerRoute } from '.';
 import { getNameFromPath } from './utils';
 import { getCorsHeaders } from '@lambada/utils';
+import { Role } from '@pulumi/aws/iam';
 
 export const createCorsEndpoints = (endpoints: EmbroideryEventHandlerRoute[], embroideryContext: LambadaResources, origins?: string[]): EmbroideryEventHandlerRoute[] => {
-
     function uniq(a: string[]) {
         return Array.from(new Set(a));
     }
@@ -34,26 +34,32 @@ export const createCorsEndpoints = (endpoints: EmbroideryEventHandlerRoute[], em
         assumeRolePolicy: lambdaAsumeRole,
     })
 
-    const corsEndpoints: EventHandlerRoute[] = uniquePaths.map(path => {
-        //7 random characters at the end. minus "cors-", minus environment name, minus 2 separators
-        const name = getNameFromPath(path, 64 - 7 - 5 - embroideryContext.environment.length - 2) 
-        const callback = async (req: Request): Promise<Response> => {
-            return {
-                statusCode: 200,
-                headers: getCorsHeaders(req.requestContext.domainName, origins),
-                body: JSON.stringify({
-                    data: {}
-                }),
-            }
-        }
+    // const corsEndpoints: EventHandlerRoute[] = uniquePaths.map(path => {
+    //     //7 random characters at the end. minus "cors-", minus environment name, minus 2 separators
+    //     const name = getNameFromPath(path, 64 - 7 - 5 - embroideryContext.environment.length - 2)
+    //     return createCorsFunction(origins, name, embroideryContext, sharedCorsRole, path);
+    // })
 
+    //return corsEndpoints
+
+    return [createCorsFunction(origins, `allow-cors-${embroideryContext.environment}`, embroideryContext, sharedCorsRole, '/{path+}')]
+}
+
+function createCorsFunction(origins: string[] | undefined, name: string, embroideryContext: LambadaResources, sharedCorsRole: Role, path: string): EventHandlerRoute {
+    const callback = async (req: Request): Promise<Response> => {
         return {
-            eventHandler: createLambda(`cors-${name}`, embroideryContext.environment, callback, [], {}, [], sharedCorsRole),
-            method: 'OPTIONS',
-            path: path,
-            authorizers: []
-        }
-    })
+            statusCode: 200,
+            headers: getCorsHeaders(req.requestContext.domainName, origins),
+            body: JSON.stringify({
+                data: {}
+            }),
+        };
+    };
 
-    return corsEndpoints
+    return {
+        eventHandler: createLambda(`cors-${name}`, embroideryContext.environment, callback, [], {}, [], sharedCorsRole),
+        method: 'OPTIONS',
+        path: path,
+        authorizers: []
+    };
 }
