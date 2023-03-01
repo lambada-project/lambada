@@ -97,7 +97,7 @@ async function _FindUser(userPoolId: string, userId?: string, username?: string)
                 const cu = cusers.Users[0]
                 if (!cu) throw 'User not found'
                 if (!cu.Attributes) throw 'User has no attributes'
-                
+
                 username = cu.Username
 
                 var cutomAttributes = cu.Attributes.filter(x => x.Name.startsWith('dev:custom:'));
@@ -168,7 +168,8 @@ export function getContext(request: Request): AuthExecutionContext | undefined {
             poolId: poolId ?? undefined,
             email: email ?? undefined,
             username: username,
-            clientIP: userIp
+            clientIP: userIp,
+            claims: claims
         }
     }
     else {
@@ -185,4 +186,5 @@ export interface AuthExecutionContext {
 
     poolId?: string
     clientIP: string
+    claims: { [key: string]: string }
 }
