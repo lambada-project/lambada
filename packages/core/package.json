@@ -19,20 +19,20 @@
 	"peerDependencies": {
 		"@aws/dynamodb-auto-marshaller": "^0.7.1",
 		"@lambada/utils": "^1.4.5",
-		"@pulumi/awsx": "0.40.0",
 		"@pulumi/aws": "^5.0.0",
-    	"@pulumi/pulumi": "^3.0.0",
+		"@pulumi/awsx": "0.40.0",
+		"@pulumi/pulumi": "^3.0.0",
 		"aws-sdk": "~2.1009.0"
 	},
 	"devDependencies": {
 		"@aws/dynamodb-auto-marshaller": "^0.7.1",
 		"@lambada/utils": "^1.4.5",
+		"@pulumi/aws": "^5.0.0",
 		"@pulumi/awsx": "~0.40.0",
-	    "@pulumi/aws": "^5.0.0",
-    	"@pulumi/pulumi": "^3.0.0",
+		"@pulumi/pulumi": "^3.0.0",
 		"@types/node": "^12.20.46",
 		"rimraf": "^3.0.2",
 		"typescript": "^4.5.5"
 	},
-	"gitHead": "714253c6ea32a35d689efe3040ad182306d20b67"
+	"gitHead": "c7d2a32a29dc0c1a9cc28cfbebdc167e23c14b96"
 }
