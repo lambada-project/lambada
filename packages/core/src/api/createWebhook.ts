@@ -30,9 +30,9 @@ export function createWebhook(
     })
 
 
-    const executionResources: LambdaResource[] = endpointParams.resources ?? []
+    const handlerResources: LambdaResource[] = endpointParams.resources ?? []
     if (context.kmsKeys && context.kmsKeys.dynamodb) {
-        executionResources.push(
+        handlerResources.push(
             {
                 kmsKey: context.kmsKeys.dynamodb,
                 access: [
@@ -45,6 +45,20 @@ export function createWebhook(
             })
     }
 
+    handlerResources.push({
+        queue: {
+            awsQueue: queue,
+            envKeyName: ENV_NAME,
+            ref: pulumi.Output.create({ arn: queue.arn, id: queue.id, name: queue.name, url: queue.url }),
+            definition: { envKeyName: ENV_NAME, name: endpointParams.name, options: queueParams }
+        },
+        access: [
+            "sqs:ReceiveMessage",
+            "sqs:DeleteMessage",
+            "sqs:GetQueueAttributes"
+        ]
+    })
+
 
     const queueHandler = createLambda<any, any>(
         endpointParams.name + '-handler',
@@ -52,7 +66,7 @@ export function createWebhook(
         endpointParams.callbackDefinition,
         [],
         endpointParams.environmentVariables,
-        executionResources,
+        handlerResources,
         undefined,
         endpointParams.options
     )
@@ -74,9 +88,7 @@ export function createWebhook(
                 definition: { envKeyName: ENV_NAME, name: endpointParams.name, options: queueParams }
             },
             access: [
-                "sqs:ReceiveMessage",
-                "sqs:DeleteMessage",
-                "sqs:GetQueueAttributes"
+                "sqs:SendMessage",
             ]
         }
     ]
