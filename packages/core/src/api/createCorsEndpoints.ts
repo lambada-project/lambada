@@ -1,5 +1,5 @@
 import * as aws from '@pulumi/aws'
-import { createLambda, lambdaAsumeRole } from '../lambdas';
+import { createLambda, lambdaAssumeRole } from '../lambdas';
 import { Request, Response, EventHandlerRoute, IntegrationRoute } from '@pulumi/awsx/apigateway/api'
 import { LambadaResources } from '../context';
 import { EmbroideryEventHandlerRoute } from '.';
@@ -31,7 +31,7 @@ export const createCorsEndpoints = (endpoints: EmbroideryEventHandlerRoute[], em
     if (uniquePaths.length == 0) return []
 
     const sharedCorsRole = new aws.iam.Role(`${embroideryContext.projectName}-cors-shared-role-${embroideryContext.environment}`, {
-        assumeRolePolicy: lambdaAsumeRole,
+        assumeRolePolicy: lambdaAssumeRole,
     })
     
     return [createCorsFunction(origins, `allow-cors-${embroideryContext.projectName}`, embroideryContext, sharedCorsRole, '/{path+}')]

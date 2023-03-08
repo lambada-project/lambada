@@ -14,7 +14,7 @@ import { enums } from '@pulumi/aws/types';
 import { QueueResultItem } from '../queue';
 //import { NotificationResult, NotificationResultItem } from '../notifications';
 
-export const lambdaAsumeRole: PolicyDocument = {
+export const lambdaAssumeRole: PolicyDocument = {
     Version: "2012-10-17",
     Statement: [
         {
