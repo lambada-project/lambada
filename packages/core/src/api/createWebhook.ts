@@ -30,7 +30,8 @@ export function createWebhook(
         contentBasedDeduplication: true,
         delaySeconds: queueParams.delaySeconds,
         receiveWaitTimeSeconds: queueParams.receiveWaitTimeSeconds,
-        visibilityTimeoutSeconds: timeout
+        visibilityTimeoutSeconds: timeout,
+        fifoThroughputLimit: 'perMessageGroupId'
     })
 
 
@@ -65,17 +66,13 @@ export function createWebhook(
     })
 
     const handlerEnvVars = { ...(context.environmentVariables || {}), ...(endpointParams.environmentVariables || {}) }
-    const handlerCallback = createCallback({ // Change response back to Generic, cos this returns a Record[ ]
-        callbackDefinition: async (e) => {
-            const actualE = e as unknown as QueueHandlerEvent
+    const handlerCallback = async (e: QueueHandlerEvent) => {
+        return Promise.all(e.Records.map(x => {
+            const request = JSON.parse(x.body)
+            return endpointParams.callbackDefinition(request)
+        }))
+    }
 
-            return Promise.all(actualE.Records.map(x => {
-                const request = JSON.parse(x.body)
-                return endpointParams.callbackDefinition(request)
-            }))
-
-        }, context
-    })
 
     const queueHandler = createLambda<any, any>(
         endpointParams.name + '-handler',
@@ -88,7 +85,9 @@ export function createWebhook(
         { ...endpointParams.options, timeout: timeout }
     )
 
-    queue.onEvent(queueName, queueHandler)
+    queue.onEvent(queueName, queueHandler, {
+        batchSize: 1
+    })
 
 
 
