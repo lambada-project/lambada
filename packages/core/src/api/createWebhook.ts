@@ -18,7 +18,7 @@ export function createWebhook(
     const ENV_NAME = "WEBHOOK_QUEUE_URL"
 
     //Handler and queue must have the same
-    const timeout = queueParams.visibilityTimeoutSeconds ?? endpointParams.options?.timeout
+    const timeout = queueParams.visibilityTimeoutSeconds ?? endpointParams.options?.timeout ?? 30
 
     /****** QUEUE***** */
 
