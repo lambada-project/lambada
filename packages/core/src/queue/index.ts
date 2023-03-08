@@ -99,7 +99,7 @@ type QueueReference = {
     name: string
     id: string
     arn: string
-    url: pulumi.Input<string>
+    url: string
 }
 
 export type QueueResultItem = {

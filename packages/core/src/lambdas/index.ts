@@ -136,6 +136,17 @@ export const createLambda = <E, R>(
                 }
             )
         }
+        else if (access.queue) {
+            //PubSub connections need the topic ARN to talk to SNS
+            envVarsFromResources[access.queue.envKeyName] = access.queue.ref.url
+            policyStatements.push(
+                {
+                    Action: access.access,
+                    Resource: access.queue.ref.arn,
+                    Effect: 'Allow'
+                }
+            )
+        }
         else if (access.notification) {
             //PubSub connections need the topic ARN to send push notifications
             //envVarsFromResources[access.notification.gcm.] = access.notification.gcm
