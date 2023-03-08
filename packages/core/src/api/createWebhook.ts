@@ -6,7 +6,7 @@ import * as pulumi from '@pulumi/pulumi'
 import { createLambda, LambdaResource } from "../lambdas";
 import { createCallback } from "./callbackWrapper";
 import { QueueArgs } from "@pulumi/aws/sqs";
-import AWS from 'aws-sdk'
+import * as AWS from 'aws-sdk'
 
 export function createWebhook(
     endpointParams: LambadaEndpointArgs,
@@ -15,7 +15,7 @@ export function createWebhook(
 ): EmbroideryEventHandlerRoute {
     if (!endpointParams.name) throw new Error("Webhook name is empty");
     const queueName = `${endpointParams.name}-${context.environment}`
-    const ENV_NAME = endpointParams.name.toLocaleUpperCase();
+    const ENV_NAME = "WEBHOOK_QUEUE_URL"
 
     //Handler and queue must have the same
     const timeout = queueParams.visibilityTimeoutSeconds ?? endpointParams.options?.timeout
@@ -63,16 +63,16 @@ export function createWebhook(
         ]
     })
 
-
+    const handlerEnvVars = { ...(context.environmentVariables || {}), ...(endpointParams || {}) }
     const queueHandler = createLambda<any, any>(
         endpointParams.name + '-handler',
         context.environment,
         endpointParams.callbackDefinition,
         [],
-        endpointParams.environmentVariables,
+        handlerEnvVars,
         handlerResources,
         undefined,
-        endpointParams.options
+        { ...endpointParams.options, timeout: timeout }
     )
 
     queue.onEvent(queueName, queueHandler)
@@ -101,12 +101,13 @@ export function createWebhook(
 
     const cb = createCallback({
         callbackDefinition: async (e) => {
-
             const sqs = new AWS.SQS()
             await sqs.sendMessage({
                 MessageBody: JSON.stringify(e.request),
-                QueueUrl: process.env[ENV_NAME] || ''
+                QueueUrl: process.env[ENV_NAME] || '',
+                MessageGroupId: 'WEBHOOK_ITEM'
             }).promise()
+            console.log('Message relayed to Queue')
 
             return {
                 statusCode: 200
