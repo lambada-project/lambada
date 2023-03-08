@@ -11,7 +11,6 @@ import { QueueHandlerEvent } from "../queue/createQueueHandler";
 
 export function createWebhook(
     endpointParams: LambadaEndpointArgs,
-    queueParams: QueueArgs,
     context: LambadaResources
 ): EmbroideryEventHandlerRoute {
     if (!endpointParams.name) throw new Error("Webhook name is empty");
@@ -19,6 +18,7 @@ export function createWebhook(
     const ENV_NAME = "WEBHOOK_QUEUE_URL"
 
     //Handler and queue must have the same
+    const queueParams = endpointParams.webhook?.options ?? {}
     const timeout = queueParams.visibilityTimeoutSeconds ?? endpointParams.options?.timeout ?? 30
 
     /****** QUEUE***** */
@@ -31,7 +31,8 @@ export function createWebhook(
         delaySeconds: queueParams.delaySeconds,
         receiveWaitTimeSeconds: queueParams.receiveWaitTimeSeconds,
         visibilityTimeoutSeconds: timeout,
-        fifoThroughputLimit: 'perMessageGroupId'
+        fifoThroughputLimit: 'perMessageGroupId',
+        deduplicationScope: 'messageGroup'
     })
 
 
@@ -86,7 +87,7 @@ export function createWebhook(
     )
 
     queue.onEvent(queueName, queueHandler, {
-        batchSize: 1
+        batchSize: 1,
     })
 
 

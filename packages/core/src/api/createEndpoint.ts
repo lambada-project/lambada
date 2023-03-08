@@ -10,6 +10,7 @@ import { CognitoAuthorizer, LambdaAuthorizer, Method } from '@pulumi/awsx/apigat
 import { getNameFromPath } from './utils';
 import { createWebhook } from './createWebhook';
 import { createCallback } from './callbackWrapper';
+import { QueueArgs } from '@pulumi/aws/sqs';
 
 
 export type EmbroideryRequest = {
@@ -28,7 +29,10 @@ export type LambadaEndpointArgs = {
     resources?: LambdaResource[],
     extraHeaders?: {},
     environmentVariables?: EmbroideryEnvironmentVariables,
-    isWebhook?: boolean,
+    webhook?: {
+        wrapInQueue: boolean,
+        options?: QueueArgs
+    },
     /** This overrides at endpoint level any default set */
     auth?: {
         useCognitoAuthorizer?: boolean,
@@ -103,12 +107,12 @@ export const createEndpointSimpleCompat = (args: LambadaEndpointArgs, context: L
         auth,
         environmentVariables,
         options,
-        isWebhook
+        webhook
     } = args
 
 
-    if (isWebhook) {
-        return createWebhook(args, {  }, context)
+    if (webhook?.wrapInQueue) {
+        return createWebhook(args, context)
     }
     else {
         return createEndpoint<Request, Response>(
