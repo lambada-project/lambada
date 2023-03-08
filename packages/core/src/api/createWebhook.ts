@@ -103,7 +103,7 @@ export function createWebhook(
         callbackDefinition: async (e) => {
             const sqs = new AWS.SQS()
             await sqs.sendMessage({
-                MessageBody: JSON.stringify(e.request),
+                MessageBody: JSON.stringify(e),
                 QueueUrl: process.env[ENV_NAME] || '',
                 MessageGroupId: 'WEBHOOK_ITEM'
             }).promise()
