@@ -63,7 +63,7 @@ export function createWebhook(
         ]
     })
 
-    const handlerEnvVars = { ...(context.environmentVariables || {}), ...(endpointParams || {}) }
+    const handlerEnvVars = { ...(context.environmentVariables || {}), ...(endpointParams.environmentVariables || {}) }
     const queueHandler = createLambda<any, any>(
         endpointParams.name + '-handler',
         context.environment,
