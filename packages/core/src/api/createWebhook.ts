@@ -1,4 +1,4 @@
-import { LambadaResources } from "..";
+import { LambadaResources, SubscriptionEvent } from "..";
 import { Request, Response, Route } from '@pulumi/awsx/apigateway/api'
 import { createEndpoint, EmbroideryEventHandlerRoute, LambadaEndpointArgs } from "./createEndpoint";
 import * as aws from '@pulumi/aws'
@@ -7,6 +7,7 @@ import { createLambda, LambdaResource } from "../lambdas";
 import { createCallback } from "./callbackWrapper";
 import { QueueArgs } from "@pulumi/aws/sqs";
 import * as AWS from 'aws-sdk'
+import { QueueHandlerEvent } from "../queue/createQueueHandler";
 
 export function createWebhook(
     endpointParams: LambadaEndpointArgs,
@@ -64,10 +65,22 @@ export function createWebhook(
     })
 
     const handlerEnvVars = { ...(context.environmentVariables || {}), ...(endpointParams.environmentVariables || {}) }
+    const handlerCallback = createCallback({ // Change response back to Generic, cos this returns a Record[ ]
+        callbackDefinition: async (e) => {
+            const actualE = e as unknown as QueueHandlerEvent
+
+            return Promise.all(actualE.Records.map(x => {
+                const request = JSON.parse(x.body)
+                return endpointParams.callbackDefinition(request)
+            }))
+
+        }, context
+    })
+
     const queueHandler = createLambda<any, any>(
         endpointParams.name + '-handler',
         context.environment,
-        endpointParams.callbackDefinition,
+        handlerCallback,
         [],
         handlerEnvVars,
         handlerResources,

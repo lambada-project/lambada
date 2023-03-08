@@ -1,6 +1,6 @@
 {
 	"name": "@lambada/core",
-	"version": "1.8.0-experimental-4",
+	"version": "1.8.0-experimental-5",
 	"description": "",
 	"main": "dist/index.js",
 	"module": "dist/index.js",
