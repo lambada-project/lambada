@@ -57,7 +57,7 @@ export type LambdaOptions = {
     /**
      *  Timeout in minutes 
      * */
-    timeout?: number
+    timeout?: pulumi.Input<number>
 
     /**
      * Runtime as per AWS documentation

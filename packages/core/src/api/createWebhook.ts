@@ -17,6 +17,9 @@ export function createWebhook(
     const queueName = `${endpointParams.name}-${context.environment}`
     const ENV_NAME = endpointParams.name.toLocaleUpperCase();
 
+    //Handler and queue must have the same
+    const timeout = queueParams.visibilityTimeoutSeconds ?? endpointParams.options?.timeout
+
     /****** QUEUE***** */
 
 
@@ -26,7 +29,7 @@ export function createWebhook(
         contentBasedDeduplication: true,
         delaySeconds: queueParams.delaySeconds,
         receiveWaitTimeSeconds: queueParams.receiveWaitTimeSeconds,
-        visibilityTimeoutSeconds: queueParams.visibilityTimeoutSeconds
+        visibilityTimeoutSeconds: timeout
     })
 
 
@@ -46,12 +49,13 @@ export function createWebhook(
     }
 
     handlerResources.push({
-        queue: {
-            awsQueue: queue,
-            envKeyName: ENV_NAME,
-            ref: pulumi.Output.create({ arn: queue.arn, id: queue.id, name: queue.name, url: queue.url }),
-            definition: { envKeyName: ENV_NAME, name: endpointParams.name, options: queueParams }
-        },
+        // queue: {
+        //     awsQueue: queue,
+        //     envKeyName: ENV_NAME,
+        //     ref: pulumi.Output.create({ arn: queue.arn, id: queue.id, name: queue.name, url: queue.url }),
+        //     definition: { envKeyName: ENV_NAME, name: endpointParams.name, options: queueParams }
+        // },
+        arn: queue.arn,
         access: [
             "sqs:ReceiveMessage",
             "sqs:DeleteMessage",
@@ -81,12 +85,14 @@ export function createWebhook(
 
     const webhookResources: LambdaResource[] = [
         {
-            queue: {
-                awsQueue: queue,
-                envKeyName: ENV_NAME,
-                ref: pulumi.Output.create({ arn: queue.arn, id: queue.id, name: queue.name, url: queue.url }),
-                definition: { envKeyName: ENV_NAME, name: endpointParams.name, options: queueParams }
-            },
+            // not sure why this is not working
+            // queue: {
+            //     awsQueue: queue,
+            //     envKeyName: ENV_NAME,
+            //     ref: pulumi.Output.create({ arn: queue.arn, id: queue.id, name: queue.name, url: queue.url }),
+            //     definition: { envKeyName: ENV_NAME, name: endpointParams.name, options: queueParams }
+            // },
+            arn: queue.arn,
             access: [
                 "sqs:SendMessage",
             ]
@@ -109,14 +115,18 @@ export function createWebhook(
         }, context
     })
 
+
+    const envVars: { [key: string]: pulumi.Input<string> } = {}
+    envVars[ENV_NAME] = queue.url
+
     const webhookHandler = createEndpoint<Request, Response>(
         endpointParams.name + '-webhook', context,
         endpointParams.path, endpointParams.method, cb, [],
-        {}, // ENV VARS
+        envVars,
         endpointParams.auth?.useCognitoAuthorizer,
         webhookResources, endpointParams.auth?.useApiKey,
         undefined,
-        endpointParams.options
+        { ...endpointParams.options, timeout: timeout }
     )
 
 
