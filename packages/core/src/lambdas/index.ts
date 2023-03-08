@@ -11,6 +11,7 @@ import { MessagingResultItem } from '../messaging';
 import { NotificationResult } from '../notifications';
 import { EmbroideryEnvironmentVariables } from '..';
 import { enums } from '@pulumi/aws/types';
+import { QueueResultItem } from '../queue';
 //import { NotificationResult, NotificationResultItem } from '../notifications';
 
 export const lambdaAsumeRole: PolicyDocument = {
@@ -331,6 +332,7 @@ export class LambdaResourceAccess {
 export type LambdaDynamoDbResource = {
     table?: DatabaseResultItem
     topic?: MessagingResultItem
+    queue?: QueueResultItem
     notification?: NotificationResult
     kmsKey?: SecurityResultItem
     secret?: SecretResultItem

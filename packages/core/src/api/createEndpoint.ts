@@ -4,11 +4,12 @@ import { createLambda, FolderLambda, LambdaOptions, LambdaResource } from '../la
 import { LambadaResources } from '../context';
 import { Callback } from '@pulumi/aws/lambda';
 import { PolicyStatement } from "@pulumi/aws/iam";
-import { AuthExecutionContext, getContext } from '@lambada/utils';
+import { AuthExecutionContext } from '@lambada/utils';
 import { EmbroideryEnvironmentVariables } from '..';
-import { LambdaAuthorizer } from '@pulumi/awsx/apigateway';
+import { CognitoAuthorizer, LambdaAuthorizer, Method } from '@pulumi/awsx/apigateway';
 import { getNameFromPath } from './utils';
-import { getCorsHeaders } from '@lambada/utils';
+import { createWebhook } from './createWebhook';
+import { createCallback } from './callbackWrapper';
 
 
 export type EmbroideryRequest = {
@@ -27,6 +28,7 @@ export type LambadaEndpointArgs = {
     resources?: LambdaResource[],
     extraHeaders?: {},
     environmentVariables?: EmbroideryEnvironmentVariables,
+    isWebhook?: boolean,
     /** This overrides at endpoint level any default set */
     auth?: {
         useCognitoAuthorizer?: boolean,
@@ -34,12 +36,6 @@ export type LambadaEndpointArgs = {
         lambdaAuthorizer?: LambdaAuthorizer
     },
     options?: LambdaOptions
-}
-
-const isResponse = (result: any): boolean => {
-    return result && (
-        result.body && result.statusCode
-    )
 }
 
 export const createEndpointSimpleCors = <T>(
@@ -94,105 +90,52 @@ export const createEndpointSimple = (
     options
 }, context)
 
-export const createEndpointSimpleCompat = ({
-    name,
-    path,
-    method,
-    callbackDefinition,
-    resources,
-    extraHeaders,
-    auth,
-    environmentVariables,
-    options
-}: LambadaEndpointArgs, context: LambadaResources,) => {
+export const createEndpointSimpleCompat = (args: LambadaEndpointArgs, context: LambadaResources): EmbroideryEventHandlerRoute => {
+    args.name = args.name ?? getNameFromPath(`${context.projectName}-${args.path}-${args.method.toLowerCase()}`)
 
-    const lambdaName = name ?? getNameFromPath(`${context.projectName}-${path}-${method.toLowerCase()}`)
-    const newCallback = async (request: Request): Promise<Response> => {
-        extraHeaders = { ...getCorsHeaders(request.requestContext.domainName, context.api?.cors?.origins), ...(extraHeaders ?? {}) }
-        const authContext = await getContext(request)
-        //const user = authContext?.currentUsername && authContext ? await getUser(authContext.currentUsername, authContext) : undefined
-        try {
-            const result = await callbackDefinition({
-                user: authContext,
-                request
-            })
+    const {
+        name,
+        path,
+        method,
+        callbackDefinition,
+        resources,
+        extraHeaders,
+        auth,
+        environmentVariables,
+        options,
+        isWebhook
+    } = args
 
-            if (isResponse(result)) {
-                
-                const resultTyped = result as any
-                
-                if(typeof resultTyped.body !== 'string' ){
-                    resultTyped.body = JSON.stringify(resultTyped.body)
-                }
 
-                return {
-                    ...resultTyped,
-                    headers: {
-                        ...(resultTyped.headers || {}),
-                        ...(extraHeaders || {})
-                    }
-                }
-            }
-
-            return {
-                statusCode: 200,
-                body: JSON.stringify(result ?? {}),
-                headers: (extraHeaders || {})
-            }
-
-        } catch (ex: any) {
-            console.error(ex)
-            const showErrorDetails = ex && (ex.showError || process.env['LAMBADA_SHOW_ALL_ERRORS'] == 'true')
-            if (showErrorDetails) {
-                return {
-                    statusCode: ex.statusCode ?? 500,
-                    body: JSON.stringify({
-                        
-                        error: {
-                            message: ex.message ?? ex.errorMessage,
-                            code: ex.code ?? ex.errorCode,
-                            data: ex.data
-                        },
-
-                        errors: [
-                            {
-                                message: ex.message ?? ex.errorMessage,
-                                code: ex.code ?? ex.errorCode,
-                                data: ex.data
-                            }
-                        ]
-                    }),
-                    headers: (extraHeaders || {})
-                }
-            } else {
-                return {
-                    statusCode: 500,
-                    body: JSON.stringify({
-                        error: 'Bad Request'
-                    }),
-                    headers: (extraHeaders || {})
-                }
-            } ``
-        }
-
+    if (isWebhook) {
+        return createWebhook(args, {  }, context)
     }
-
-    return createEndpoint(
-        lambdaName, context,
-        path, method, newCallback, [],
-        environmentVariables, auth?.useCognitoAuthorizer,
-        resources, auth?.useApiKey,
-        undefined,
-        options
-    )
+    else {
+        return createEndpoint<Request, Response>(
+            name, context,
+            path, method, createCallback({ callbackDefinition, context, extraHeaders }), [],
+            environmentVariables, auth?.useCognitoAuthorizer,
+            resources, auth?.useApiKey,
+            undefined,
+            options
+        )
+    }
 }
 
-export const createEndpoint = (
+export type LambadaEndpointResult<E, R> = {
+    path: string,
+    method: Method,
+    authorizers: (LambdaAuthorizer | CognitoAuthorizer)[],
+    eventHandler: aws.lambda.EventHandler<E, R>
+    apiKeyRequired: boolean | undefined
+}
+
+export const createEndpoint = <E, R>(
     name: string,
     embroideryContext: LambadaResources,
     path: string,
-    method: "GET" | "POST" | "DELETE" | "OPTIONS",
-    callbackDefinition: Callback<Request, Response> | FolderLambda,
+    method: "GET" | "POST" | "DELETE" | "PUT" | "OPTIONS",
+    callbackDefinition: Callback<E, R> | FolderLambda,
     policyStatements: aws.iam.PolicyStatement[],
     environmentVariables: EmbroideryEnvironmentVariables = undefined,
     enableAuth = true,
@@ -200,7 +143,7 @@ export const createEndpoint = (
     apiKeyRequired?: boolean,
     lambdaAuthorizer?: LambdaAuthorizer,
     options?: LambdaOptions
-): EmbroideryEventHandlerRoute => {
+): LambadaEndpointResult<E, R> => {
 
     var environment = embroideryContext.environment
     resources = resources || []
@@ -245,7 +188,7 @@ export const createEndpoint = (
 
     const envVars = { ...(embroideryContext.environmentVariables || {}), ...(environmentVariables || {}) }
 
-    const callback = createLambda<Request, Response>(
+    const callback = createLambda<E, R>(
         name,
         environment,
         callbackDefinition,

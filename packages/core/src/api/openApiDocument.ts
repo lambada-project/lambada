@@ -32,8 +32,8 @@ export const getOpenApiDocument: Callback<Request, Response> = async (request: R
     }
 }
 
-export const createOpenApiDocumentEndpoint = (context: LambadaResources) => {
-    return createEndpoint('openapi', context, '/openapi', 'GET', getOpenApiDocument, [], undefined, false, [
+export const createOpenApiDocumentEndpoint = (context: LambadaResources): any => {
+    return createEndpoint<Request, Response>('openapi', context, '/openapi', 'GET', getOpenApiDocument, [], undefined, false, [
         {
             arn: 'arn:aws:apigateway',
             access: ['apigateway:GET']
