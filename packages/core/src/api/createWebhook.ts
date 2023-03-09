@@ -17,22 +17,27 @@ export function createWebhook(
     const queueName = `${endpointParams.name}-${context.environment}`
     const ENV_NAME = "WEBHOOK_QUEUE_URL"
 
-    //Handler and queue must have the same
-    const queueParams = endpointParams.webhook?.options ?? {}
-    const timeout = queueParams.visibilityTimeoutSeconds ?? endpointParams.options?.timeout ?? 30
+    const queueOptions = endpointParams.webhook?.options ?? {}
+    const endpointOptions = endpointParams.options ?? {}
+
+    endpointOptions.timeout = endpointOptions.timeout ?? 30
+    queueOptions.visibilityTimeoutSeconds = queueOptions.visibilityTimeoutSeconds ?? 30
+
+    if (queueOptions.visibilityTimeoutSeconds < endpointOptions.timeout) {
+        throw new Error("Queue visibilityTimeoutSeconds must be greater or equal than the endpoint's timeout")
+    }
 
     /****** QUEUE***** */
 
-
     const queue = new aws.sqs.Queue(queueName, {
+        ...queueOptions,
+
+        fifoThroughputLimit: queueOptions.fifoThroughputLimit ?? 'perMessageGroupId',
+        deduplicationScope: queueOptions.deduplicationScope ?? 'messageGroup',
+
         fifoQueue: true,
         name: queueName + '.fifo',//suffix is mandatory at the aws resource level
         contentBasedDeduplication: true,
-        delaySeconds: queueParams.delaySeconds,
-        receiveWaitTimeSeconds: queueParams.receiveWaitTimeSeconds,
-        visibilityTimeoutSeconds: timeout,
-        fifoThroughputLimit: 'perMessageGroupId',
-        deduplicationScope: 'messageGroup'
     })
 
 
@@ -83,7 +88,7 @@ export function createWebhook(
         handlerEnvVars,
         handlerResources,
         undefined,
-        { ...endpointParams.options, timeout: timeout }
+        { ...endpointParams.options, timeout: endpointOptions.timeout }
     )
 
     queue.onEvent(queueName, queueHandler, {
@@ -140,7 +145,7 @@ export function createWebhook(
         endpointParams.auth?.useCognitoAuthorizer,
         webhookResources, endpointParams.auth?.useApiKey,
         undefined,
-        { ...endpointParams.options, timeout: timeout }
+        { ...endpointParams.options, timeout: endpointOptions.timeout }
     )
 
 
