@@ -31,7 +31,14 @@ export type LambadaEndpointArgs = {
     environmentVariables?: EmbroideryEnvironmentVariables,
     webhook?: {
         wrapInQueue: boolean,
-        options?: QueueArgs
+        options?: QueueArgs,
+        /**
+         * If empty, it will set a default static value
+         */
+        messageGroupId?: {
+            field: string
+            source: "BODY"// | "PATH"
+        }
     },
     /** This overrides at endpoint level any default set */
     auth?: {

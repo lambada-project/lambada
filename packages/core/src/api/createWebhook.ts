@@ -1,6 +1,6 @@
 import { LambadaResources, SubscriptionEvent } from "..";
 import { Request, Response, Route } from '@pulumi/awsx/apigateway/api'
-import { createEndpoint, EmbroideryEventHandlerRoute, LambadaEndpointArgs } from "./createEndpoint";
+import { createEndpoint, EmbroideryEventHandlerRoute, EmbroideryRequest, LambadaEndpointArgs } from "./createEndpoint";
 import * as aws from '@pulumi/aws'
 import * as pulumi from '@pulumi/pulumi'
 import { createLambda, LambdaResource } from "../lambdas";
@@ -8,9 +8,15 @@ import { createCallback } from "./callbackWrapper";
 import { QueueArgs } from "@pulumi/aws/sqs";
 import * as AWS from 'aws-sdk'
 import { QueueHandlerEvent } from "../queue/createQueueHandler";
+import { getBody } from "@lambada/utils";
+
+
+export type LambadaWebhookCallback = (event: EmbroideryRequest, queueRecord: aws.sqs.QueueRecord) => Promise<object>
 
 export function createWebhook(
-    endpointParams: LambadaEndpointArgs,
+    endpointParams: (LambadaEndpointArgs & {
+        callbackDefinition: LambadaWebhookCallback,
+    } ),
     context: LambadaResources
 ): EmbroideryEventHandlerRoute {
     if (!endpointParams.name) throw new Error("Webhook name is empty");
@@ -75,7 +81,7 @@ export function createWebhook(
     const handlerCallback = async (e: QueueHandlerEvent) => {
         return Promise.all(e.Records.map(x => {
             const request = JSON.parse(x.body)
-            return endpointParams.callbackDefinition(request)
+            return endpointParams.callbackDefinition(request, x)
         }))
     }
 
@@ -120,10 +126,21 @@ export function createWebhook(
     const cb = createCallback({
         callbackDefinition: async (e) => {
             const sqs = new AWS.SQS()
+
+            let messageGroupId = 'WEBHOOK_ITEM'
+
+            const groupField = process.env.MESSAGE_GROUP_ID_FIELD
+            const groupSource = process.env.MESSAGE_GROUP_ID_SOURCE
+
+            if (groupField && groupSource == 'body' && e.request.body) {
+                const body = getBody<{ [key: string]: string }>(e.request)
+                messageGroupId = body[groupField] || messageGroupId
+            }
+
             await sqs.sendMessage({
                 MessageBody: JSON.stringify(e),
                 QueueUrl: process.env[ENV_NAME] || '',
-                MessageGroupId: 'WEBHOOK_ITEM'
+                MessageGroupId: messageGroupId
             }).promise()
             console.log('Message relayed to Queue')
 
@@ -137,6 +154,10 @@ export function createWebhook(
 
     const envVars: { [key: string]: pulumi.Input<string> } = {}
     envVars[ENV_NAME] = queue.url
+    if (endpointParams.webhook?.messageGroupId?.field) {
+        envVars['MESSAGE_GROUP_ID_FIELD'] = endpointParams.webhook?.messageGroupId.field
+        envVars['MESSAGE_GROUP_ID_SOURCE'] = endpointParams.webhook?.messageGroupId.source
+    }
 
     const webhookHandler = createEndpoint<Request, Response>(
         endpointParams.name + '-webhook', context,
