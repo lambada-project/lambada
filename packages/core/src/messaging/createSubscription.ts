@@ -2,7 +2,7 @@ import * as aws from "@pulumi/aws";
 import { createLambda, LambdaOptions, LambdaResource } from '../lambdas'
 import { MessagingContext, MessagingResultItem } from ".";
 import { Callback } from '@pulumi/aws/lambda';
-import { TopicEvent, TopicEventSubscription } from "@pulumi/aws/sns";
+import { TopicEvent, TopicEventSubscription, TopicEventSubscriptionArgs } from "@pulumi/aws/sns";
 import { String } from "aws-sdk/clients/cloudsearch";
 import { LambadaResources, EmbroideryEnvironmentVariables } from "..";
 
@@ -15,6 +15,7 @@ export type LambdaSubscription = {
     policyStatements: aws.iam.PolicyStatement[]
     environmentVariables: EmbroideryEnvironmentVariables,
     resources: LambdaResource[]
+    subscriptionArgs?: TopicEventSubscriptionArgs
 }
 
 export type LambdaSubscriptionSimple = {
@@ -29,7 +30,12 @@ export type LambdaSubscriptionSimple = {
 //     kmsKeys
 // }
 
-export const subscribeToTopic = (context: LambadaResources, topic: MessagingResultItem, subscription: LambdaSubscription, options?: LambdaOptions): TopicEventSubscription => {
+export const subscribeToTopic = (
+    context: LambadaResources,
+    topic: MessagingResultItem,
+    subscription: LambdaSubscription,
+    options?: LambdaOptions,
+): TopicEventSubscription => {
     const environment = context.environment
     const topicName = topic.definition.name
     // policyStatements.push({
@@ -67,7 +73,7 @@ export const subscribeToTopic = (context: LambadaResources, topic: MessagingResu
         options
     )
     if (topic.awsTopic)
-        return topic.awsTopic.onEvent(`${topicName}_${subscription.name}_${environment}`, callback)
+        return topic.awsTopic.onEvent(`${topicName}_${subscription.name}_${environment}`, callback, subscription.subscriptionArgs)
     else
         throw `Cannot subscribe to this topic: ${topic.definition.name}`
 }
