@@ -1,8 +1,8 @@
 import * as pulumi from "@pulumi/pulumi";
 import * as AWS from "aws-sdk"
 import * as aws from "@pulumi/aws";
-import * as awsx from "@pulumi/awsx";
-import { Route, IntegrationRoute } from "@pulumi/awsx/apigateway/api";
+import * as awsx from "@pulumi/awsx/classic";
+import { Route, IntegrationRoute } from "@pulumi/awsx/classic/apigateway/api";
 import { LambadaResources } from "..";
 import { IntegrationType } from "aws-sdk/clients/apigateway";
 

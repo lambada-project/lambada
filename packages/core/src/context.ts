@@ -1,4 +1,4 @@
-import { CognitoAuthorizer } from "@pulumi/awsx/apigateway";
+import { CognitoAuthorizer } from "@pulumi/awsx/classic/apigateway";
 import { DatabaseResult } from "./database";
 import { SecretsResult, SecurityResult } from "./security";
 import { MessagingResult } from "./messaging";

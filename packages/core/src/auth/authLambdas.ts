@@ -1,6 +1,6 @@
 import * as pulumi from '@pulumi/pulumi'
 import * as aws from "@pulumi/aws";
-import * as awsx from "@pulumi/awsx";
+import * as awsx from "@pulumi/awsx/classic";
 import { CallbackFunction } from '@pulumi/aws/lambda';
 import { ManagedPolicies } from '@pulumi/aws/iam/managedPolicies'
 import { PolicyDocument, PolicyStatement } from '@pulumi/aws/iam/documents'

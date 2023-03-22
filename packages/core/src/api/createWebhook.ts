@@ -1,5 +1,5 @@
 import { LambadaResources, SubscriptionEvent } from "..";
-import { Request, Response, Route } from '@pulumi/awsx/apigateway/api'
+import { Request, Response, Route } from '@pulumi/awsx/classic/apigateway/api'
 import { createEndpoint, EmbroideryEventHandlerRoute, EmbroideryRequest, LambadaEndpointArgs } from "./createEndpoint";
 import * as aws from '@pulumi/aws'
 import * as pulumi from '@pulumi/pulumi'

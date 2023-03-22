@@ -1,7 +1,7 @@
 import * as AWS from 'aws-sdk'
 import { LambadaResources } from '..'
 import { createEndpoint } from './createEndpoint'
-import { Request, Response, Route } from '@pulumi/awsx/apigateway/api'
+import { Request, Response, Route } from '@pulumi/awsx/classic/apigateway/api'
 import { Callback } from '@pulumi/aws/lambda'
 
 export const getOpenApiDocument: Callback<Request, Response> = async (request: Request): Promise<Response> => {

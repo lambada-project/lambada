@@ -1,6 +1,6 @@
 import * as aws from '@pulumi/aws'
 import { createLambda, lambdaAssumeRole } from '../lambdas';
-import { Request, Response, EventHandlerRoute, IntegrationRoute } from '@pulumi/awsx/apigateway/api'
+import { Request, Response, EventHandlerRoute, IntegrationRoute } from '@pulumi/awsx/classic/apigateway/api'
 import { LambadaResources } from '../context';
 import { EmbroideryEventHandlerRoute } from '.';
 import { getNameFromPath } from './utils';

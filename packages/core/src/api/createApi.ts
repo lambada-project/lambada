@@ -1,8 +1,8 @@
 import * as aws from "@pulumi/aws";
-import * as awsx from "@pulumi/awsx";
+import * as awsx from "@pulumi/awsx/classic";
 import * as pulumi from "@pulumi/pulumi";
 
-import { Route, StaticRoute } from "@pulumi/awsx/apigateway/api";
+import { Route, StaticRoute } from "@pulumi/awsx/classic/apigateway/api";
 
 //import { MessagingResult } from "../messaging";
 

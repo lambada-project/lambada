@@ -1,6 +1,6 @@
 import * as pulumi from "@pulumi/pulumi";
 import * as aws from "@pulumi/aws";
-import * as awsx from "@pulumi/awsx";
+import * as awsx from "@pulumi/awsx/classic";
 
 import createApi, { LambadaCreator } from './api/createApi'
 import { createCloudFront } from './cdn/index'
@@ -15,7 +15,7 @@ import { CreateKMSKeys, createSecrets, EmbroideryEncryptionKeys, EmbroiderySecre
 import { createOpenApiDocumentEndpoint } from "./api/openApiDocument";
 import { UserPool } from "@pulumi/aws/cognito/userPool";
 import createUserPool from "./auth";
-import { CognitoAuthorizer } from "@pulumi/awsx/apigateway";
+import { CognitoAuthorizer } from "@pulumi/awsx/classic/apigateway";
 import { createQueues, LambadaQueues, LambadaQueueSubscriptionCreator } from "./queue";
 import { createQueueHandler } from "./queue/createQueueHandler";
 

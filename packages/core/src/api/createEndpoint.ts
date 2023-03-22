@@ -1,4 +1,4 @@
-import { Request, Response, Route } from '@pulumi/awsx/apigateway/api'
+import { Request, Response, Route } from '@pulumi/awsx/classic/apigateway/api'
 import * as aws from "@pulumi/aws";
 import { createLambda, FolderLambda, LambdaOptions, LambdaResource } from '../lambdas';
 import { LambadaResources } from '../context';
@@ -6,7 +6,7 @@ import { Callback } from '@pulumi/aws/lambda';
 import { PolicyStatement } from "@pulumi/aws/iam";
 import { AuthExecutionContext } from '@lambada/utils';
 import { EmbroideryEnvironmentVariables } from '..';
-import { CognitoAuthorizer, LambdaAuthorizer, Method } from '@pulumi/awsx/apigateway';
+import { CognitoAuthorizer, LambdaAuthorizer, Method } from '@pulumi/awsx/classic/apigateway';
 import { getNameFromPath } from './utils';
 import { createWebhook } from './createWebhook';
 import { createCallback } from './callbackWrapper';

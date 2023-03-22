@@ -6,7 +6,7 @@ import { topics } from './messages'
 import { createHandlerTodoItem_created } from './messages/todoItem_created'
 import * as pulumi from '@pulumi/pulumi'
 import * as aws from '@pulumi/aws'
-import * as awsx from '@pulumi/awsx'
+import * as awsx from '@pulumi/awsx/classic'
 
 const environment = pulumi.getStack()
 const projectName = 'lambada-example'

@@ -1,4 +1,4 @@
-import { Request } from '@pulumi/awsx/apigateway/api'
+import { Request } from '@pulumi/awsx/classic/apigateway/api'
 import { EmbroideryRequest } from "../api";
 import { getContext } from '@lambada/utils';
 

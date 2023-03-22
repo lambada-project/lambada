@@ -1,7 +1,7 @@
 import * as pulumi from "@pulumi/pulumi";
 import * as aws from "@pulumi/aws";
 import { dynamodb } from '@pulumi/aws/types/input'
-import * as awsx from "@pulumi/awsx";
+import * as awsx from "@pulumi/awsx/classic";
 import { seedData } from './seedData'
 import { SecurityResult } from "../security";
 

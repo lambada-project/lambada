@@ -1,5 +1,5 @@
 import * as aws from "@pulumi/aws";
-import * as awsx from "@pulumi/awsx";
+import * as awsx from "@pulumi/awsx/classic";
 import { DatabaseResultItem } from "../database";
 import { SecurityResult } from "../security";
 import { attachPolicies, createAuthLambdas } from "./authLambdas";

@@ -1,7 +1,7 @@
 import * as pulumi from "@pulumi/pulumi";
 import * as aws from "@pulumi/aws";
 import { QueueArgs, QueueEventSubscription } from "@pulumi/aws/sqs";
-import * as awsx from "@pulumi/awsx";
+import * as awsx from "@pulumi/awsx/classic";
 import { LambadaResources } from "..";
 
 import { DatabaseResult } from "../database";

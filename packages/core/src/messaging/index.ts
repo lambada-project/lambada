@@ -1,7 +1,7 @@
 import * as pulumi from "@pulumi/pulumi";
 import * as aws from "@pulumi/aws";
 import { TopicArgs, TopicEventSubscription } from "@pulumi/aws/sns";
-import * as awsx from "@pulumi/awsx";
+import * as awsx from "@pulumi/awsx/classic";
 import { LambadaResources } from "..";
 
 import { DatabaseResult } from "../database";

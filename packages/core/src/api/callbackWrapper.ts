@@ -1,4 +1,4 @@
-import { Response } from '@pulumi/awsx/apigateway/api'
+import { Response } from '@pulumi/awsx/classic/apigateway/api'
 import { getCorsHeaders } from '@lambada/utils';
 import { AuthExecutionContext, getContext } from '@lambada/utils';
 import { EmbroideryCallback } from "./createEndpoint"
