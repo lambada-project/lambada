@@ -94,13 +94,18 @@ export const createCloudFront = (
         )
     }
 
-    // Note: CF certificates MUST be on us-east-1
-    const useast1 = customDomain ? new aws.Provider("useast1", { region: "us-east-1" }) : null;
-    const cert = customDomain && useast1 ?
+    // // Note: CF certificates MUST be on us-east-1
+    // NOTE 2: Looks like this does not happen to be the case any more
+
+    // const useast1 = customDomain ? new aws.Provider("useast1",
+    //     {
+    //         region: "us-east-1",
+    //         profile: aws.config.profile
+    //     }) : null;
+
+    const cert = customDomain ?
         pulumi.output(aws.acm.getCertificate({
             domain: customDomain.domainWithCert,
-        }, {
-            provider: useast1
         })) : undefined
 
     // TODO: Set price tier
