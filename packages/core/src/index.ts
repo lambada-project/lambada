@@ -116,9 +116,9 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
     const queues = createQueues(environment, args.queues, args.queuesRef)
     const notifications = createNotifications(projectName, environment, args?.notifications)
 
-    const stageName = 'app'
-    const wwwPath = '/www'
-    const apiPath = '/api'
+    const stageName = args.naming?.stageName ?? 'app'
+    const wwwPath = args.naming?.wwwPath ?? '/www'
+    const apiPath = args.naming?.apiPath ?? '/api'
 
     if (args?.api?.generateOpenAPIDocument && args?.api?.endpointDefinitions) {
         args.api.endpointDefinitions.push(createOpenApiDocumentEndpoint)
