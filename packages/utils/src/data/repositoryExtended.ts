@@ -1,5 +1,5 @@
 import DynamoDB, { ExpressionAttributeNameMap, ExpressionAttributeValueMap } from "aws-sdk/clients/dynamodb";
-import { IMarshaller, RepositoryBase } from "../repository";
+import { RepositoryBase } from "../repository";
 
 export class RepositoryExtended extends RepositoryBase {
 

@@ -1,4 +1,5 @@
-import { DefaultMarshaller, IMarshaller, RepositoryBase } from './repository'
+import { RepositoryBase } from './repository'
+import { DefaultMarshaller, IMarshaller } from "./dynamoMarsharler"
 
 describe("Repository", () => {
     test("Marshaller", async () => {
