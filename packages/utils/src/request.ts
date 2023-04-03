@@ -25,6 +25,19 @@ export function getBody<TBody>(request: Request): TBody {
     return body
 }
 
+export async function isUserInGroup(user: { username?: string, poolId?: string }, groupName: string) {
+    if (!user.username) throw new LambadaError('[isUserInGroup] username is mandatory')
+    if (!user.poolId) throw new  LambadaError('[isUserInGroup] poolId is mandatory')
+
+    const cognito = new AWS.CognitoIdentityServiceProvider({ apiVersion: '2016-04-18' });
+    const groups = await cognito.adminListGroupsForUser({
+        Username: user.username,
+        UserPoolId: user.poolId
+    }).promise()
+    
+    return typeof groups.Groups?.find(x => x.GroupName == groupName) !== 'undefined'
+}
+
 type AuthenticatedUser = {
     id: string
     attributes: AttributeListType

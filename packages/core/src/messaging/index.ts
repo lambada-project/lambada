@@ -68,7 +68,7 @@ export type LambadaSubscriptionCreator = (context: LambadaResources) => LambadaT
 const tryParse = (value: any) => {
     if (!value) return undefined
     try {
-        return JSON.stringify(value, undefined, 2);
+        return JSON.stringify(value);
     }
     catch (e) {
         console.error(`Failed to parse delivery policy. ${(e as any)?.message}. ${JSON.stringify(value, undefined, 2)}`);
@@ -91,7 +91,7 @@ export const createMessaging = (
             const topic = new aws.sns.Topic(message.name, {
                 ...(message.options ?? {}),
                 name: name,
-                deliveryPolicy: tryParse(message.deliveryPolicy),
+                deliveryPolicy: tryParse(message.deliveryPolicy), // DEFAULT THIS SO ITS EASY TO COMPARE
                 tags: {
                     Environment: environment
                 }
