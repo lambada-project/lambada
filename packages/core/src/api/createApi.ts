@@ -12,6 +12,7 @@ import { LambadaResources } from "../context";
 import { createStaticEndpoint, EmbroideryApiEndpointCreator, LambadaCreatorTypes, LambadaEndpointCreator, LambadaProxyCreator, ProxyIntegrationArgs } from ".";
 import { createEndpointSimple, createEndpointSimpleCompat, LambadaEndpointArgs } from "./createEndpoint";
 import { createProxyIntegration, createProxyIntegrationCompat } from "./createProxyIntegration";
+import { createOpenApiDocumentEndpoint } from "./openApiDocument";
 
 export type LambadaCreator = EmbroideryApiEndpointCreator | LambadaEndpointCreator | LambadaProxyCreator
 type LambadaCreatorReturn = Route | LambadaEndpointArgs | ProxyIntegrationArgs
@@ -28,7 +29,8 @@ type CreateApiArgs = {
         policy?: pulumi.Input<string> | undefined,
         cors?: {
             origins: string[]
-        }
+        },
+        generateOpenApiSpec?: boolean
     }
     www?: {
         local: string,
@@ -45,6 +47,13 @@ type CreateApiArgs = {
     options?: {
         dependsOn: pulumi.Input<pulumi.Resource> | pulumi.Input<pulumi.Input<pulumi.Resource>[]> | undefined
     }
+}
+
+export const IsEndpointsArgs = (route: LambadaCreatorReturn): route is LambadaEndpointArgs => {
+    return typeof (route as LambadaEndpointArgs).callbackDefinition !== 'undefined'
+}
+export const IsProxy = (route: LambadaCreatorReturn): route is ProxyIntegrationArgs => {
+    return typeof (route as ProxyIntegrationArgs).targetUri !== 'undefined'
 }
 
 export default function createApi(
@@ -66,24 +75,32 @@ export default function createApi(
 ): awsx.apigateway.API {
 
     const stageName = 'app'
-    const IsCallback = (route: LambadaCreatorReturn): route is LambadaEndpointArgs => {
-        return typeof (route as LambadaEndpointArgs).callbackDefinition !== 'undefined'
-    }
-    const IsProxy = (route: LambadaCreatorReturn): route is ProxyIntegrationArgs => {
-        return typeof (route as ProxyIntegrationArgs).targetUri !== 'undefined'
-    }
 
-    const lambadaEndpoints = api?.apiEndpoints ? api.apiEndpoints
+    const lambadaEndpoints: LambadaCreatorTypes[] = api?.apiEndpoints ? api.apiEndpoints
         .map(create => create(context))
         .filter(x => !!x)
-        .map(x => x as NonNullable<LambadaCreatorTypes>)
-        .map(x => IsCallback(x) ? createEndpointSimpleCompat(x, context) : x)
-        .map(x => IsProxy(x) ? createProxyIntegrationCompat(x, context) : x)
-        : []
+        .map(x => x as NonNullable<LambadaCreatorTypes>) : []
+
+    const routes = lambadaEndpoints
+        .map(x => {
+            if (IsProxy(x)) return createProxyIntegrationCompat(x, context)
+            if (IsEndpointsArgs(x)) return createEndpointSimpleCompat(x, context)
+            return x
+        })
+
+
+    if (api?.generateOpenApiSpec) {
+        const route = createOpenApiDocumentEndpoint(lambadaEndpoints.filter(IsEndpointsArgs))
+        const args = route(context)
+        routes.push(createEndpointSimpleCompat(args, context))
+    }
+
+
+
 
     // TODO: Configure per endpoint?
     const corsEndpoints = api?.cors && lambadaEndpoints.length > 0 ?
-        createCorsEndpoints(lambadaEndpoints, context, api.cors.origins) : []
+        createCorsEndpoints(routes, context, api.cors.origins) : []
 
     const staticRoutes: StaticRoute[] = []
     if (www) {
@@ -91,7 +108,7 @@ export default function createApi(
     }
 
     const allRoutes: Route[] = [
-        ...lambadaEndpoints,
+        ...routes,
         ...corsEndpoints,
         ...staticRoutes
     ]

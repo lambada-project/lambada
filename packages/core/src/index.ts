@@ -120,11 +120,6 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
     const wwwPath = args.naming?.wwwPath ?? '/www'
     const apiPath = args.naming?.apiPath ?? '/api'
 
-    if (args?.api?.generateOpenAPIDocument && args?.api?.endpointDefinitions) {
-        args.api.endpointDefinitions.push(createOpenApiDocumentEndpoint)
-    }
-
-
     const authorizerProviderARNs = pool ? [pool, ...(args.auth?.extraAuthorizers ?? [])] : (args.auth?.extraAuthorizers ?? [])
     const authorizer = awsx.apigateway.getCognitoAuthorizer({
         providerARNs: authorizerProviderARNs,
@@ -172,7 +167,8 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
             type: args.api.gatewayType || 'EDGE',
             cors: args.cors,
             vpcEndpointIds: args.api.vpcEndpointIds,
-            policy: args.api.policy
+            policy: args.api.policy,
+            generateOpenApiSpec: args.api.generateOpenAPIDocument
         } : undefined,
         www: args.staticSiteLocalPath ? {
             local: args.staticSiteLocalPath,

@@ -11,6 +11,7 @@ import { getNameFromPath } from './utils';
 import { createWebhook } from './createWebhook';
 import { createCallback } from './callbackWrapper';
 import { QueueArgs } from '@pulumi/aws/sqs';
+import { RouteConfig } from '@asteasolutions/zod-to-openapi';
 
 
 export type EmbroideryRequest = {
@@ -24,11 +25,12 @@ export type LambadaEndpointArgs = {
     /** Custom name for your lambda, if empty it will take a name based on the path-verb */
     name?: string,
     path: string,
-    method: "GET" | "POST" | "DELETE",
+    method: "GET" | "POST" | "DELETE" | "PUT" | "PATCH",
     callbackDefinition: EmbroideryCallback,
     resources?: LambdaResource[],
     extraHeaders?: {},
     environmentVariables?: EmbroideryEnvironmentVariables,
+    openapi?: Omit<RouteConfig, 'path' | 'method'>
     webhook?: {
         wrapInQueue: boolean,
         options?: QueueArgs,
@@ -145,7 +147,7 @@ export const createEndpoint = <E, R>(
     name: string,
     embroideryContext: LambadaResources,
     path: string,
-    method: "GET" | "POST" | "DELETE" | "PUT" | "OPTIONS",
+    method: "GET" | "POST" | "DELETE" | "PUT" | "PATCH" | "OPTIONS",
     callbackDefinition: Callback<E, R> | FolderLambda,
     policyStatements: aws.iam.PolicyStatement[],
     environmentVariables: EmbroideryEnvironmentVariables = undefined,
