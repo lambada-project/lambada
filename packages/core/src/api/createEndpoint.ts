@@ -11,7 +11,7 @@ import { getNameFromPath } from './utils';
 import { createWebhook } from './createWebhook';
 import { createCallback } from './callbackWrapper';
 import { QueueArgs } from '@pulumi/aws/sqs';
-import { RouteConfig } from '@asteasolutions/zod-to-openapi';
+import { OpenAPIRegistry, ResponseConfig, RouteConfig } from '@asteasolutions/zod-to-openapi';
 
 
 export type EmbroideryRequest = {
@@ -30,7 +30,7 @@ export type LambadaEndpointArgs = {
     resources?: LambdaResource[],
     extraHeaders?: {},
     environmentVariables?: EmbroideryEnvironmentVariables,
-    openapi?: Omit<RouteConfig, 'path' | 'method'>
+    openapi?: (registry: OpenAPIRegistry) => Omit<RouteConfig, 'path' | 'method'>
     webhook?: {
         wrapInQueue: boolean,
         options?: QueueArgs,

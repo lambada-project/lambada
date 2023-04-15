@@ -33,9 +33,10 @@ export const createOpenApiDocumentEndpoint = (endpoints: LambadaEndpointArgs[]) 
         .filter(x => IsEndpointsArgs(x))
         .forEach(x => {
             if (!x.openapi) return
+            const config = x.openapi(registry)
 
             const endpoint = {
-                ...x.openapi,
+                ...config,
                 method: x.method.toLowerCase() as any,// :(,
                 path: x.path,
             } satisfies RouteConfig
