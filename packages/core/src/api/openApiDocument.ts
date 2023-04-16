@@ -13,6 +13,7 @@ import {
 
 import { extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
 import { z } from 'zod';
+import { OpenAPIObjectConfig } from '@asteasolutions/zod-to-openapi/dist/openapi-generator'
 extendZodWithOpenApi(z);
 
 //import * as yaml from 'yaml';
@@ -20,7 +21,7 @@ extendZodWithOpenApi(z);
 
 
 
-export const createOpenApiDocumentEndpoint = (endpoints: LambadaEndpointArgs[]) => {
+export const createOpenApiDocumentEndpoint = (openApiSpec: OpenAPIObjectConfig, endpoints: LambadaEndpointArgs[]) => {
     const registry = new OpenAPIRegistry();
 
     const bearerAuth = registry.registerComponent('securitySchemes', 'bearerAuth', {
@@ -54,15 +55,7 @@ export const createOpenApiDocumentEndpoint = (endpoints: LambadaEndpointArgs[]) 
 
     function getOpenApiDocumentation() {
         const generator = new OpenAPIGenerator(registry.definitions, '3.0.0');
-
-        return generator.generateDocument({
-            info: {
-                version: '1.0.0',
-                title: 'El Dorado - API',
-                description: "Fiat<>Crypto P2P leveraging liquidity from El Dorado's orderbook",
-            },
-            //servers: [{ url: 'v1' }],
-        });
+        return generator.generateDocument(openApiSpec);
     }
 
 

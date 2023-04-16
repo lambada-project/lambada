@@ -77,6 +77,7 @@ export class RepositoryExtended extends RepositoryBase {
             condition: 'BETWEEN'
         }
         indexName?: string
+        limit?: number
     }): Promise<T[]> {
         const { primaryKey, rangeKey, indexName } = params
 
@@ -109,6 +110,7 @@ export class RepositoryExtended extends RepositoryBase {
                         : { ':SK': this.marshaller.marshallValue(rangeKey.value) } as any
                     : {}),
             },
+            Limit: params.limit
         }
 
         const response = await this.getDb().query(command).promise()
@@ -196,7 +198,7 @@ export class RepositoryExtended extends RepositoryBase {
         return items
     }
 
-    private fromItem<T>(item: DynamoDB.AttributeMap): T {
+    protected fromItem<T>(item: DynamoDB.AttributeMap): T {
         return this.marshaller.unmarshallItem(item) as T
     }
 }

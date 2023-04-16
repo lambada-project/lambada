@@ -18,6 +18,7 @@ import createUserPool from "./auth";
 import { CognitoAuthorizer } from "@pulumi/awsx/classic/apigateway";
 import { createQueues, LambadaQueues, LambadaQueueSubscriptionCreator } from "./queue";
 import { createQueueHandler } from "./queue/createQueueHandler";
+import { OpenAPIObjectConfig } from "@asteasolutions/zod-to-openapi/dist/openapi-generator";
 
 export * from './context'
 export * from './api/index'
@@ -32,7 +33,7 @@ type LambadaRunArguments = {
         gatewayType?: 'EDGE' | 'REGIONAL' | 'PRIVATE'
         vpcEndpointIds?: pulumi.Input<pulumi.Input<string>[]> | undefined,
         policy?: pulumi.Input<string> | undefined,
-        generateOpenAPIDocument?: boolean
+        openAPIDocument?: OpenAPIObjectConfig
     },
     cdn?: {
         useCDN: boolean,
@@ -168,7 +169,7 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
             cors: args.cors,
             vpcEndpointIds: args.api.vpcEndpointIds,
             policy: args.api.policy,
-            generateOpenApiSpec: args.api.generateOpenAPIDocument
+            openApiSpec: args.api.openAPIDocument
         } : undefined,
         www: args.staticSiteLocalPath ? {
             local: args.staticSiteLocalPath,

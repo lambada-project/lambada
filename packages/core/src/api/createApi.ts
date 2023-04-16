@@ -13,6 +13,7 @@ import { createStaticEndpoint, EmbroideryApiEndpointCreator, LambadaCreatorTypes
 import { createEndpointSimple, createEndpointSimpleCompat, LambadaEndpointArgs } from "./createEndpoint";
 import { createProxyIntegration, createProxyIntegrationCompat } from "./createProxyIntegration";
 import { createOpenApiDocumentEndpoint } from "./openApiDocument";
+import { OpenAPIObjectConfig } from "@asteasolutions/zod-to-openapi/dist/openapi-generator";
 
 export type LambadaCreator = EmbroideryApiEndpointCreator | LambadaEndpointCreator | LambadaProxyCreator
 type LambadaCreatorReturn = Route | LambadaEndpointArgs | ProxyIntegrationArgs
@@ -30,7 +31,7 @@ type CreateApiArgs = {
         cors?: {
             origins: string[]
         },
-        generateOpenApiSpec?: boolean
+        openApiSpec?: OpenAPIObjectConfig
     }
     www?: {
         local: string,
@@ -89,8 +90,8 @@ export default function createApi(
         })
 
 
-    if (api?.generateOpenApiSpec) {
-        const route = createOpenApiDocumentEndpoint(lambadaEndpoints.filter(IsEndpointsArgs))
+    if (api?.openApiSpec) {
+        const route = createOpenApiDocumentEndpoint(api?.openApiSpec, lambadaEndpoints.filter(IsEndpointsArgs))
         const args = route(context)
         routes.push(createEndpointSimpleCompat(args, context))
     }
