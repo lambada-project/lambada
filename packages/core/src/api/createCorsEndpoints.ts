@@ -38,6 +38,9 @@ export const createCorsEndpoints = (endpoints: EmbroideryEventHandlerRoute[], em
 }
 
 function createCorsFunction(origins: string[] | undefined, name: string, embroideryContext: LambadaResources, sharedCorsRole: Role, path: string): EventHandlerRoute {
+    // Tried adding these, but apigateways throws error
+    //"Cache-Control": "public, max-age=86400",
+    //"Vary": "origin" 
     const callback = async (req: Request): Promise<Response> => {
         return {
             statusCode: 200,

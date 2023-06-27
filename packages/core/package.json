@@ -1,6 +1,6 @@
 {
 	"name": "@lambada/core",
-	"version": "1.10.0-experimental",
+	"version": "1.10.2-experimental",
 	"description": "A VERY opinionated infrastructure as code framework.",
 	"main": "dist/index.js",
 	"module": "dist/index.js",
@@ -26,7 +26,7 @@
 		"zod": "^3.21.4"
 	},
 	"devDependencies": {
-		"@asteasolutions/zod-to-openapi": "^4.5.3",
+		"@asteasolutions/zod-to-openapi": "^5.2.0",
 		"@aws/dynamodb-auto-marshaller": "^0.7.1",
 		"@lambada/utils": "^1.4.5",
 		"@pulumi/aws": "^5.0.0",

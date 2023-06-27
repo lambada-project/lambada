@@ -1,44 +1,53 @@
 import * as AWS from 'aws-sdk'
-import { LambadaResources, LambadaEndpointCreator, LambadaCreator, IsEndpointsArgs } from '..'
-import { LambadaEndpointArgs, createEndpoint } from './createEndpoint'
-import { Request, Response, Route } from '@pulumi/awsx/classic/apigateway/api'
-import { Callback } from '@pulumi/aws/lambda'
-
+import { LambadaResources, IsEndpointsArgs } from '..'
+import { LambadaEndpointArgs } from './createEndpoint'
 
 import {
-    OpenAPIGenerator,
     OpenAPIRegistry,
     RouteConfig
 } from '@asteasolutions/zod-to-openapi';
 
 import { extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
 import { z } from 'zod';
-import { OpenAPIObjectConfig } from '@asteasolutions/zod-to-openapi/dist/openapi-generator'
+import { OpenAPIObjectConfigV31, OpenApiGeneratorV31, } from '@asteasolutions/zod-to-openapi/dist/v3.1/openapi-generator'
+
 extendZodWithOpenApi(z);
 
-//import * as yaml from 'yaml';
 
-
-
-
-export const createOpenApiDocumentEndpoint = (openApiSpec: OpenAPIObjectConfig, endpoints: LambadaEndpointArgs[]) => {
+export const createOpenApiDocumentEndpoint = (args: {
+    openApiSpec: OpenAPIObjectConfigV31,
+    endpoints: LambadaEndpointArgs[],
+    auth?: {
+        name?: string
+        openapi?: {
+            description?: string
+        }
+    }
+}) => {
     const registry = new OpenAPIRegistry();
+    const name = args.auth?.name ?? 'bearerAuth'
 
-    const bearerAuth = registry.registerComponent('securitySchemes', 'bearerAuth', {
+    const bearerAuth = registry.registerComponent('securitySchemes', name, {
         type: 'apiKey',
         scheme: 'bearer',
         bearerFormat: 'JWT',
+        name: name,
+        description: args.auth?.openapi?.description,
     });
 
-    endpoints
+    args.endpoints
         .filter(x => IsEndpointsArgs(x))
         .forEach(x => {
             if (!x.openapi) return
             const config = x.openapi(registry)
 
+            const toLowerCase = <T extends string>(s: T): Lowercase<T> => {
+                return s.toLowerCase() as any;
+            }
+
             const endpoint = {
                 ...config,
-                method: x.method.toLowerCase() as any,// :(,
+                method: toLowerCase(x.method),
                 path: x.path,
             } satisfies RouteConfig
 
@@ -54,8 +63,8 @@ export const createOpenApiDocumentEndpoint = (openApiSpec: OpenAPIObjectConfig, 
 
 
     function getOpenApiDocumentation() {
-        const generator = new OpenAPIGenerator(registry.definitions, '3.0.0');
-        return generator.generateDocument(openApiSpec);
+        const generator = new OpenApiGeneratorV31(registry.definitions);
+        return generator.generateDocument(args.openApiSpec);
     }
 
 
@@ -69,6 +78,9 @@ export const createOpenApiDocumentEndpoint = (openApiSpec: OpenAPIObjectConfig, 
         name: 'get_openapi_spec',
         path: '/openapi',
         method: 'GET',
+        auth: {
+            useCognitoAuthorizer: false
+        },
         callbackDefinition: async (): Promise<object> => {
             return {
                 statusCode: 200,

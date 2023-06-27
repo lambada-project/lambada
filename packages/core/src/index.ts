@@ -1,5 +1,4 @@
 import * as pulumi from "@pulumi/pulumi";
-import * as aws from "@pulumi/aws";
 import * as awsx from "@pulumi/awsx/classic";
 
 import createApi, { LambadaCreator } from './api/createApi'
@@ -12,13 +11,12 @@ import { createMessaging, LambadaMessages, LambadaSubscriptionCreator } from './
 import createNotifications, { NotificationConfig } from './notifications'
 import { EmbroideryTables, createDynamoDbTables } from './database'
 import { CreateKMSKeys, createSecrets, EmbroideryEncryptionKeys, EmbroiderySecrets } from "./security";
-import { createOpenApiDocumentEndpoint } from "./api/openApiDocument";
 import { UserPool } from "@pulumi/aws/cognito/userPool";
 import createUserPool from "./auth";
 import { CognitoAuthorizer } from "@pulumi/awsx/classic/apigateway";
 import { createQueues, LambadaQueues, LambadaQueueSubscriptionCreator } from "./queue";
 import { createQueueHandler } from "./queue/createQueueHandler";
-import { OpenAPIObjectConfig } from "@asteasolutions/zod-to-openapi/dist/openapi-generator";
+import { OpenAPIObjectConfigV31 } from "@asteasolutions/zod-to-openapi/dist/v3.1/openapi-generator";
 
 export * from './context'
 export * from './api/index'
@@ -33,7 +31,7 @@ type LambadaRunArguments = {
         gatewayType?: 'EDGE' | 'REGIONAL' | 'PRIVATE'
         vpcEndpointIds?: pulumi.Input<pulumi.Input<string>[]> | undefined,
         policy?: pulumi.Input<string> | undefined,
-        openAPIDocument?: OpenAPIObjectConfig
+        openAPIDocument?: OpenAPIObjectConfigV31
     },
     cdn?: {
         useCDN: boolean,
@@ -82,7 +80,12 @@ type LambadaRunArguments = {
             useEmailAsUsername?: boolean
             preventResourceDeletion: boolean
         },
-        useApiKey?: boolean
+        useApiKey?: {
+            name?: string
+            openapi?: {
+                description: string
+            }
+        }
     },
     options?: {
         dependsOn: pulumi.Input<pulumi.Resource> | pulumi.Input<pulumi.Input<pulumi.Resource>[]> | undefined;
@@ -133,7 +136,11 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
         projectName: projectName,
         api: apiPath ? {
             apiPath: apiPath,
-            cors: args.cors
+            cors: args.cors,
+            auth: {
+                useApiKey: typeof args.auth?.useApiKey != 'undefined',
+                useCognitoAuthorizer: !!args.auth?.createCognito || !!args.auth?.extraAuthorizers?.length
+            }
         } : undefined,
         authorizers: authorizers,
         messaging: messaging,
@@ -181,7 +188,10 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
         // secrets: secrets,
         // authorizerProviderARNs: pool ? [pool] : undefined,
         // kmsKeys: encryptionKeys,
-        // messaging: messaging
+        // messaging: messaging,
+        auth: {
+            apiKey: args.auth?.useApiKey
+        },
         options: args.options
     })
 
@@ -191,7 +201,7 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
         apiKey = awsx.apigateway.createAssociatedAPIKeys(`${projectName}-api-keys-${environment}`, {
             apis: [api],
             apiKeys: [{
-                name: "internal-key",
+                name: args.auth.useApiKey?.name ?? "internal-key",
             }],
         })
     }
@@ -227,6 +237,7 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
         },
         messaging: messaging,
         databases: databases,
-        apiKey: apiKey
+        apiKey: apiKey,
+        secrets: secrets
     }
 }

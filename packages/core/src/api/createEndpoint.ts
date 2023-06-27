@@ -11,7 +11,7 @@ import { getNameFromPath } from './utils';
 import { createWebhook } from './createWebhook';
 import { createCallback } from './callbackWrapper';
 import { QueueArgs } from '@pulumi/aws/sqs';
-import { OpenAPIRegistry, ResponseConfig, RouteConfig } from '@asteasolutions/zod-to-openapi';
+import { OpenAPIRegistry, RouteConfig } from '@asteasolutions/zod-to-openapi';
 
 
 export type EmbroideryRequest = {
@@ -19,6 +19,7 @@ export type EmbroideryRequest = {
     request: Request
 }
 
+export type DistributiveOmit<T, K extends keyof T> = T extends any ? Omit<T, K> : never
 export type EmbroideryCallback = (event: EmbroideryRequest) => Promise<object>
 export type EmbroideryEventHandlerRoute = Route
 export type LambadaEndpointArgs = {
@@ -30,7 +31,7 @@ export type LambadaEndpointArgs = {
     resources?: LambdaResource[],
     extraHeaders?: {},
     environmentVariables?: EmbroideryEnvironmentVariables,
-    openapi?: (registry: OpenAPIRegistry) => Omit<RouteConfig, 'path' | 'method'>
+    openapi?: (registry: OpenAPIRegistry) => DistributiveOmit<RouteConfig, 'path' | 'method'>
     webhook?: {
         wrapInQueue: boolean,
         options?: QueueArgs,
@@ -116,7 +117,7 @@ export const createEndpointSimpleCompat = (args: LambadaEndpointArgs, context: L
         auth,
         environmentVariables,
         options,
-        webhook
+        webhook,
     } = args
 
 
@@ -215,7 +216,8 @@ export const createEndpoint = <E, R>(
     let auth = []
     if (lambdaAuthorizer)
         auth.push(lambdaAuthorizer)
-    if (embroideryContext?.api?.auth?.useCognitoAuthorizer === true || enableAuth)
+
+    if (typeof enableAuth === 'boolean' ? enableAuth : embroideryContext?.api?.auth?.useCognitoAuthorizer === true)
         auth = [...auth, ...(embroideryContext.authorizers ?? [])]
 
     return {
@@ -223,6 +225,6 @@ export const createEndpoint = <E, R>(
         method: method,
         authorizers: auth,
         eventHandler: callback,
-        apiKeyRequired: embroideryContext?.api?.auth?.useApiKey === true || apiKeyRequired
+        apiKeyRequired: typeof apiKeyRequired === 'boolean' ? apiKeyRequired : embroideryContext?.api?.auth?.useApiKey === true
     }
 }

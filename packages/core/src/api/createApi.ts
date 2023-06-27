@@ -13,7 +13,7 @@ import { createStaticEndpoint, EmbroideryApiEndpointCreator, LambadaCreatorTypes
 import { createEndpointSimple, createEndpointSimpleCompat, LambadaEndpointArgs } from "./createEndpoint";
 import { createProxyIntegration, createProxyIntegrationCompat } from "./createProxyIntegration";
 import { createOpenApiDocumentEndpoint } from "./openApiDocument";
-import { OpenAPIObjectConfig } from "@asteasolutions/zod-to-openapi/dist/openapi-generator";
+import { OpenAPIObjectConfigV31 } from "@asteasolutions/zod-to-openapi/dist/v3.1/openapi-generator";
 
 export type LambadaCreator = EmbroideryApiEndpointCreator | LambadaEndpointCreator | LambadaProxyCreator
 type LambadaCreatorReturn = Route | LambadaEndpointArgs | ProxyIntegrationArgs
@@ -31,7 +31,7 @@ type CreateApiArgs = {
         cors?: {
             origins: string[]
         },
-        openApiSpec?: OpenAPIObjectConfig
+        openApiSpec?: OpenAPIObjectConfigV31
     }
     www?: {
         local: string,
@@ -45,6 +45,14 @@ type CreateApiArgs = {
     // kmsKeys?: SecurityResult
     // environmentVariables?: EmbroideryEnvironmentVariables
     // secrets?: SecretsResult
+    auth?: {
+        apiKey?: {
+            name?: string
+            openapi?: {
+                description: string
+            }
+        }
+    }
     options?: {
         dependsOn: pulumi.Input<pulumi.Resource> | pulumi.Input<pulumi.Input<pulumi.Resource>[]> | undefined
     }
@@ -71,6 +79,7 @@ export default function createApi(
         // kmsKeys,
         // environmentVariables,
         // secrets
+        auth,
         options,
     }: CreateApiArgs
 ): awsx.apigateway.API {
@@ -91,7 +100,11 @@ export default function createApi(
 
 
     if (api?.openApiSpec) {
-        const route = createOpenApiDocumentEndpoint(api?.openApiSpec, lambadaEndpoints.filter(IsEndpointsArgs))
+        const route = createOpenApiDocumentEndpoint({
+            openApiSpec: api?.openApiSpec,
+            endpoints: lambadaEndpoints.filter(IsEndpointsArgs),
+            auth: auth?.apiKey
+        })
         const args = route(context)
         routes.push(createEndpointSimpleCompat(args, context))
     }

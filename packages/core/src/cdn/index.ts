@@ -81,6 +81,14 @@ export const createCloudFront = (
                 forwardedValues: {
                     queryString: true,
                     //headers: ["*"],
+                    headers: [
+                        'Access-Control-Request-Headers',
+                        'Access-Control-Request-Method',
+                        'Origin',
+                        'Authorization',
+                        "Cache-Control",
+                        'Set-Cookie'
+                    ],
                     cookies: {
                         forward: "all",
                     },
@@ -89,7 +97,7 @@ export const createCloudFront = (
                 defaultTtl: 60,
                 maxTtl: 120,
                 compress: true,
-                viewerProtocolPolicy: "redirect-to-https",
+                viewerProtocolPolicy: "https-only",
             }
         )
     }
