@@ -48,7 +48,8 @@ export const createQueues = (
                 ref: {
                     arn: queue.arn,
                     id: queue.id,
-                    name: queue.name
+                    name: queue.name,
+                    url: queue.url
                 },
                 definition: queueDef
             } as QueueResultItem
