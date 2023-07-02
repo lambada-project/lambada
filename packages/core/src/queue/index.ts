@@ -33,7 +33,7 @@ export const createQueues = (
     for (const key in queues) {
         if (queues.hasOwnProperty(key)) {
             const queueDef = queues[key];
-            const name = `${queueDef.name}-${environment}`
+            const name = `${queueDef.name}${queueDef.options?.fifoQueue ? '.fifo' : ''}-${environment}`
             const queue = new aws.sqs.Queue(queueDef.name, {
                 ...(queueDef.options ?? {}),
                 name: name,

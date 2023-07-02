@@ -17,6 +17,7 @@
 		"build": "tsc"
 	},
 	"peerDependencies": {
+		"@asteasolutions/zod-to-openapi": "^5.2.0",
 		"@aws/dynamodb-auto-marshaller": "^0.7.1",
 		"@lambada/utils": "^1.4.5",
 		"@pulumi/aws": "^5.0.0",
