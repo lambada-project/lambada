@@ -236,6 +236,7 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
             cognitoPoolId: cognitoPoolId
         },
         messaging: messaging,
+        queues: queues,
         databases: databases,
         apiKey: apiKey,
         secrets: secrets

@@ -154,8 +154,8 @@ export const createCloudFront = (
             },
             targetOriginId: www ? wwwOriginId : apiOriginId,
             minTtl: 0,
-            defaultTtl: 60,
-            maxTtl: 120,
+            defaultTtl: 0,
+            maxTtl: 3600,
         },
         restrictions: {
             geoRestriction: {
