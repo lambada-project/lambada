@@ -42,6 +42,15 @@ export const createQueueHandler = (
             })
     }
 
+    queueHandler.resources.push({
+        arn: queue.awsQueue.arn,
+        access: [
+            "sqs:ReceiveMessage",
+            "sqs:DeleteMessage",
+            "sqs:GetQueueAttributes"
+        ]
+    })
+
     const envVars = { ...(context.environmentVariables || {}), ...(queueHandler.environmentVariables || {}) }
 
     const callback = createLambda<QueueHandlerEvent, void>(
