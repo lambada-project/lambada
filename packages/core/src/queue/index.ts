@@ -33,7 +33,7 @@ export const createQueues = (
     for (const key in queues) {
         if (queues.hasOwnProperty(key)) {
             const queueDef = queues[key];
-            const name = `${queueDef.name}${queueDef.options?.fifoQueue ? '.fifo' : ''}-${environment}`
+            const name = `${queueDef.name}-${environment}${queueDef.options?.fifoQueue ? '.fifo' : ''}`
             const queue = new aws.sqs.Queue(queueDef.name, {
                 ...(queueDef.options ?? {}),
                 name: name,
@@ -61,7 +61,7 @@ export const createQueues = (
             if (result[key]) {
                 throw new Error(`Cannot create a ref message with the same name of an existing topic: ${key}`)
             }
-            const queue = findQueue(queueRef.name, environment)
+            const queue = findQueue(queueRef.name, environment, queueRef.options?.fifoQueue ?? false)
 
             result[key] = {
                 awsQueue: aws.sqs.Queue.get(`${queueRef.name}-${environment}`, queue.id),
@@ -76,8 +76,8 @@ export const createQueues = (
 }
 
 
-function findQueue(name: string, environment: string): pulumi.Output<QueueReference> {
-    const topicName = `${name}-${environment}`
+function findQueue(name: string, environment: string, fifoQueue: pulumi.Input<boolean>): pulumi.Output<QueueReference> {
+    const topicName = `${name}-${environment}${fifoQueue ? '.fifo' : ''}`
 
     const getQueue = async (name: string) => {
         try {
