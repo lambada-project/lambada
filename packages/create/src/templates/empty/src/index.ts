@@ -8,10 +8,17 @@ const environment = pulumi.getStack()
 
 const result = run(projectName, environment,
     {
-        endpointDefinitions: [
-            (context) => createEndpointSimple('health', context, '/health', 'GET', async (event) => ({ ok: true }), [])
-        ]
+        api: {
+            endpointDefinitions: [
+                (context) => ({
+                    name: 'health',
+                    path: '/health',
+                    method: 'GET',
+                    callbackDefinition: async (event) => ({ ok: true }),
+                })
+            ]
+        }
     })
 
 
-//export const apiUrl = result.api.url
+export const apiUrl = result.api.url

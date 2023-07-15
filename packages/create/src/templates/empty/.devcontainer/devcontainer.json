@@ -1,19 +1,25 @@
 {
 	"name": "{{PROJECT_NAME}}",
-
 	"service": "app",
 	"dockerComposeFile": "docker-compose.yml",
 	"workspaceFolder": "/workspace",
-	"settings": { 
-		"terminal.integrated.shell.linux": "/bin/bash"
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"dbaeumer.vscode-eslint",
+				"firsttris.vscode-jest-runner"
+			],
+			"settings": {
+				"terminal.integrated.profiles.linux": {
+					"bash": {
+						"path": "/bin/bash"
+					}
+				}
+			}
+		}
 	},
-	"extensions": [
-		"dbaeumer.vscode-eslint"
-	],
-
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
 	// "forwardPorts": [],
-
 	// Use 'postCreateCommand' to run commands after the container is created.
 	// "postCreateCommand": "yarn install",
 	"remoteUser": "node"
