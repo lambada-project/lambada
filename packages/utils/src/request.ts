@@ -44,6 +44,7 @@ type AuthenticatedUser = {
     username: string
     name?: string
     email: string
+    enabled?: boolean
 }
 
 async function _FindUser(userPoolId: string, userId?: string, username?: string): Promise<AuthenticatedUser> {
@@ -95,6 +96,7 @@ async function _FindUser(userPoolId: string, userId?: string, username?: string)
                 username,
                 name,
                 email: email ?? '',
+                enabled: cu.Enabled,
                 attributes: cutomAttributes
             }
 
@@ -126,6 +128,7 @@ async function _FindUser(userPoolId: string, userId?: string, username?: string)
                     attributes: cutomAttributes,
                     name,
                     username,
+                    enabled: cu.Enabled,
                     email: email ?? ''
                 }
             }

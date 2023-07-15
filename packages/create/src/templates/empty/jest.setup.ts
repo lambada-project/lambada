@@ -1,7 +1,8 @@
-import { ConfigureAwsEnvironment, RemoveResources } from '@lambada/core'
+import { ConfigureAwsEnvironment } from '@lambada/core'
+import { localAWS } from './lambada.config'
 
 beforeAll(async () => {
-    await ConfigureAwsEnvironment({
-       // PUT YOUR TABLES HERE
-    });
+    ConfigureAwsEnvironment({
+        options: localAWS
+    })
 })

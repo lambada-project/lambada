@@ -1,8 +1,13 @@
 import { ConfigureAwsEnvironment } from '@lambada/core'
+import AWS from 'aws-sdk';
+import { tables } from './src/data/tables';
+import { localAWS } from './lambada.config';
 
 
 module.exports = async () => {
     await ConfigureAwsEnvironment({
-        // PUT YOUR TABLES HERE
+        options: localAWS
+    }, {
+        tables: tables
     });
 };
