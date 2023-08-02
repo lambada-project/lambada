@@ -14,6 +14,7 @@ import { createEndpointSimple, createEndpointSimpleCompat, LambadaEndpointArgs }
 import { createProxyIntegration, createProxyIntegrationCompat } from "./createProxyIntegration";
 import { createOpenApiDocumentEndpoint } from "./openApiDocument";
 import { OpenAPIObjectConfigV31 } from "@asteasolutions/zod-to-openapi/dist/v3.1/openapi-generator";
+import { FunctionVpcConfig } from "../lambdas";
 
 export type LambadaCreator = EmbroideryApiEndpointCreator | LambadaEndpointCreator | LambadaProxyCreator
 type LambadaCreatorReturn = Route | LambadaEndpointArgs | ProxyIntegrationArgs
@@ -32,6 +33,10 @@ type CreateApiArgs = {
             origins: string[]
         },
         openApiSpec?: OpenAPIObjectConfigV31
+        /**
+         * Configures all lambdas with it
+         */
+        vpcConfig?: pulumi.Input<FunctionVpcConfig>
     }
     www?: {
         local: string,
@@ -110,9 +115,6 @@ export default function createApi(
     }
 
 
-
-
-    // TODO: Configure per endpoint?
     const corsEndpoints = api?.cors && lambadaEndpoints.length > 0 ?
         createCorsEndpoints(routes, context, api.cors.origins) : []
 

@@ -1,6 +1,7 @@
 import { Request, Response, Route } from '@pulumi/awsx/classic/apigateway/api'
 import * as aws from "@pulumi/aws";
-import { createLambda, FolderLambda, LambdaOptions, LambdaResource } from '../lambdas';
+import * as pulumi from '@pulumi/pulumi'
+import { createLambda, FolderLambda, FunctionVpcConfig, LambdaOptions, LambdaResource } from '../lambdas';
 import { LambadaResources } from '../context';
 import { Callback } from '@pulumi/aws/lambda';
 import { PolicyStatement } from "@pulumi/aws/iam";
@@ -12,7 +13,6 @@ import { createWebhook } from './createWebhook';
 import { createCallback } from './callbackWrapper';
 import { QueueArgs } from '@pulumi/aws/sqs';
 import { OpenAPIRegistry, RouteConfig } from '@asteasolutions/zod-to-openapi';
-
 
 export type EmbroideryRequest = {
     user?: AuthExecutionContext
@@ -120,10 +120,10 @@ export const createEndpointSimpleCompat = (args: LambadaEndpointArgs, context: L
         webhook,
     } = args
 
-
     if (webhook?.wrapInQueue) {
         return createWebhook(args, context)
     }
+
     else {
         return createEndpoint<Request, Response>(
             name, context,
@@ -156,7 +156,8 @@ export const createEndpoint = <E, R>(
     resources?: LambdaResource[],
     apiKeyRequired?: boolean,
     lambdaAuthorizer?: LambdaAuthorizer,
-    options?: LambdaOptions
+    options?: LambdaOptions,
+    vpcConfig?: pulumi.Input<FunctionVpcConfig>
 ): LambadaEndpointResult<E, R> => {
 
     var environment = embroideryContext.environment
@@ -165,26 +166,6 @@ export const createEndpoint = <E, R>(
     if (!policyStatements) {
         policyStatements = []
     }
-
-    // This is not working :( somehow "Resource" is not there
-    // if (embroideryContext.authorizers) {
-    //     const auths = embroideryContext.authorizers
-    //     pulumi.log.info(`Adding Authorizers: ${auths.length}`)
-
-    //     for (let i = 0; i < auths.length; i++) {
-    //         const providerARNs = auths[i].providerARNs.map(x=> (x as UserPool).arn  || x)
-    //         pulumi.log.info(`Adding ARNS: ${providerARNs.length}`)
-
-    //         policyStatements.push({
-    //             Action: [
-    //                 "cognito-idp:AdminGetUser",
-    //                 "cognito-idp:ListUsers"
-    //             ],
-    //             Resource: providerARNs,
-    //             Effect: "Allow"
-    //         })
-    //     }
-    // }
 
     if (embroideryContext.kmsKeys && embroideryContext.kmsKeys.dynamodb) {
         resources.push(
@@ -210,7 +191,8 @@ export const createEndpoint = <E, R>(
         envVars,
         resources,
         undefined,
-        options
+        options,
+        vpcConfig
     )
 
     let auth = []

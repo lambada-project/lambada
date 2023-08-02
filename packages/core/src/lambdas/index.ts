@@ -83,7 +83,8 @@ export const createLambda = <E, R>(
     environmentVariables: EmbroideryEnvironmentVariables,
     resources: LambdaResource[],
     overrideRole?: aws.iam.Role,
-    options?: LambdaOptions
+    options?: LambdaOptions,
+    vpcConfig?: pulumi.Input<FunctionVpcConfig>
 ): aws.lambda.EventHandler<E, R> => {
 
     let lambdaRole = overrideRole
@@ -250,7 +251,8 @@ export const createLambda = <E, R>(
             timeout: timeout,
             reservedConcurrentExecutions: reservedConcurrentExecutions,
             runtime: runtime,
-            architectures: architectures
+            architectures: architectures,
+            vpcConfig: vpcConfig
         })
     }
     else if ((definition as FolderLambda).functionFolder) {
@@ -274,7 +276,8 @@ export const createLambda = <E, R>(
                 role: lambdaRole.arn,
                 layers: [],
                 environment: functionEnvironment, // TODO:
-                reservedConcurrentExecutions: reservedConcurrentExecutions
+                reservedConcurrentExecutions: reservedConcurrentExecutions,
+                vpcConfig: vpcConfig
             });
         }
         else {
@@ -352,3 +355,14 @@ export type LambdaDynamoDbResource = {
 }
 
 export type LambdaResource = LambdaDynamoDbResource
+
+export type FunctionVpcConfig = {
+    /**
+     * List of security group IDs associated with the Lambda function.
+     */
+    securityGroupIds: pulumi.Input<pulumi.Input<string>[]>;
+    /**
+     * List of subnet IDs associated with the Lambda function.
+     */
+    subnetIds: pulumi.Input<pulumi.Input<string>[]>;
+}

@@ -1,23 +1,28 @@
 import * as AWS from 'aws-sdk'
+import { ConfigurationServicePlaceholders } from 'aws-sdk/lib/config_service_placeholders';
+import { APIVersions } from 'aws-sdk/lib/config';
 
 import { EmbroideryTables } from '../database/index'
 import { CreateTableInput } from 'aws-sdk/clients/dynamodb';
+type AWSOptionTypes = AWS.ConfigurationOptions & ConfigurationServicePlaceholders & APIVersions;
 
-export async function ConfigureAwsEnvironment(tables: EmbroideryTables): Promise<void> {
+let currentAWSConfig: AWSOptionTypes;
 
-    AWS.config.update(
-        {
-            region: 'eu-west-1',
-            accessKeyId: '123',
-            secretAccessKey: '321',
-            dynamodb: {
-                endpoint: 'http://dynamo:8000'
-            }
-        });
+export async function ConfigureAwsEnvironment(
+    options?: {
+        aws?: AWSOptionTypes,
+        tables?: EmbroideryTables 
+    },
+): Promise<void> {
+
+    currentAWSConfig = options?.aws ?? {}
+    const tables = options?.tables ?? {};
+
+    AWS.config.update(currentAWSConfig);
     const db = new AWS.DynamoDB()
 
     const existingTableNames = (await db.listTables().promise()).TableNames ?? []
-    const delay = () => new Promise((resolve) => setTimeout(resolve, 1000))
+    const delay = () => new Promise((resolve) => setTimeout(resolve, 200))
     await delay()
 
     for (const key in tables) {
@@ -40,7 +45,7 @@ export async function ConfigureAwsEnvironment(tables: EmbroideryTables): Promise
                             AttributeName: table.rangeKey,
                             AttributeType: 'S'
                         } : undefined,
-                    ...(table.attributes ?? []).map(x=>({
+                    ...(table.attributes ?? []).map(x => ({
                         AttributeName: x.name,
                         AttributeType: x.type
                     }))
@@ -69,7 +74,7 @@ export async function ConfigureAwsEnvironment(tables: EmbroideryTables): Promise
                     ],
                     Projection: {
                         ProjectionType: x.projectionType,
-                        NonKeyAttributes: x.projectionType == 'INCLUDE' ?  x.nonKeyAttributes : undefined
+                        NonKeyAttributes: x.projectionType == 'INCLUDE' ? x.nonKeyAttributes : undefined
                     },
                     ProvisionedThroughput: {
                         ReadCapacityUnits: 10,
@@ -97,19 +102,11 @@ export async function ConfigureAwsEnvironment(tables: EmbroideryTables): Promise
 }
 
 export async function RemoveResources(tables: EmbroideryTables): Promise<void> {
-    AWS.config.update(
-        {
-            region: 'eu-west-1',
-            accessKeyId: '123',
-            secretAccessKey: '321',
-            dynamodb: {
-                endpoint: 'http://dynamo:8000'
-            }
-        });
+    AWS.config.update(currentAWSConfig ?? {});
     const db = new AWS.DynamoDB()
 
     const existingTableNames = (await db.listTables().promise()).TableNames ?? []
-    
+
     for (const key of existingTableNames) {
 
         if (tables.hasOwnProperty(key)) {
