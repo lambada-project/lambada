@@ -17,6 +17,7 @@ import { CognitoAuthorizer } from "@pulumi/awsx/classic/apigateway";
 import { createQueues, LambadaQueues, LambadaQueueSubscriptionCreator } from "./queue";
 import { createQueueHandler } from "./queue/createQueueHandler";
 import { OpenAPIObjectConfigV31 } from "@asteasolutions/zod-to-openapi/dist/v3.1/openapi-generator";
+import { FunctionVpcConfig } from "./lambdas";
 
 export * from './context'
 export * from './api/index'
@@ -30,6 +31,10 @@ type LambadaRunArguments = {
         endpointDefinitions?: LambadaCreator[],
         gatewayType?: 'EDGE' | 'REGIONAL' | 'PRIVATE'
         vpcEndpointIds?: pulumi.Input<pulumi.Input<string>[]> | undefined,
+        /**
+         * Adds the following vpc config to all endpoint lambdas 
+         */
+        vpcConfig?: pulumi.Input<FunctionVpcConfig>
         policy?: pulumi.Input<string> | undefined,
         openAPIDocument?: OpenAPIObjectConfigV31
     },
@@ -140,7 +145,8 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
             auth: {
                 useApiKey: typeof args.auth?.useApiKey != 'undefined',
                 useCognitoAuthorizer: !!args.auth?.createCognito || !!args.auth?.extraAuthorizers?.length
-            }
+            },
+            vpcConfig: args.api?.vpcConfig
         } : undefined,
         authorizers: authorizers,
         messaging: messaging,
@@ -176,7 +182,8 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
             cors: args.cors,
             vpcEndpointIds: args.api.vpcEndpointIds,
             policy: args.api.policy,
-            openApiSpec: args.api.openAPIDocument
+            openApiSpec: args.api.openAPIDocument,
+            vpcConfig: args.api.vpcConfig
         } : undefined,
         www: args.staticSiteLocalPath ? {
             local: args.staticSiteLocalPath,

@@ -1,5 +1,5 @@
 {
-	"name": "backend-compliance-service",
+	"name": "{{PROJECT_NAME}}",
 	"service": "app",
 	"dockerComposeFile": "docker-compose.yml",
 	"workspaceFolder": "/workspace",

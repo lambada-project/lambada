@@ -37,6 +37,18 @@ export const logsStatement: PolicyStatement = {
     "Resource": "arn:aws:logs:*:*:*"
 };
 
+const VPCAccessExecutionStatement: PolicyStatement = {
+    "Effect": "Allow",
+    "Action": [
+        "ec2:DescribeNetworkInterfaces",
+        "ec2:CreateNetworkInterface",
+        "ec2:DeleteNetworkInterface",
+        "ec2:DescribeInstances",
+        "ec2:AttachNetworkInterface"
+    ],
+    "Resource": "*"
+}
+
 export type FolderLambda = {
     /**
      * Handler directory location
@@ -83,7 +95,8 @@ export const createLambda = <E, R>(
     environmentVariables: EmbroideryEnvironmentVariables,
     resources: LambdaResource[],
     overrideRole?: aws.iam.Role,
-    options?: LambdaOptions
+    options?: LambdaOptions,
+    vpcConfig?: pulumi.Input<FunctionVpcConfig>
 ): aws.lambda.EventHandler<E, R> => {
 
     let lambdaRole = overrideRole
@@ -215,6 +228,10 @@ export const createLambda = <E, R>(
         }
     }
 
+    if (vpcConfig) {
+        policyStatements.push(VPCAccessExecutionStatement)
+    }
+
     if (createRole) {
         lambdaRole = createLambdaRoleAndPolicies(name, environment, policyStatements)
     }
@@ -250,7 +267,8 @@ export const createLambda = <E, R>(
             timeout: timeout,
             reservedConcurrentExecutions: reservedConcurrentExecutions,
             runtime: runtime,
-            architectures: architectures
+            architectures: architectures,
+            vpcConfig: vpcConfig
         })
     }
     else if ((definition as FolderLambda).functionFolder) {
@@ -274,7 +292,8 @@ export const createLambda = <E, R>(
                 role: lambdaRole.arn,
                 layers: [],
                 environment: functionEnvironment, // TODO:
-                reservedConcurrentExecutions: reservedConcurrentExecutions
+                reservedConcurrentExecutions: reservedConcurrentExecutions,
+                vpcConfig: vpcConfig
             });
         }
         else {
@@ -300,7 +319,7 @@ export const createLambdaRoleAndPolicies = (name: string, environment: string, p
         name: `${dashedNamed}-role`,
         assumeRolePolicy: lambdaAssumeRole,
     })
-
+    //aws.iam.ManagedPolicy.AWSLambdaVPCAccessExecutionRole
     const policy = new aws.iam.Policy(`${dashedNamed}-policy`, {
         name: `${dashedNamed}-policy`,
         path: "/",
@@ -352,3 +371,14 @@ export type LambdaDynamoDbResource = {
 }
 
 export type LambdaResource = LambdaDynamoDbResource
+
+export type FunctionVpcConfig = {
+    /**
+     * List of security group IDs associated with the Lambda function.
+     */
+    securityGroupIds: pulumi.Input<pulumi.Input<string>[]>;
+    /**
+     * List of subnet IDs associated with the Lambda function.
+     */
+    subnetIds: pulumi.Input<pulumi.Input<string>[]>;
+}
