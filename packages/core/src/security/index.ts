@@ -15,14 +15,6 @@ export function CreateKey(item: EncryptionKeyItem, name: string, environment: st
             'Environment': environment
         },
         //policy: generatePolicy(roles)
-    }, {
-        aliases: [
-            keyname
-        ]
-    });
-
-    const keyAlias = new aws.kms.Alias(`alias/${keyname}`, {
-        targetKeyId: key.keyId
     })
 
     return {

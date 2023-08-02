@@ -156,8 +156,7 @@ export const createEndpoint = <E, R>(
     resources?: LambdaResource[],
     apiKeyRequired?: boolean,
     lambdaAuthorizer?: LambdaAuthorizer,
-    options?: LambdaOptions,
-    vpcConfig?: pulumi.Input<FunctionVpcConfig>
+    options?: LambdaOptions
 ): LambadaEndpointResult<E, R> => {
 
     var environment = embroideryContext.environment
@@ -192,7 +191,7 @@ export const createEndpoint = <E, R>(
         resources,
         undefined,
         options,
-        vpcConfig
+        embroideryContext.api?.vpcConfig
     )
 
     let auth = []

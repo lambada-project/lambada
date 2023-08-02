@@ -37,6 +37,18 @@ export const logsStatement: PolicyStatement = {
     "Resource": "arn:aws:logs:*:*:*"
 };
 
+const VPCAccessExecutionStatement: PolicyStatement = {
+    "Effect": "Allow",
+    "Action": [
+        "ec2:DescribeNetworkInterfaces",
+        "ec2:CreateNetworkInterface",
+        "ec2:DeleteNetworkInterface",
+        "ec2:DescribeInstances",
+        "ec2:AttachNetworkInterface"
+    ],
+    "Resource": "*"
+}
+
 export type FolderLambda = {
     /**
      * Handler directory location
@@ -216,6 +228,10 @@ export const createLambda = <E, R>(
         }
     }
 
+    if (vpcConfig) {
+        policyStatements.push(VPCAccessExecutionStatement)
+    }
+
     if (createRole) {
         lambdaRole = createLambdaRoleAndPolicies(name, environment, policyStatements)
     }
@@ -303,7 +319,7 @@ export const createLambdaRoleAndPolicies = (name: string, environment: string, p
         name: `${dashedNamed}-role`,
         assumeRolePolicy: lambdaAssumeRole,
     })
-
+    //aws.iam.ManagedPolicy.AWSLambdaVPCAccessExecutionRole
     const policy = new aws.iam.Policy(`${dashedNamed}-policy`, {
         name: `${dashedNamed}-policy`,
         path: "/",

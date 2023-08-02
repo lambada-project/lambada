@@ -145,7 +145,8 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
             auth: {
                 useApiKey: typeof args.auth?.useApiKey != 'undefined',
                 useCognitoAuthorizer: !!args.auth?.createCognito || !!args.auth?.extraAuthorizers?.length
-            }
+            },
+            vpcConfig: args.api?.vpcConfig
         } : undefined,
         authorizers: authorizers,
         messaging: messaging,
