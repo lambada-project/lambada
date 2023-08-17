@@ -151,7 +151,7 @@ export const createLambda = <E, R>(
         }
         else if (access.queue) {
             //PubSub connections need the topic ARN to talk to SNS
-            envVarsFromResources[access.queue.envKeyName] = access.queue.ref.url
+            envVarsFromResources[access.queue.envKeyName] = access.queue.ref.url ?? access.queue.awsQueue.url
             policyStatements.push(
                 {
                     Action: access.access,
