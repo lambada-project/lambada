@@ -2,7 +2,7 @@ import * as AWS from "aws-sdk"
 import * as awslambda from "aws-lambda"
 import { LambadaError } from "./error";
 import { AttributeListType } from 'aws-sdk/clients/cognitoidentityserviceprovider'
-import crypto from 'crypto'
+import * as crypto from 'crypto'
 
 
 export declare type Request = awslambda.APIGatewayProxyEvent;
@@ -170,7 +170,7 @@ export function getContext(request: Request): AuthExecutionContext | undefined {
     const claims: { [key: string]: any } = { ...(request?.requestContext?.authorizer ?? {}), ...(request?.requestContext?.authorizer?.claims ?? {}) }
 
 
-    const poolId = claims['iss'].split('/').pop()
+    const poolId = claims['iss']?.split('/').pop()
     const userSub = claims['sub'];
     const username = claims['username'] ?? claims['cognito:username'];
     const email = claims['email']
