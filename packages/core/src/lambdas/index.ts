@@ -252,7 +252,7 @@ export const createLambda = <E, R>(
     const memorySize = options?.memorySize ?? 384
     const timeout = options?.timeout ?? 90
     const reservedConcurrentExecutions = options?.reservedConcurrentExecutions ?? -1
-    const runtime = options?.runtime ?? aws.lambda.Runtime.NodeJS16dX
+    const runtime = options?.runtime ?? aws.lambda.Runtime.NodeJS18dX
     const architectures = options?.architecture ? [options?.architecture] : undefined
 
 
