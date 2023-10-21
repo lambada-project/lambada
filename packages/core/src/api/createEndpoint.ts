@@ -129,8 +129,9 @@ export const createEndpointSimpleCompat = (args: LambadaEndpointArgs, context: L
             name, context,
             path, method, createCallback({ callbackDefinition, context, extraHeaders }), [],
             environmentVariables, auth?.useCognitoAuthorizer,
-            resources, auth?.useApiKey,
-            undefined,
+            resources,
+            auth?.useApiKey,
+            auth?.lambdaAuthorizer,
             options
         )
     }
@@ -194,11 +195,11 @@ export const createEndpoint = <E, R>(
         embroideryContext.api?.vpcConfig
     )
 
-    let auth = []
+    let auth: (CognitoAuthorizer | LambdaAuthorizer)[] = []
+
     if (lambdaAuthorizer)
         auth.push(lambdaAuthorizer)
-
-    if (typeof enableAuth === 'boolean' ? enableAuth : embroideryContext?.api?.auth?.useCognitoAuthorizer === true)
+    else if (typeof enableAuth === 'boolean' ? enableAuth : embroideryContext?.api?.auth?.useCognitoAuthorizer === true)
         auth = [...auth, ...(embroideryContext.authorizers ?? [])]
 
     return {

@@ -104,16 +104,16 @@ export const createDynamoDbTables = (environment: string, tables?: EmbroideryTab
             )
 
             result[key] = {
-                ref: {
+                ref: pulumi.Output.create({
                     id: awsTable.id,
                     arn: awsTable.arn,
                     name: awsTable.name,
                     hashKey: awsTable.hashKey
-                },
+                }),
                 awsTable: awsTable,
                 definition: table,
                 kmsKey: kmsKeys?.dynamodb?.awsKmsKey
-            } as DatabaseResultItem
+            } satisfies DatabaseResultItem
         }
     }
     for (const key in tableRefs) {
@@ -146,6 +146,6 @@ export type DatabaseResultItem = {
     awsTable?: aws.dynamodb.Table
     ref: pulumi.Output<TableReference>
     definition: TableDefinition
-    kmsKey: aws.kms.Key
+    kmsKey?: aws.kms.Key
 }
 export type DatabaseResult = { [id: string]: DatabaseResultItem }

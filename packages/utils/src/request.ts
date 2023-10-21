@@ -2,6 +2,8 @@ import * as AWS from "aws-sdk"
 import * as awslambda from "aws-lambda"
 import { LambadaError } from "./error";
 import { AttributeListType } from 'aws-sdk/clients/cognitoidentityserviceprovider'
+import crypto from 'crypto'
+
 
 export declare type Request = awslambda.APIGatewayProxyEvent;
 
@@ -27,14 +29,14 @@ export function getBody<TBody>(request: Request): TBody {
 
 export async function isUserInGroup(user: { username?: string, poolId?: string }, groupName: string) {
     if (!user.username) throw new LambadaError('[isUserInGroup] username is mandatory')
-    if (!user.poolId) throw new  LambadaError('[isUserInGroup] poolId is mandatory')
+    if (!user.poolId) throw new LambadaError('[isUserInGroup] poolId is mandatory')
 
     const cognito = new AWS.CognitoIdentityServiceProvider({ apiVersion: '2016-04-18' });
     const groups = await cognito.adminListGroupsForUser({
         Username: user.username,
         UserPoolId: user.poolId
     }).promise()
-    
+
     return typeof groups.Groups?.find(x => x.GroupName == groupName) !== 'undefined'
 }
 
@@ -164,32 +166,30 @@ export function getContext(request: Request): AuthExecutionContext | undefined {
         throw 'Server error'
     }
 
-    const claims = request?.requestContext?.authorizer?.claims
+    //const claims = request?.requestContext?.authorizer?.claims
+    const claims: { [key: string]: any } = { ...(request?.requestContext?.authorizer ?? {}), ...(request?.requestContext?.authorizer?.claims ?? {}) }
 
-    if (claims) {
 
-        const poolId = claims['iss'].split('/').pop()
-        const userSub = claims['sub'];
-        const username = claims['cognito:username'];
-        const email = claims['email']
+    const poolId = claims['iss'].split('/').pop()
+    const userSub = claims['sub'];
+    const username = claims['username'] ?? claims['cognito:username'];
+    const email = claims['email']
 
-        // const accessToken = request?.headers['Authorization']
-        // const hashedAccessToken = 'SESSION_02' // TODO: 
-        //hash.update(accessToken, "utf8").digest('hex');
+    const AuthorizationToken = request?.headers['Authorization']
+    const hashedAuthorizationToken = AuthorizationToken ? crypto.createHash('sha256').update(AuthorizationToken).digest('hex') : 'EMPTY'
 
-        const userIp = request.requestContext.identity.sourceIp
+    const userIp = request.requestContext.identity.sourceIp
 
-        return {
-            userId: userSub ?? undefined,
-            poolId: poolId ?? undefined,
-            email: email ?? undefined,
-            username: username,
-            clientIP: userIp,
-            claims: claims
-        }
-    }
-    else {
-        return undefined;
+    return {
+        userId: userSub ?? undefined,
+        poolId: poolId ?? undefined,
+        email: email ?? undefined,
+        username: username,
+        hashedAuthorizationToken: hashedAuthorizationToken,
+        clientIP: userIp,
+        userAgent: request.requestContext.identity.userAgent,
+        jti: claims['jti'],
+        claims: claims
     }
 }
 
@@ -200,7 +200,12 @@ export interface AuthExecutionContext {
     email?: string
     username?: string
 
+    hashedAuthorizationToken?: string
+
     poolId?: string
-    clientIP: string
+    clientIP?: string | null
+    userAgent?: string | null
+    jti?: string | null
+
     claims: { [key: string]: string }
 }

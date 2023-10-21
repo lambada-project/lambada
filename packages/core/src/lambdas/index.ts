@@ -256,6 +256,12 @@ export const createLambda = <E, R>(
     const architectures = options?.architecture ? [options?.architecture] : undefined
 
 
+
+    const _vpcConfig = vpcConfig ? vpcConfig : {
+        securityGroupIds: [],
+        subnetIds: []
+    }
+
     if (typeof definition === 'function') {
         const callbackDefinition = definition as Callback<E, R>
         return new aws.lambda.CallbackFunction(`${name}-${environment}`, {
@@ -268,7 +274,7 @@ export const createLambda = <E, R>(
             reservedConcurrentExecutions: reservedConcurrentExecutions,
             runtime: runtime,
             architectures: architectures,
-            vpcConfig: vpcConfig
+            vpcConfig: _vpcConfig
         })
     }
     else if ((definition as FolderLambda).functionFolder) {
@@ -293,7 +299,7 @@ export const createLambda = <E, R>(
                 layers: [],
                 environment: functionEnvironment, // TODO:
                 reservedConcurrentExecutions: reservedConcurrentExecutions,
-                vpcConfig: vpcConfig
+                vpcConfig: _vpcConfig
             });
         }
         else {
