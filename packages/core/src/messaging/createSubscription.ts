@@ -2,9 +2,15 @@ import * as aws from "@pulumi/aws";
 import { createLambda, LambdaOptions, LambdaResource } from '../lambdas'
 import { MessagingContext, MessagingResultItem } from ".";
 import { Callback } from '@pulumi/aws/lambda';
-import { TopicEvent, TopicEventSubscription, TopicEventSubscriptionArgs } from "@pulumi/aws/sns";
+import { TopicEvent, TopicEventHandler,  } from "@pulumi/aws/sns";
+import * as sns from "@pulumi/aws/sns";
 import { String } from "aws-sdk/clients/cloudsearch";
 import { LambadaResources, EmbroideryEnvironmentVariables } from "..";
+
+export type TopicEventSubscriptionArgs = sns.TopicEventSubscriptionArgs & { customConfig: Omit<sns.TopicSubscriptionArgs, 
+|'topic'
+|'protocol'
+|'endpoint'>}
 
 export type SubscriptionEvent = TopicEvent
 export type SubscriptionCallback = Callback<SubscriptionEvent, void>
@@ -29,6 +35,55 @@ export type LambdaSubscriptionSimple = {
 //     databases,
 //     kmsKeys
 // }
+
+// --------------------------------- copied from @pulumi/aws/sns/snsMixins.d.ts:
+import * as  lambda from "@pulumi/aws/sns/../lambda"
+import * as  topic from "@pulumi/aws/sns/./topic"
+import * as  topicSubscription from "@pulumi/aws/sns/./topicSubscription"
+import * as  utils from "@pulumi/aws/sns/../utils"
+import { ComponentResourceOptions } from "@pulumi/pulumi";
+
+function withAliases(opts: any, aliases:any) {
+    const allAliases = [];
+    if (opts.aliases) {
+        for (const alias of opts.aliases) {
+            allAliases.push(alias);
+        }
+    }
+    for (const alias of aliases) {
+        allAliases.push(alias);
+    }
+    return Object.assign(Object.assign({}, opts), { aliases });
+}
+function withAlias(opts: any, alias: any) {
+    return withAliases(opts, [alias]);
+}
+class TopicEventSubscription extends lambda.EventSubscription implements sns.TopicEventSubscription {
+    public readonly topic: topic.Topic;
+    public readonly subscription: topicSubscription.TopicSubscription;
+    constructor(name: string, topic: topic.Topic, handler: TopicEventHandler, args?: TopicEventSubscriptionArgs, opts?: ComponentResourceOptions) {
+        // We previously did not parent the subscription to the topic. We now do. Provide an alias
+        // so this doesn't cause resources to be destroyed/recreated for existing stacks.
+        super("aws:sns:TopicEventSubscription", name, Object.assign({ parent: topic }, withAlias(opts, { parent: opts?.parent })));
+        this.topic = topic;
+        const parentOpts = { parent: this };
+        this.func = lambda.createFunctionFromEventHandler(name, handler, parentOpts);
+        this.permission = new lambda.Permission(name, {
+            action: "lambda:invokeFunction",
+            function: this.func,
+            principal: "sns.amazonaws.com",
+            sourceArn: topic.id,
+        }, parentOpts);
+        this.subscription = new topicSubscription.TopicSubscription(name, {
+            ...args?.customConfig, // this is the only change from the original, to allow custom configuration
+            topic: topic,
+            protocol: "lambda",
+            endpoint: this.func.arn,
+        }, parentOpts);
+        this.registerOutputs();
+    }
+}
+//--------------------------------- end of copy
 
 export const subscribeToTopic = (
     context: LambadaResources,
@@ -72,8 +127,9 @@ export const subscribeToTopic = (
         undefined,
         options
     )
-    if (topic.awsTopic)
-        return topic.awsTopic.onEvent(`${topicName}_${subscription.name}_${environment}`, callback, subscription.subscriptionArgs)
+    if (topic.awsTopic){
+        return new TopicEventSubscription(`${topicName}_${subscription.name}_${environment}`, topic.awsTopic, callback, subscription.subscriptionArgs)
+    }
     else
         throw `Cannot subscribe to this topic: ${topic.definition.name}`
 }
