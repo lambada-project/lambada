@@ -139,6 +139,31 @@ export default function createApi(
             } : undefined,
             policy: api?.policy
         },
+        gatewayResponses: {
+            'ACCESS_DENIED': {
+                statusCode: 403,
+                responseParameters: {
+                    'gatewayresponse.header.Access-Control-Allow-Origin': "'*'",
+                    'gatewayresponse.header.Access-Control-Allow-Headers': "'*'", //Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token
+                    'gatewayresponse.header.Access-Control-Allow-Methods': "'*'",
+                },
+                responseTemplates: {
+                    "application/json": `{
+                        "message": "$context.authorizer.message",
+                        "error": {
+                            "code": "$context.authorizer.context.errorCode",
+                            "data": $context.authorizer.context.errorData
+                        },
+                        "errors":[
+                            {
+                                "code": "$context.authorizer.context.errorCode",
+                                "data": $context.authorizer.context.errorData
+                            }
+                        ]
+                    }`
+                }
+            }
+        },
 
     }, {
         dependsOn: options?.dependsOn,
