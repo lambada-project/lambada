@@ -19,6 +19,7 @@
 	"peerDependencies": {
 		"@asteasolutions/zod-to-openapi": "^5.2.0",
 		"@aws/dynamodb-auto-marshaller": "^0.7.1",
+		"@aws-sdk/client-sqs": "3.465.0",
 		"@lambada/utils": "^1.4.5",
 		"@pulumi/aws": "^5.0.0",
 		"@pulumi/awsx": "^1.0.0",
@@ -29,6 +30,9 @@
 	"devDependencies": {
 		"@asteasolutions/zod-to-openapi": "^5.2.0",
 		"@aws/dynamodb-auto-marshaller": "^0.7.1",
+		"@aws-sdk/client-pinpoint": "3.465.0",
+		"@aws-sdk/client-dynamodb": "^3.465.0",
+
 		"@lambada/utils": "^1.4.5",
 		"@pulumi/aws": "^5.0.0",
 		"@pulumi/awsx": "^1.0.0",
