@@ -1,5 +1,4 @@
 import { ConfigureAwsEnvironment } from '@lambada/core'
-import AWS from 'aws-sdk';
 import { tables } from './src/data/tables';
 import { localAWS } from './lambada.config';
 

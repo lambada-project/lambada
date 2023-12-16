@@ -20,7 +20,7 @@ describe("Repository", () => {
 
         const marshalled = marshaller.marshallItem(original)
         console.log('marshalled', marshalled)
-        const unmarshalled = marshaller.unmarshallItem(marshalled)
+        const unmarshalled = marshaller.unmarshallItem(marshalled) as unknown as typeof original
         console.log('unmarshalled', unmarshalled)
 
         expect(unmarshalled.a).toBe(original.a)

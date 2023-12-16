@@ -1,7 +1,6 @@
-import * as AWS from "aws-sdk"
 import * as awslambda from "aws-lambda"
 import { LambadaError } from "./error";
-import { AttributeListType } from 'aws-sdk/clients/cognitoidentityserviceprovider'
+import { AttributeType, CognitoIdentityProvider } from '@aws-sdk/client-cognito-identity-provider'
 import * as crypto from 'crypto'
 
 
@@ -31,38 +30,43 @@ export async function isUserInGroup(user: { username?: string, poolId?: string }
     if (!user.username) throw new LambadaError('[isUserInGroup] username is mandatory')
     if (!user.poolId) throw new LambadaError('[isUserInGroup] poolId is mandatory')
 
-    const cognito = new AWS.CognitoIdentityServiceProvider({ apiVersion: '2016-04-18' });
+    const cognito = new CognitoIdentityProvider({ apiVersion: '2016-04-18' });
     const groups = await cognito.adminListGroupsForUser({
         Username: user.username,
         UserPoolId: user.poolId
-    }).promise()
+    })
 
     return typeof groups.Groups?.find(x => x.GroupName == groupName) !== 'undefined'
 }
 
 type AuthenticatedUser = {
     id: string
-    attributes: AttributeListType
+    attributes: AttributeType[]
     username: string
     name?: string
     email: string
     enabled?: boolean
 }
 
+declare global {
+    namespace NodeJS {
+        interface Global {
+            globalCognitoIdp?: CognitoIdentityProvider;
+            globalUserCacheBySub?: Map<string, AuthenticatedUser>;
+            globalUserCacheByUsername?: Map<string, AuthenticatedUser>;
+        }
+    }
+}
+
 async function _FindUser(userPoolId: string, userId?: string, username?: string): Promise<AuthenticatedUser> {
-    //@ts-ignore
-    global.globalCognitoIdp = global.globalCognitoIdp ?? new AWS.CognitoIdentityServiceProvider({ apiVersion: '2016-04-18' });
-    //@ts-ignore
+    
+    global.globalCognitoIdp = global.globalCognitoIdp ?? new CognitoIdentityProvider({ apiVersion: '2016-04-18' });
     global.globalUserCacheBySub = global.globalUserCacheBySub ?? new Map<string, AuthenticatedUser>()
-    //@ts-ignore
     global.globalUserCacheByUsername = global.globalUserCacheByUsername ?? new Map<string, AuthenticatedUser>()
 
-    //@ts-ignore
-    const cognitoIdp = global.globalCognitoIdp as AWS.CognitoIdentityServiceProvider
-    //@ts-ignore
-    const userCacheBySub = global.globalUserCacheBySub as Map<string, AuthenticatedUser>
-    //@ts-ignore
-    const userCacheByUsername = global.globalUserCacheByUsername as Map<string, AuthenticatedUser>
+    const cognitoIdp = global.globalCognitoIdp!
+    const userCacheBySub = global.globalUserCacheBySub!
+    const userCacheByUsername = global.globalUserCacheByUsername!
 
     const a = Date.now()
 
@@ -80,13 +84,13 @@ async function _FindUser(userPoolId: string, userId?: string, username?: string)
             const cu = await cognitoIdp.adminGetUser({
                 UserPoolId: userPoolId,
                 Username: username
-            }).promise()
+            })
 
             if (!cu) throw 'User not found'
             if (!cu.UserAttributes) throw 'User has no attributes'
 
             //TODO Pass environment
-            var cutomAttributes = cu.UserAttributes.filter(x => x.Name.startsWith('dev:custom:'))
+            var cutomAttributes = cu.UserAttributes.filter(x => x.Name?.startsWith('dev:custom:'))
             userId = cu.UserAttributes.find(x => x.Name == 'sub')?.Value;
             var email = cu.UserAttributes.find(x => x.Name == 'email')?.Value
             var name = cu.UserAttributes.find(x => x.Name == 'name')?.Value
@@ -108,7 +112,7 @@ async function _FindUser(userPoolId: string, userId?: string, username?: string)
             const cusers = await cognitoIdp.listUsers({
                 UserPoolId: userPoolId,
                 Filter: `sub = "${userId}"`
-            }).promise()
+            })
 
             if (cusers && cusers.Users && cusers.Users.length > 0) {
                 const cu = cusers.Users[0]
@@ -117,7 +121,7 @@ async function _FindUser(userPoolId: string, userId?: string, username?: string)
 
                 username = cu.Username
 
-                var cutomAttributes = cu.Attributes.filter(x => x.Name.startsWith('dev:custom:'));
+                var cutomAttributes = cu.Attributes.filter(x => x.Name?.startsWith('dev:custom:'));
                 var sub = cu.Attributes.find(x => x.Name == 'sub')?.Value;
                 var name = cu.Attributes.find(x => x.Name == 'name')?.Value
                 var email = cu.Attributes.find(x => x.Name == 'email')?.Value
