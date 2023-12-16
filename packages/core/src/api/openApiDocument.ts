@@ -1,4 +1,3 @@
-import * as AWS from 'aws-sdk'
 import { LambadaResources, IsEndpointsArgs } from '..'
 import { LambadaEndpointArgs } from './createEndpoint'
 

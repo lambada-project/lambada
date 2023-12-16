@@ -1,17 +1,17 @@
-import * as AWS from "aws-sdk"
+import * as Pinpoint from "@aws-sdk/client-pinpoint"
 
 export type MessageRecipient = {
     token: string
     service: 'GCM'
 }
 
-export function createMessageRequest(recipient: MessageRecipient, title: string, message: string): AWS.Pinpoint.MessageRequest {
+export function createMessageRequest(recipient: MessageRecipient, title: string, message: string): Pinpoint.MessageRequest {
 
     // The action that should occur when the recipient taps the message. Possible
     // values are OPEN_APP (opens the app or brings it to the foreground),
     // DEEP_LINK (opens the app to a specific page or interface), or URL (opens a
     // specific URL in the device's web browser.)
-    var action = 'OPEN_APP';
+    var action : Pinpoint.Action = 'OPEN_APP';
     // The priority of the push notification. If the value is 'normal', then the
     // delivery of the message is optimized for battery usage on the recipient's
     // device, and could be delayed. If the value is 'high', then the notification is

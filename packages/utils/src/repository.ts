@@ -1,5 +1,4 @@
-import * as AWS from "aws-sdk"
-import { ConditionExpression, ExpressionAttributeValueMap, PutItemInput, QueryInput, Key } from "aws-sdk/clients/dynamodb"
+import * as DynamoDB from "@aws-sdk/client-dynamodb"
 import { IMarshaller, DefaultMarshaller } from "./dynamoMarsharler";
 
 export class RepositoryBase {
@@ -7,7 +6,7 @@ export class RepositoryBase {
 
     protected readonly tableName: string
 
-    protected clientConfig?: AWS.DynamoDB.ClientConfiguration
+    protected clientConfig?:  DynamoDB.DynamoDBClientConfig
 
     constructor(
         protected readonly table: {
@@ -17,7 +16,7 @@ export class RepositoryBase {
             rangeKey?: string
         },
         customMarshaller?: IMarshaller,
-        clientConfig?: AWS.DynamoDB.ClientConfiguration
+        clientConfig?:  DynamoDB.DynamoDBClientConfig
     ) {
         this.tableName = process.env[table.envKeyName] ?? ''
         if (customMarshaller) {
@@ -36,12 +35,12 @@ export class RepositoryBase {
     protected getDb() {
         if (!this.tableName || this.tableName.length < 3) //AWS rule
             throw new Error(`Could not find env var: ${this.table.envKeyName}`)
-        return new AWS.DynamoDB(this.clientConfig)
+        return new DynamoDB.DynamoDB([this.clientConfig])
     }
 
     protected async scan<T>(args?: {
-        filter?: ConditionExpression,
-        filterValues?: ExpressionAttributeValueMap
+        filter?: string,
+        filterValues?: Record<string, DynamoDB.AttributeValue>
     }) {
         const db = this.getDb()
 
@@ -49,7 +48,7 @@ export class RepositoryBase {
             TableName: this.tableName,
             FilterExpression: args?.filter,
             ExpressionAttributeValues: args?.filterValues,
-        }).promise()
+        })
 
         if (!result.Items) {
             return []
@@ -64,13 +63,13 @@ export class RepositoryBase {
 
         const marsharlledItem = this.marshaller.marshallItem(item as any)
 
-        const command: PutItemInput = {
+        const command: DynamoDB.PutItemInput = {
             Item: marsharlledItem,
             TableName: this.tableName,
             ReturnValues: 'NONE'
         }
 
-        await db.putItem(command).promise()
+        await db.putItem(command)
 
         return item
     }
@@ -99,7 +98,7 @@ export class RepositoryBase {
         if (!value) throw new Error(`Invalid primary key. ${JSON.stringify(primaryKey)}`)
 
 
-        let params: QueryInput = {
+        let params: DynamoDB.QueryInput = {
             TableName: this.tableName,
             KeyConditionExpression: "#primaryKey = :primaryKeyValue",
             ExpressionAttributeNames: {
@@ -118,7 +117,7 @@ export class RepositoryBase {
         }
 
 
-        const result = await db.query(params).promise()
+        const result = await db.query(params)
         const items = result.Items
         if (!items) return []
         return items.map(item => this.marshaller.unmarshallItem(item) as unknown as T)
@@ -139,7 +138,7 @@ export class RepositoryBase {
         let value = this.marshaller.marshallValue(primaryKey.value)
         if (!value) throw new Error(`Invalid primary key. ${JSON.stringify(primaryKey)}`)
 
-        const key: Key = {
+        const key: Record<string, DynamoDB.AttributeValue> | undefined = {
             [primaryKey.name]: value
         }
 
@@ -153,10 +152,10 @@ export class RepositoryBase {
             TableName: this.tableName,
             Key: key,
             ConsistentRead: true,
-        }).promise()
+        })
 
         if (!item.Item) return null
-        return this.marshaller.unmarshallItem(item.Item) as unknown as T
+        return this.marshaller.unmarshallItem(item.Item) as T
     }
 
 }

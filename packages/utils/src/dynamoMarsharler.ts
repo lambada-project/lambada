@@ -1,20 +1,20 @@
-import * as AWS from "aws-sdk";
-import { AttributeValue, AttributeMap } from 'aws-sdk/clients/dynamodb';
-
+import { AttributeValue } from "@aws-sdk/client-dynamodb";
+import * as Converter from "@aws-sdk/util-dynamodb"
+export type AttributeMap = Record<string, AttributeValue>
 export interface IMarshaller {
     marshallItem(item: {
         [key: string]: any;
     }): AttributeMap;
 
     marshallValue(value: any): AttributeValue | undefined;
-    unmarshallItem(item: AttributeMap): any;
+    unmarshallItem(item: AttributeMap): unknown;
 
-    unmarshallValue(item: AttributeValue): any;
+    unmarshallValue(item: AttributeValue): unknown;
 }
 
 export const DefaultMarshaller: IMarshaller = {
-    marshallItem: AWS.DynamoDB.Converter.marshall,
-    unmarshallItem: AWS.DynamoDB.Converter.unmarshall,
-    marshallValue: AWS.DynamoDB.Converter.input,
-    unmarshallValue: AWS.DynamoDB.Converter.output,
+    marshallItem: Converter.marshall,
+    unmarshallItem: Converter.unmarshall,
+    marshallValue: Converter.convertToAttr,
+    unmarshallValue: Converter.convertToNative,
 };
