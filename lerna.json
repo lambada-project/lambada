@@ -2,7 +2,8 @@
   "packages": [
     "packages/core",
     "packages/create",
-    "packages/utils"
+    "packages/utils",
+    "example"
   ],
 
   "version": "0.0.0"

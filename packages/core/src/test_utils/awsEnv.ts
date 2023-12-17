@@ -1,25 +1,23 @@
-import * as AWS from 'aws-sdk'
-import { ConfigurationServicePlaceholders } from 'aws-sdk/lib/config_service_placeholders';
-import { APIVersions } from 'aws-sdk/lib/config';
-
 import { EmbroideryTables } from '../database/index'
-import { CreateTableInput, DynamoDB } from '@aws-sdk/client-dynamodb';
-type AWSOptionTypes = AWS.ConfigurationOptions & ConfigurationServicePlaceholders & APIVersions;
+import { CreateTableInput, DynamoDB, DynamoDBClientConfig } from '@aws-sdk/client-dynamodb';
+type AWSOptionTypes = { dynamodb?: DynamoDBClientConfig }
 
 let currentAWSConfig: AWSOptionTypes;
-
-export async function ConfigureAwsEnvironment(
+export type LambadaEnvironmentConfig = {
     options?: {
         aws?: AWSOptionTypes,
-        tables?: EmbroideryTables 
-    },
-): Promise<void> {
+        tables?: EmbroideryTables
+    }
+}
+
+
+export async function ConfigureAwsEnvironment({ options }: LambadaEnvironmentConfig): Promise<void> {
 
     currentAWSConfig = options?.aws ?? {}
     const tables = options?.tables ?? {};
 
-    AWS.config.update(currentAWSConfig);
-    const db = new DynamoDB()
+    process.env.AWS_REGION = currentAWSConfig.dynamodb?.region?.toString() ?? ''
+    const db = new DynamoDB(currentAWSConfig?.dynamodb ?? {})
 
     const existingTableNames = (await db.listTables({})).TableNames ?? []
     const delay = () => new Promise((resolve) => setTimeout(resolve, 200))
@@ -101,9 +99,9 @@ export async function ConfigureAwsEnvironment(
     // }
 }
 
-export async function RemoveResources(tables: EmbroideryTables): Promise<void> {
-    AWS.config.update(currentAWSConfig ?? {});
-    const db = new DynamoDB()
+export async function RemoveResources(config: LambadaEnvironmentConfig): Promise<void> {
+    const db = new DynamoDB(config.options?.aws?.dynamodb ?? {})
+    const tables = config.options?.tables ?? {};
 
     const existingTableNames = (await db.listTables({})).TableNames ?? []
 

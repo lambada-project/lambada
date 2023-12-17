@@ -1,6 +1,6 @@
 import * as DynamoDB from "@aws-sdk/client-dynamodb"
 import { RepositoryBase } from "../repository";
-import { AttributeMap } from "../dynamoMarsharler";
+import { AttributeMap } from "../dynamoMarshaller";
 
 export class RepositoryExtended extends RepositoryBase {
 

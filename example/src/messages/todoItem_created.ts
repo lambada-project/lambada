@@ -1,4 +1,4 @@
-import { SubscriptionEvent, LambadaResources, EmbroiderySubscriptionCreator, subscribeToTopic, EmbroideryTopicEventSubscription } from '@lambada/core'
+import { SubscriptionEvent, LambadaResources, LambadaSubscriptionCreator, subscribeToTopic, LambadaTopicEventSubscription } from '@lambada/core'
 import { ToDoItemCreated } from '../lib/todos/inotify'
 import { ToDoService } from '../lib/todos/service'
 import { LambdaResourceAccess } from '@lambada/core/dist/lambdas';
@@ -14,7 +14,7 @@ export const onTodoItemCreated = async (request: SubscriptionEvent): Promise<voi
 }
 
 
-export const createHandlerTodoItem_created: EmbroiderySubscriptionCreator = (context: LambadaResources): EmbroideryTopicEventSubscription => {
+export const createHandlerTodoItem_created: LambadaSubscriptionCreator = (context: LambadaResources): LambadaTopicEventSubscription => {
     if (context.messaging?.todoItemCreated)
         return subscribeToTopic(context, context.messaging.todoItemCreated, {
             name: 'onTodoItemCreated',

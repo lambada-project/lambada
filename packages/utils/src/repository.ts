@@ -1,12 +1,12 @@
 import * as DynamoDB from "@aws-sdk/client-dynamodb"
-import { IMarshaller, DefaultMarshaller } from "./dynamoMarsharler";
+import { IMarshaller, DefaultMarshaller } from "./dynamoMarshaller";
 
 export class RepositoryBase {
     protected marshaller: IMarshaller
 
     protected readonly tableName: string
 
-    protected clientConfig?:  DynamoDB.DynamoDBClientConfig
+    protected clientConfig?: DynamoDB.DynamoDBClientConfig
 
     constructor(
         protected readonly table: {
@@ -16,9 +16,9 @@ export class RepositoryBase {
             rangeKey?: string
         },
         customMarshaller?: IMarshaller,
-        clientConfig?:  DynamoDB.DynamoDBClientConfig
+        clientConfig?: DynamoDB.DynamoDBClientConfig
     ) {
-        this.tableName = process.env[table.envKeyName] ?? ''
+        this.tableName = table.name ?? process.env[table.envKeyName] ?? ''
         if (customMarshaller) {
             this.marshaller = customMarshaller
         } else {
@@ -35,7 +35,10 @@ export class RepositoryBase {
     protected getDb() {
         if (!this.tableName || this.tableName.length < 3) //AWS rule
             throw new Error(`Could not find env var: ${this.table.envKeyName}`)
-        return new DynamoDB.DynamoDB([this.clientConfig])
+        if (this.clientConfig?.region) { // WTF https://github.com/aws/aws-sdk-js-v3/issues/3469#issuecomment-1078404172
+            process.env['AWS_REGION'] = this.clientConfig.region.toString()
+        }
+        return new DynamoDB.DynamoDB(this.clientConfig ?? {})
     }
 
     protected async scan<T>(args?: {
