@@ -19,7 +19,7 @@
 		"@pulumi/aws": "~4.23.0",
 		"@pulumi/awsx": "~0.33.0",
 		"@pulumi/pulumi": "~3.0.0",
-		"@lambada/core": "1.13.0",
+		"@lambada/core": "1.13.1",
 		"typescript": "^4.5.5",
 		"@types/aws-lambda": "^8.10.72"
 	}
