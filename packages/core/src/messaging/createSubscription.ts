@@ -2,9 +2,7 @@ import * as aws from "@pulumi/aws";
 import { createLambda, LambdaOptions, LambdaResource } from '../lambdas'
 import { MessagingContext, MessagingResultItem } from ".";
 import { Callback } from '@pulumi/aws/lambda';
-import { TopicEvent, TopicEventHandler,  } from "@pulumi/aws/sns";
-import * as sns from "@pulumi/aws/sns";
-import { String } from "aws-sdk/clients/cloudsearch";
+import  * as sns from "@pulumi/aws/sns";
 import { LambadaResources, EmbroideryEnvironmentVariables } from "..";
 
 export type TopicEventSubscriptionArgs = sns.TopicEventSubscriptionArgs & { customConfig: Omit<sns.TopicSubscriptionArgs, 
@@ -12,7 +10,7 @@ export type TopicEventSubscriptionArgs = sns.TopicEventSubscriptionArgs & { cust
 |'protocol'
 |'endpoint'>}
 
-export type SubscriptionEvent = TopicEvent
+export type SubscriptionEvent = sns.TopicEvent
 export type SubscriptionCallback = Callback<SubscriptionEvent, void>
 
 export type LambdaSubscription = {
@@ -25,7 +23,7 @@ export type LambdaSubscription = {
 }
 
 export type LambdaSubscriptionSimple = {
-    name: String
+    name: string
     callback: SubscriptionCallback
     resources: LambdaResource[]
 }
@@ -61,7 +59,7 @@ function withAlias(opts: any, alias: any) {
 class TopicEventSubscription extends lambda.EventSubscription implements sns.TopicEventSubscription {
     public readonly topic: topic.Topic;
     public readonly subscription: topicSubscription.TopicSubscription;
-    constructor(name: string, topic: topic.Topic, handler: TopicEventHandler, args?: TopicEventSubscriptionArgs, opts?: ComponentResourceOptions) {
+    constructor(name: string, topic: topic.Topic, handler: sns.TopicEventHandler, args?: TopicEventSubscriptionArgs, opts?: ComponentResourceOptions) {
         // We previously did not parent the subscription to the topic. We now do. Provide an alias
         // so this doesn't cause resources to be destroyed/recreated for existing stacks.
         super("aws:sns:TopicEventSubscription", name, Object.assign({ parent: topic }, withAlias(opts, { parent: opts?.parent })));
@@ -117,7 +115,7 @@ export const subscribeToTopic = (
 
     const envVars = { ...(context.environmentVariables || {}), ...(subscription.environmentVariables || {}) }
 
-    const callback = createLambda<TopicEvent, void>(
+    const callback = createLambda<sns.TopicEvent, void>(
         subscription.name,
         environment,
         subscription.callback,

@@ -5,24 +5,24 @@ import { tables } from './lib/dynamodb-repos/tables'
 import { topics } from './messages'
 import { createHandlerTodoItem_created } from './messages/todoItem_created'
 import * as pulumi from '@pulumi/pulumi'
-import * as aws from '@pulumi/aws'
-import * as awsx from '@pulumi/awsx/classic'
 
 const environment = pulumi.getStack()
 const projectName = 'lambada-example'
 
 const result = run(projectName, environment,
     {
-        endpointDefinitions: [
-            createGetToDos,
-            createPostToDo,
-            (context) => createEndpoint('test', context, '/test', 'GET', async (event) => ({
-                statusCode: 200,
-                body: JSON.stringify({ ok: true }),
-                headers: {}
-            }), [], {}, false, [], false, undefined),
-            (context) => createProxyIntegration(context, '/google', "https://www.google.com")
-        ],
+        api: {
+            endpointDefinitions: [
+                createGetToDos,
+                createPostToDo,
+                (context) => createEndpoint('test', context, '/test', 'GET', async (event) => ({
+                    statusCode: 200,
+                    body: JSON.stringify({ ok: true }),
+                    headers: {}
+                }), [], {}, false, [], false, undefined),
+                (context) => createProxyIntegration(context, '/google', "https://www.google.com")
+            ],
+        },
         cors: {
             origins: ['*']
         },

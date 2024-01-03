@@ -1,12 +1,11 @@
-import { LambadaResources, SubscriptionEvent } from "..";
-import { Request, Response, Route } from '@pulumi/awsx/classic/apigateway/api'
+import { LambadaResources } from "..";
+import { Request, Response } from '@pulumi/awsx/classic/apigateway/api'
 import { createEndpoint, EmbroideryEventHandlerRoute, EmbroideryRequest, LambadaEndpointArgs } from "./createEndpoint";
 import * as aws from '@pulumi/aws'
 import * as pulumi from '@pulumi/pulumi'
 import { createLambda, LambdaResource } from "../lambdas";
 import { createCallback } from "./callbackWrapper";
-import { QueueArgs } from "@pulumi/aws/sqs";
-import * as AWS from 'aws-sdk'
+import * as SQS from '@aws-sdk/client-sqs'
 import { QueueHandlerEvent } from "../queue/createQueueHandler";
 import { getBody } from "@lambada/utils";
 
@@ -125,7 +124,7 @@ export function createWebhook(
 
     const cb = createCallback({
         callbackDefinition: async (e) => {
-            const sqs = new AWS.SQS()
+            const sqs = new SQS.SQS()
 
             let messageGroupId = 'WEBHOOK_ITEM'
 
@@ -141,7 +140,7 @@ export function createWebhook(
                 MessageBody: JSON.stringify(e),
                 QueueUrl: process.env[ENV_NAME] || '',
                 MessageGroupId: messageGroupId
-            }).promise()
+            })
             console.log('Message relayed to Queue')
 
             return {

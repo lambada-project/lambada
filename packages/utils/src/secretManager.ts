@@ -1,6 +1,6 @@
 // FROM https://github.com/c-bandy/aws-secrets-manager-cache
 
-import { SecretsManager } from 'aws-sdk';
+import { SecretsManager } from '@aws-sdk/client-secrets-manager';
 
 const defaultTTL = (5 * 60 * 1000); // 5 minutes
 
@@ -56,8 +56,7 @@ export class SecretsManagerCache {
 
         if (!itemExistsInCache || itemHasExpired) {
             const getSecretValueResponse = await this.config.secretsManager
-                .getSecretValue({ SecretId: secretName })
-                .promise();
+                .getSecretValue({ SecretId: secretName });
 
             if (getSecretValueResponse.SecretString) {
                 this.cache.set(

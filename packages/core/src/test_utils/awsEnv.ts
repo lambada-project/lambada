@@ -1,27 +1,25 @@
-import * as AWS from 'aws-sdk'
-import { ConfigurationServicePlaceholders } from 'aws-sdk/lib/config_service_placeholders';
-import { APIVersions } from 'aws-sdk/lib/config';
-
 import { EmbroideryTables } from '../database/index'
-import { CreateTableInput } from 'aws-sdk/clients/dynamodb';
-type AWSOptionTypes = AWS.ConfigurationOptions & ConfigurationServicePlaceholders & APIVersions;
+import { CreateTableInput, DynamoDB, DynamoDBClientConfig } from '@aws-sdk/client-dynamodb';
+type AWSOptionTypes = { dynamodb?: DynamoDBClientConfig }
 
 let currentAWSConfig: AWSOptionTypes;
-
-export async function ConfigureAwsEnvironment(
+export type LambadaEnvironmentConfig = {
     options?: {
         aws?: AWSOptionTypes,
-        tables?: EmbroideryTables 
-    },
-): Promise<void> {
+        tables?: EmbroideryTables
+    }
+}
+
+
+export async function ConfigureAwsEnvironment({ options }: LambadaEnvironmentConfig): Promise<void> {
 
     currentAWSConfig = options?.aws ?? {}
     const tables = options?.tables ?? {};
 
-    AWS.config.update(currentAWSConfig);
-    const db = new AWS.DynamoDB()
+    process.env.AWS_REGION = currentAWSConfig.dynamodb?.region?.toString() ?? ''
+    const db = new DynamoDB(currentAWSConfig?.dynamodb ?? {})
 
-    const existingTableNames = (await db.listTables().promise()).TableNames ?? []
+    const existingTableNames = (await db.listTables({})).TableNames ?? []
     const delay = () => new Promise((resolve) => setTimeout(resolve, 200))
     await delay()
 
@@ -82,7 +80,7 @@ export async function ConfigureAwsEnvironment(
                     }
                 }))
 
-            } as CreateTableInput).promise()
+            } as CreateTableInput)
         }
     }
 
@@ -92,7 +90,7 @@ export async function ConfigureAwsEnvironment(
 
     //TODO: lists topics, somehow without querying SNS
     // const sns = new AWS.SNS()
-    // const topics = await sns.listTopics().promise()
+    // const topics = await sns.listTopics()
     // const topicArns = topics.Topics?.filter(x => x.TopicArn).map(x => x.TopicArn ?? '') ?? []
     // for (const topicArn of topicArns) {
     //     if(topicArn.includes('offerCreated')){
@@ -101,11 +99,11 @@ export async function ConfigureAwsEnvironment(
     // }
 }
 
-export async function RemoveResources(tables: EmbroideryTables): Promise<void> {
-    AWS.config.update(currentAWSConfig ?? {});
-    const db = new AWS.DynamoDB()
+export async function RemoveResources(config: LambadaEnvironmentConfig): Promise<void> {
+    const db = new DynamoDB(config.options?.aws?.dynamodb ?? {})
+    const tables = config.options?.tables ?? {};
 
-    const existingTableNames = (await db.listTables().promise()).TableNames ?? []
+    const existingTableNames = (await db.listTables({})).TableNames ?? []
 
     for (const key of existingTableNames) {
 
@@ -113,7 +111,7 @@ export async function RemoveResources(tables: EmbroideryTables): Promise<void> {
             const table = tables[key];
             await db.deleteTable({
                 TableName: table.name,
-            }).promise()
+            })
         }
     }
 }

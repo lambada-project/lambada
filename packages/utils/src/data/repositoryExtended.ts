@@ -1,5 +1,6 @@
-import DynamoDB, { ExpressionAttributeNameMap, ExpressionAttributeValueMap } from "aws-sdk/clients/dynamodb";
+import * as DynamoDB from "@aws-sdk/client-dynamodb"
 import { RepositoryBase } from "../repository";
+import { AttributeMap } from "../dynamoMarshaller";
 
 export class RepositoryExtended extends RepositoryBase {
 
@@ -46,9 +47,9 @@ export class RepositoryExtended extends RepositoryBase {
             ExclusiveStartKey: params.lastKey ? JSON.parse(params.lastKey) : undefined,
         }
 
-        const response = await this.getDb().query(command).promise()
+        const response = await this.getDb().query(command)
         return {
-            data: (response.Items ?? []).map(item => this.marshaller.unmarshallItem(item)),
+            data: (response.Items ?? []).map(item => this.marshaller.unmarshallItem(item)) as T[],
             lastKey: response.LastEvaluatedKey && JSON.stringify(response.LastEvaluatedKey)
         }
     }
@@ -113,7 +114,7 @@ export class RepositoryExtended extends RepositoryBase {
             Limit: params.limit
         }
 
-        const response = await this.getDb().query(command).promise()
+        const response = await this.getDb().query(command)
         return (response.Items ?? []).map(item => this.fromItem<T>(item))
     }
 
@@ -170,7 +171,7 @@ export class RepositoryExtended extends RepositoryBase {
             ) as DynamoDB.AttributeValue
         })
 
-        const response = await this.getDb().updateItem(command).promise()
+        const response = await this.getDb().updateItem(command)
 
         if (!response.Attributes) throw new Error('Failed to update item')
 
@@ -183,14 +184,14 @@ export class RepositoryExtended extends RepositoryBase {
      * @returns 
      */
     protected async fullScan<T>(params: DynamoDB.ScanInput): Promise<T[]> {
-        let lastEvaluatedKey: DynamoDB.Key | undefined = params.ExclusiveStartKey
+        let lastEvaluatedKey: DynamoDB.ScanCommandOutput['LastEvaluatedKey'] = params.ExclusiveStartKey
         let items: T[] = []
         do {
             const command: DynamoDB.ScanInput = {
                 ...params,
                 ExclusiveStartKey: lastEvaluatedKey,
             }
-            const response = await this.getDb().scan(command).promise()
+            const response = await this.getDb().scan(command)
             lastEvaluatedKey = response.LastEvaluatedKey
             items = items.concat((response.Items ?? []).map(item => this.fromItem<T>(item)))
 
@@ -198,7 +199,7 @@ export class RepositoryExtended extends RepositoryBase {
         return items
     }
 
-    protected fromItem<T>(item: DynamoDB.AttributeMap): T {
+    protected fromItem<T>(item: AttributeMap): T {
         return this.marshaller.unmarshallItem(item) as T
     }
 }

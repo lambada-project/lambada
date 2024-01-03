@@ -1,14 +1,31 @@
 import { RepositoryBase } from './repository'
-import { DefaultMarshaller, IMarshaller } from "./dynamoMarsharler"
+import { DefaultMarshaller, IMarshaller } from "./dynamoMarshaller"
 
 describe("Repository", () => {
+
+    beforeAll(() => {
+
+    })
+
     test("Marshaller", async () => {
-        // const repo = new TestRepo({
-        //     envKeyName: "TEST_NAME",
-        //     name: 'test',
-        //     primaryKey: 'userId',
-        //     rangeKey: 'id'
-        // })
+        const repo = new TestRepo({
+            envKeyName: "TEST_NAME",
+            name: 'test',
+            primaryKey: 'userId',
+            rangeKey: 'id'
+        }, undefined, {
+            endpoint: `http://localhost:8000`,
+            region: 'local',
+            credentials: {
+                accessKeyId: 'dummy',
+                secretAccessKey: 'dummy'
+            }
+        })
+
+        await repo.save({
+            id: 1,
+            name: 'test'
+        })
 
         const marshaller: IMarshaller = DefaultMarshaller
         const original = {
@@ -19,9 +36,7 @@ describe("Repository", () => {
         }
 
         const marshalled = marshaller.marshallItem(original)
-        console.log('marshalled', marshalled)
-        const unmarshalled = marshaller.unmarshallItem(marshalled)
-        console.log('unmarshalled', unmarshalled)
+        const unmarshalled = marshaller.unmarshallItem(marshalled) as unknown as typeof original
 
         expect(unmarshalled.a).toBe(original.a)
         expect(unmarshalled.b).toBe(original.b)
@@ -31,6 +46,14 @@ describe("Repository", () => {
 })
 
 class TestRepo extends RepositoryBase {
+
+    constructor(...args: ConstructorParameters<typeof RepositoryBase>) {
+        super(...args)
+    }
+
+    public save<T>(item: T): Promise<T> {
+        return this.upsert(item)
+    }
 
 }
 

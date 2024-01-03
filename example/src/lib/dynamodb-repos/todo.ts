@@ -7,8 +7,12 @@ import { tables } from './tables'
 
 export class ToDoDynamoDBRepository extends RepositoryBase implements IToDoRepository {
 
-    constructor() {
-        super(tables['todos'])
+    constructor(
+        clientConfig?: {
+            endpoint: string
+        }
+    ) {
+        super(tables['todos'], undefined, clientConfig)
     }
 
     getAll(userId: string): Promise<ToDoItem[]> {
