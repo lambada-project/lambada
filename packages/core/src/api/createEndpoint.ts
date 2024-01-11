@@ -64,7 +64,7 @@ export const createEndpointSimpleCors = <T>(
         useCognitoAuthorizer?: boolean
         useApiKey?: boolean
     },
-    options?: LambdaOptions
+    options?: LambdaOptions,
 ) => {
     return createEndpointSimple(name, embroideryContext, path, method, callbackDefinition, resources,
         {
@@ -191,8 +191,10 @@ export const createEndpoint = <E, R>(
         envVars,
         resources,
         undefined,
-        options,
-        embroideryContext.api?.vpcConfig
+        {
+            ...options,
+            vpcConfig: options?.vpcConfig ?? embroideryContext.api?.vpcConfig
+        }
     )
 
     let auth: (CognitoAuthorizer | LambdaAuthorizer)[] = []

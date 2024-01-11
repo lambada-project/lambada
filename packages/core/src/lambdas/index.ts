@@ -85,6 +85,11 @@ export type LambdaOptions = {
      * The amount of reserved concurrent executions for this lambda function. A value of `0` disables lambda from being triggered and `-1` removes any concurrency limitations. Defaults to Unreserved Concurrency Limits `-1`. See [Managing Concurrency](https://docs.aws.amazon.com/lambda/latest/dg/concurrent-executions.html) 
      * */
     reservedConcurrentExecutions?: number
+
+    /**
+     * VPC configuration associated with your Lambda function. See [VPC Configuration](https://docs.aws.amazon.com/lambda/latest/dg/configuration-vpc.html)
+     * */
+    vpcConfig?: Input<FunctionVpcConfig>
 }
 
 export const createLambda = <E, R>(
@@ -96,7 +101,6 @@ export const createLambda = <E, R>(
     resources: LambdaResource[],
     overrideRole?: aws.iam.Role,
     options?: LambdaOptions,
-    vpcConfig?: pulumi.Input<FunctionVpcConfig>
 ): aws.lambda.EventHandler<E, R> => {
 
     let lambdaRole = overrideRole
@@ -228,7 +232,7 @@ export const createLambda = <E, R>(
         }
     }
 
-    if (vpcConfig) {
+    if (options?.vpcConfig) {
         policyStatements.push(VPCAccessExecutionStatement)
     }
 
@@ -257,7 +261,7 @@ export const createLambda = <E, R>(
 
 
 
-    const _vpcConfig = vpcConfig ? vpcConfig : {
+    const _vpcConfig = options?.vpcConfig ?? {
         securityGroupIds: [],
         subnetIds: []
     }
