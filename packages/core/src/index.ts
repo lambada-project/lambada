@@ -14,7 +14,7 @@ import { CreateKMSKeys, createSecrets, EmbroideryEncryptionKeys, EmbroiderySecre
 import { UserPool } from "@pulumi/aws/cognito/userPool";
 import createUserPool from "./auth";
 import { CognitoAuthorizer } from "@pulumi/awsx/classic/apigateway";
-import { createQueues, LambadaQueues, LambadaQueueSubscriptionCreator } from "./queue";
+import { createQueues, LambadaQueues, LambadaQueueSubscriptionCreator, QueuesResult } from "./queue";
 import { createQueueHandler } from "./queue/createQueueHandler";
 import { OpenAPIObjectConfigV31 } from "@asteasolutions/zod-to-openapi/dist/v3.1/openapi-generator";
 import { FunctionVpcConfig } from "./lambdas";
@@ -66,7 +66,7 @@ type LambadaRunArguments = {
     messageHandlerDefinitions?: LambadaSubscriptionCreator[],
 
     queues?: LambadaQueues,
-    queuesRef?: LambadaQueues,
+    queuesRef?: LambadaQueues | QueuesResult,
     queueHandlerDefinitions?: LambadaQueueSubscriptionCreator[]
 
     environmentVariables?: EmbroideryEnvironmentVariables,

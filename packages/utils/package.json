@@ -26,9 +26,9 @@
     "@types/jest": "^29",
     "ts-jest": "^29",
     "@aws-sdk/client-dynamodb": "^3.465.0",
-    "@aws-sdk/util-dynamodb": "3.465.0",
-    "@aws-sdk/client-secrets-manager": "3.465.0",
-    "@aws-sdk/client-cognito-identity-provider": "3.465.0"
+    "@aws-sdk/util-dynamodb": "^3.465.0",
+    "@aws-sdk/client-secrets-manager": "^3.465.0",
+    "@aws-sdk/client-cognito-identity-provider": "^3.465.0"
   },
   "peerDependencies": {
     "@aws-sdk/client-dynamodb": "^3.465.0",
