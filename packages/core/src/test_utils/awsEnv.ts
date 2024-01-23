@@ -105,13 +105,12 @@ export async function RemoveResources(config: LambadaEnvironmentConfig): Promise
 
     const existingTableNames = (await db.listTables({})).TableNames ?? []
 
-    for (const key of existingTableNames) {
-
-        if (tables.hasOwnProperty(key)) {
-            const table = tables[key];
+    for (const tableKey of Object.keys(tables)) {
+        const table = tables[tableKey];
+        if (existingTableNames.includes(table.name)) {
             await db.deleteTable({
                 TableName: table.name,
-            })
+            });
         }
     }
 }
