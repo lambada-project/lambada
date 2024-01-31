@@ -7,9 +7,9 @@ import { LambadaResources } from './context'
 
 // import createUserPool from './auth'
 // import createApi from './api/createApi'
-import { createMessaging, LambadaMessages, LambadaSubscriptionCreator } from './messaging'
+import { createMessaging, LambadaMessages, LambadaSubscriptionCreator, MessagingResult } from './messaging'
 import createNotifications, { NotificationConfig } from './notifications'
-import { EmbroideryTables, createDynamoDbTables } from './database'
+import { DatabaseResult, EmbroideryTables, createDynamoDbTables } from './database'
 import { CreateKMSKeys, createSecrets, EmbroideryEncryptionKeys, EmbroiderySecrets } from "./security";
 import { UserPool } from "@pulumi/aws/cognito/userPool";
 import createUserPool from "./auth";
@@ -57,12 +57,12 @@ type LambadaRunArguments = {
     /** Tables to create */
     tables?: EmbroideryTables
     /** Referenced tables, does not create anything */
-    tablesRef?: EmbroideryTables
+    tablesRef?: EmbroideryTables | DatabaseResult
 
     /** Topics to create */
     messages?: LambadaMessages,
     /** Referenced topics, does not create anything */
-    messagesRef?: LambadaMessages,
+    messagesRef?: LambadaMessages | MessagingResult
     messageHandlerDefinitions?: LambadaSubscriptionCreator[],
 
     queues?: LambadaQueues,

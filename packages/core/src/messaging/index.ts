@@ -80,7 +80,7 @@ const tryParse = (value: any) => {
 export const createMessaging = (
     environment: string,
     messages?: LambadaMessages,
-    messagesRef?: LambadaMessages
+    messagesRef?: LambadaMessages | MessagingResult
 ): MessagingResult => {
 
     const result: MessagingResult = {}
@@ -117,14 +117,23 @@ export const createMessaging = (
             if (result[key]) {
                 throw new Error(`Cannot create a ref message with the same name of an existing topic: ${key}`)
             }
-            const topic = (message as any).topic ?? findTopic(message.name, environment)
 
-            result[key] = {
-                awsTopic: (message as any).awsTopic ?? aws.sns.Topic.get(`${message.name}-${environment}`, topic.id),
-                envKeyName: message.envKeyName,
-                ref: topic,
-                definition: message
-            } as MessagingResultItem
+            function isRef(obj: MessagingResultItem | MessageDefinition): obj is MessagingResultItem {
+                return !!(( obj as MessagingResultItem ).awsTopic && ( obj as MessagingResultItem ).ref)
+            }
+
+            if (isRef(message)) {
+                result[key] = message
+            } else {
+                const topic = (message as any).topic ?? findTopic(message.name, environment)
+
+                result[key] = {
+                    awsTopic: (message as any).awsTopic ?? aws.sns.Topic.get(`${message.name}-${environment}`, topic.id),
+                    envKeyName: message.envKeyName,
+                    ref: topic,
+                    definition: message
+                } as MessagingResultItem
+            }
         }
     }
 
