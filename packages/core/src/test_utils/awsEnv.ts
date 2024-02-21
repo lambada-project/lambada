@@ -23,6 +23,8 @@ export async function ConfigureAwsEnvironment({ options }: LambadaEnvironmentCon
     const delay = () => new Promise((resolve) => setTimeout(resolve, 200))
     await delay()
 
+    validateTables(tables)
+
     for (const key in tables) {
 
         if (tables.hasOwnProperty(key)) {
@@ -114,3 +116,27 @@ export async function RemoveResources(config: LambadaEnvironmentConfig): Promise
         }
     }
 }
+
+function validateTables(tables: EmbroideryTables): asserts tables is EmbroideryTables {
+    const isString = (s?: string | EmbroideryTables[string]['primaryKey'] | Required<EmbroideryTables[string]>['attributes'][number]['name']): s is string => typeof s === 'string'
+    for (const tableKey in tables) {
+        const table = tables[tableKey]
+        const tableKeys = [table.primaryKey, table.rangeKey,].filter(isString)
+        const extraKeys = (table.attributes?.map(a => a.name) ?? []).filter(isString)
+        const indexAttributes = (table.indexes?.flatMap(i => [i.hashKey, i.rangeKey]) ?? []).filter(isString)
+
+        // if some extra keys are not in the table keys or index attributes, then it's invalid
+        extraKeys.forEach(key => {
+            if (!tableKeys.includes(key) && !indexAttributes.includes(key)) {
+                throw new Error(`Extra keys in table ${table.name} are not in the table keys or index attributes: ${key}`)
+            }
+        });
+
+        // if some index attributes are not in the table keys or extra keys, then it's invalid
+        indexAttributes.forEach(key => {
+            if (!tableKeys.includes(key) && !extraKeys.includes(key)) {
+                throw new Error(`Index attributes in table ${table.name} are not in the table keys or extra keys: ${key}`)
+            }
+        });
+    }
+} 
