@@ -1,23 +1,30 @@
 {
-    "compilerOptions": {
-      "moduleResolution": "node",
-      "target": "ES2020",
-      "module":"CommonJS",
-      "lib": ["ES2018", "dom" ],
-      "strict": true,
-      "sourceMap": true,
-      "declaration": true,
-      "allowSyntheticDefaultImports": true,
-      "experimentalDecorators": true,
-      "emitDecoratorMetadata": true,
-      "declarationDir": "dist",
-      "outDir": "dist",
-      "typeRoots": [
-        "node_modules/@types"
-      ]
-    },
-    "include": [
-      "src"
+  "compilerOptions": {
+    "moduleResolution": "node",
+    "target": "ES2020",
+    "module": "CommonJS",
+    "lib": [
+      "ES2018",
+      "dom"
+    ],
+    "strict": true,
+    "sourceMap": true,
+    "declaration": true,
+    "allowSyntheticDefaultImports": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "declarationDir": "dist",
+    "skipLibCheck": true,
+    "outDir": "dist",
+    "typeRoots": [
+      "node_modules/@types"
     ]
-  }
-  
+  },
+  "include": [
+    "src"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}

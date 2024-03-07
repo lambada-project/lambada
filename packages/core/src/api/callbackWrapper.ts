@@ -1,12 +1,16 @@
-import { Response } from '@pulumi/awsx/classic/apigateway/api'
+
 import { getCorsHeaders } from '@lambada/utils';
-import { AuthExecutionContext, getContext } from '@lambada/utils';
+import { getContext } from '@lambada/utils';
+
+import { Response } from '@pulumi/awsx/classic/apigateway/api'
 import { EmbroideryCallback } from "./createEndpoint"
 import * as awslambda from "aws-lambda"
 import { LambadaResources } from '..';
 export declare type Request = awslambda.APIGatewayProxyEvent;
 
 type Wrapper = (request: Request) => Promise<Response>
+
+
 
 export function createCallback(
     {
@@ -27,7 +31,6 @@ export function createCallback(
     const callback = async (request: Request): Promise<Response> => {
         extraHeaders = { ...getCorsHeaders(request.requestContext.domainName, context.api?.cors?.origins), ...(extraHeaders ?? {}) }
         const authContext = await getContext(request)
-        //const user = authContext?.currentUsername && authContext ? await getUser(authContext.currentUsername, authContext) : undefined
         try {
             const result = await callbackDefinition({
                 user: authContext,
@@ -89,10 +92,10 @@ export function createCallback(
                     }),
                     headers: (extraHeaders || {})
                 }
-            } ``
+            }
         }
-
-
     }
+
+
     return callback
 }

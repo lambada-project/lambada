@@ -1,9 +1,9 @@
 import { run, createProxyIntegration, createEndpoint } from '@lambada/core'
-import { createGetToDos } from './api/todos/get'
-import { createPostToDo } from './api/todos/post'
-import { tables } from './lib/dynamodb-repos/tables'
-import { topics } from './messages'
-import { createHandlerTodoItem_created } from './messages/todoItem_created'
+import createGetToDos from './api/todos/get.js'
+import { createPostToDo } from './api/todos/post.js'
+import { tables } from './lib/dynamodb-repos/tables.js'
+import { topics } from './messages/index.js'
+import { createHandlerTodoItem_created } from './messages/todoItem_created.js'
 import * as pulumi from '@pulumi/pulumi'
 
 const environment = pulumi.getStack()

@@ -24,7 +24,7 @@ export const createOpenApiDocumentEndpoint = (args: {
     }
 }) => {
     const registry = new OpenAPIRegistry();
-    const name = args.auth?.name ?? 'bearerAuth'
+    const name = args.auth?.name ?? 'Authorization'
 
     const bearerAuth = registry.registerComponent('securitySchemes', name, {
         type: 'apiKey',

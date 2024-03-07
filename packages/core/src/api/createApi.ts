@@ -1,4 +1,3 @@
-import * as aws from "@pulumi/aws";
 import * as awsx from "@pulumi/awsx/classic";
 import * as pulumi from "@pulumi/pulumi";
 
@@ -10,8 +9,8 @@ import { Route, StaticRoute } from "@pulumi/awsx/classic/apigateway/api";
 import { createCorsEndpoints } from "./createCorsEndpoints";
 import { LambadaResources } from "../context";
 import { createStaticEndpoint, EmbroideryApiEndpointCreator, LambadaCreatorTypes, LambadaEndpointCreator, LambadaProxyCreator, ProxyIntegrationArgs } from ".";
-import { createEndpointSimple, createEndpointSimpleCompat, LambadaEndpointArgs } from "./createEndpoint";
-import { createProxyIntegration, createProxyIntegrationCompat } from "./createProxyIntegration";
+import { createEndpointSimpleCompat, LambadaEndpointArgs } from "./createEndpoint";
+import { createProxyIntegrationCompat } from "./createProxyIntegration";
 import { createOpenApiDocumentEndpoint } from "./openApiDocument";
 import { OpenAPIObjectConfigV31 } from "@asteasolutions/zod-to-openapi/dist/v3.1/openapi-generator";
 import { FunctionVpcConfig } from "../lambdas";
