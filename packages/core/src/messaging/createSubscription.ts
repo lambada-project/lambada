@@ -70,7 +70,7 @@ export const subscribeToTopic = (
         subscription.resources,
         undefined,
         options,
-        `Handler for ${topic.ref.name} in ${environment} with subscription ${subscription.name}`,
+        `Handler for ${topic.definition.name} in ${environment} with subscription ${subscription.name}`,
         context.globalTags
 
     )
