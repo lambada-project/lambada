@@ -203,7 +203,8 @@ export const createEndpoint = <E, R>(
         {
             ...options,
             vpcConfig: options?.vpcConfig ?? embroideryContext.api?.vpcConfig
-        }
+        },
+        `${embroideryContext.projectName} ${method} ${path}`
     )
 
     let auth: (CognitoAuthorizer | LambdaAuthorizer)[] = []
@@ -276,8 +277,8 @@ function runBundle(args: LambadaEndpointArgs, context: LambadaResources): Embroi
     const excludeDependencies = ['@pulumi/*', 'aws-sdk']
     const dependencies = readDependencies()
     const externalFlat = [...Object.keys(dependencies), ...excludeDependencies].flatMap(x => ['--external', x]).join(' ')
-    
-    
+
+
     mkdirSync(bundleDirectory, { recursive: true });
 
 

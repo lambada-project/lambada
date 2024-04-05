@@ -101,6 +101,8 @@ export const createLambda = <E, R>(
     resources: LambdaResource[],
     overrideRole?: aws.iam.Role,
     options?: LambdaOptions,
+    description?: string,
+    tags?: pulumi.Input<{ [key: string]: pulumi.Input<string> }>
 ): aws.lambda.EventHandler<E, R> => {
 
     let lambdaRole = overrideRole
@@ -260,25 +262,27 @@ export const createLambda = <E, R>(
     const architectures = options?.architecture ? [options?.architecture] : undefined
 
 
-
     const _vpcConfig = options?.vpcConfig ?? {
         securityGroupIds: [],
         subnetIds: []
     }
+
+    description = description ?? `${name}-${environment}`
 
     if (typeof definition === 'function') {
         const callbackDefinition = definition as Callback<E, R>
         return new aws.lambda.CallbackFunction(`${name}-${environment}`, {
             callback: callbackDefinition,
             role: lambdaRole,
-            description: `Lambda ${name} - ${environment}`,
+            description: description,
             environment: functionEnvironment,
             memorySize: memorySize,
             timeout: timeout,
             reservedConcurrentExecutions: reservedConcurrentExecutions,
             runtime: runtime,
             architectures: architectures,
-            vpcConfig: _vpcConfig
+            vpcConfig: _vpcConfig,
+            tags: tags
         })
     }
     else if ((definition as FolderLambda).functionFolder) {
@@ -288,6 +292,7 @@ export const createLambda = <E, R>(
             return new aws.lambda.Function(`${name}-${environment}`, {
                 runtime: runtime,
                 architectures: architectures,
+                description: description,
                 code: new pulumi.asset.AssetArchive({
                     ".": new pulumi.asset.FileArchive(
                         handlerInfo.functionFolder
@@ -303,7 +308,8 @@ export const createLambda = <E, R>(
                 layers: [],
                 environment: functionEnvironment, // TODO:
                 reservedConcurrentExecutions: reservedConcurrentExecutions,
-                vpcConfig: _vpcConfig
+                vpcConfig: _vpcConfig,
+                tags: tags
             });
         }
         else {
