@@ -69,7 +69,10 @@ export const subscribeToTopic = (
         envVars,
         subscription.resources,
         undefined,
-        options
+        options,
+        `Handler for ${topic.ref.name} in ${environment} with subscription ${subscription.name}`,
+        context.globalTags
+
     )
     if (topic.awsTopic)
         return topic.awsTopic.onEvent(`${topicName}_${subscription.name}_${environment}`, callback, subscription.subscriptionArgs)

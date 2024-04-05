@@ -102,6 +102,10 @@ export type EmbroideryEnvironmentVariables = pulumi.Input<{
 }> | undefined
 
 export const run = (projectName: string, environment: string, args: LambadaRunArguments) => {
+    const tags = {
+        "Lambada:Project": projectName,
+        "Lambada:Environment": environment
+    }
 
     const encryptionKeys = args.keys ? CreateKMSKeys(projectName, environment, args.keys) : {}
     const secrets = args.secrets ? createSecrets(projectName, environment, args.secrets) : {}
@@ -121,7 +125,7 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
     const cognitoPoolId = isPool(pool) ? pool.id : undefined
 
 
-    const messaging = createMessaging(environment, args.messages, args.messagesRef)
+    const messaging = createMessaging(environment, args.messages, args.messagesRef, tags)
     const queues = createQueues(environment, args.queues, args.queuesRef)
     const notifications = createNotifications(projectName, environment, args?.notifications)
 
@@ -136,6 +140,8 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
     })
     const authorizers: CognitoAuthorizer[] = authorizerProviderARNs.length > 0 ? [authorizer] : [];
 
+
+ 
     // TODO: option to add projectName as prefix to all functions
     const lambadaContext: LambadaResources = {
         projectName: projectName,
@@ -156,7 +162,8 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
         environment: environment,
         kmsKeys: encryptionKeys,
         environmentVariables: args.environmentVariables || {},
-        secrets: secrets
+        secrets: secrets,
+        globalTags: tags
     }
 
     if (args.messageHandlerDefinitions) {
@@ -199,7 +206,8 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
         auth: {
             apiKey: args.auth?.useApiKey
         },
-        options: args.options
+        options: args.options,
+
     })
 
     let apiKey: awsx.apigateway.AssociatedAPIKeys | undefined = undefined

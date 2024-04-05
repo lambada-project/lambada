@@ -30,4 +30,5 @@ export type LambadaResources = {
     kmsKeys?: SecurityResult
     environmentVariables: EmbroideryEnvironmentVariables
     secrets?: SecretsResult
+    globalTags?: Input<{ [key: string]: Input<string> }>
 }

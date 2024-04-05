@@ -13,7 +13,7 @@ export type MessageDefinition = {
     name: string
     envKeyName: string
     options?: TopicArgs,
-    
+
     deliveryPolicy?: {
         http?: {
             defaultHealthyRetryPolicy?: {
@@ -80,7 +80,8 @@ const tryParse = (value: any) => {
 export const createMessaging = (
     environment: string,
     messages?: LambadaMessages,
-    messagesRef?: LambadaMessages | MessagingResult
+    messagesRef?: LambadaMessages | MessagingResult,
+    tags?: pulumi.Input<{ [key: string]: pulumi.Input<string> }>
 ): MessagingResult => {
 
     const result: MessagingResult = {}
@@ -93,9 +94,7 @@ export const createMessaging = (
                 ...(message.options ?? {}),
                 name: name,
                 deliveryPolicy: tryParse(message.deliveryPolicy), // DEFAULT THIS SO ITS EASY TO COMPARE
-                tags: {
-                    Environment: environment
-                }
+                tags: tags
             });
 
             result[key] = {
@@ -119,7 +118,7 @@ export const createMessaging = (
             }
 
             function isRef(obj: MessagingResultItem | MessageDefinition): obj is MessagingResultItem {
-                return !!(( obj as MessagingResultItem ).awsTopic && ( obj as MessagingResultItem ).ref)
+                return !!((obj as MessagingResultItem).awsTopic && (obj as MessagingResultItem).ref)
             }
 
             if (isRef(message)) {
