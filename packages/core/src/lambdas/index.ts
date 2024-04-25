@@ -255,7 +255,7 @@ export const createLambda = <E, R>(
     } : undefined
 
     // TODO: This should be exposed per lambda and as global defaults
-    const memorySize = options?.memorySize ?? 384
+    const memorySize = options?.memorySize ?? 512
     const timeout = options?.timeout ?? 90
     const reservedConcurrentExecutions = options?.reservedConcurrentExecutions ?? -1
     const runtime = options?.runtime ?? aws.lambda.Runtime.NodeJS18dX
