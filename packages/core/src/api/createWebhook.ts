@@ -1,6 +1,6 @@
 import { LambadaResources } from "..";
 import { Request, Response } from '@pulumi/awsx/classic/apigateway/api'
-import { createEndpoint, EmbroideryEventHandlerRoute, EmbroideryRequest, LambadaEndpointArgs } from "./createEndpoint";
+import { createEndpoint, EmbroideryEventHandlerRoute, EmbroideryRequest, LambadaEndpointArgs, mergeOptions } from "./createEndpoint";
 import * as aws from '@pulumi/aws'
 import * as pulumi from '@pulumi/pulumi'
 import { createLambda, LambdaResource } from "../lambdas";
@@ -165,7 +165,7 @@ export function createWebhook(
         endpointParams.auth?.useCognitoAuthorizer,
         webhookResources, endpointParams.auth?.useApiKey,
         undefined,
-        { ...endpointParams.options, timeout: endpointOptions.timeout }
+        mergeOptions(endpointOptions, endpointParams.options)
     )
 
 

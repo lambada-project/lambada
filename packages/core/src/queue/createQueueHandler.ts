@@ -1,6 +1,6 @@
 import * as aws from "@pulumi/aws";
 import { QueueResultItem } from "."
-import { LambadaResources, EmbroideryEnvironmentVariables } from ".."
+import { LambadaResources, EmbroideryEnvironmentVariables, mergeOptions } from ".."
 import { createLambda, LambdaOptions, LambdaResource } from '../lambdas'
 
 import { Callback } from '@pulumi/aws/lambda';
@@ -61,7 +61,7 @@ export const createQueueHandler = (
         envVars,
         queueHandler.resources,
         undefined,
-        queueHandler.lambdaOptions
+        mergeOptions(queueHandler.lambdaOptions, context.api?.lambdaOptions)
     )
 
     if (queue.awsQueue)

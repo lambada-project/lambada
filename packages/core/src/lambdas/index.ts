@@ -90,6 +90,11 @@ export type LambdaOptions = {
      * VPC configuration associated with your Lambda function. See [VPC Configuration](https://docs.aws.amazon.com/lambda/latest/dg/configuration-vpc.html)
      * */
     vpcConfig?: Input<FunctionVpcConfig>
+
+    /**
+     * Set to false to send the response right away and not wait for the event loop to be empty
+     */
+    callbackWaitsForEmptyEventLoop?: boolean
 }
 
 export const createLambda = <E, R>(

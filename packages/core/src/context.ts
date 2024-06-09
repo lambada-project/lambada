@@ -5,7 +5,7 @@ import { MessagingResult } from "./messaging";
 import { NotificationResult } from "./notifications";
 import { EmbroideryEnvironmentVariables } from ".";
 import { QueuesResult } from "./queue";
-import { FunctionVpcConfig } from "./lambdas";
+import { FunctionVpcConfig, LambdaOptions } from "./lambdas";
 import { Input } from '@pulumi/pulumi'
 
 export type LambadaResources = {
@@ -20,6 +20,7 @@ export type LambadaResources = {
             origins: string[]
         }
         vpcConfig?: Input<FunctionVpcConfig>
+        lambdaOptions?: LambdaOptions
     },
     authorizers: CognitoAuthorizer[]
     messaging?: MessagingResult

@@ -6,9 +6,11 @@ import { Response } from '@pulumi/awsx/classic/apigateway/api'
 import { EmbroideryCallback } from "./createEndpoint"
 import * as awslambda from "aws-lambda"
 import { LambadaResources } from '..';
+import { LambdaOptions } from '../lambdas';
 export declare type Request = awslambda.APIGatewayProxyEvent;
+export declare type LambdaContext = awslambda.Context
 
-type Wrapper = (request: Request) => Promise<Response>
+type Wrapper = (request: Request, ctx: LambdaContext) => Promise<Response>
 
 
 
@@ -16,11 +18,13 @@ export function createCallback(
     {
         callbackDefinition,
         context,
-        extraHeaders
+        extraHeaders,
+        options
     }: {
         callbackDefinition: EmbroideryCallback,
         context: LambadaResources,
-        extraHeaders?: {}
+        extraHeaders?: {},
+        options?: LambdaOptions
     }
 ): Wrapper {
     const isResponse = (result: any): boolean => {
@@ -28,7 +32,9 @@ export function createCallback(
             result.body && result.statusCode
         )
     }
-    const callback = async (request: Request): Promise<Response> => {
+    const callback = async (request: Request, ctx: LambdaContext): Promise<Response> => {
+        ctx.callbackWaitsForEmptyEventLoop = options?.callbackWaitsForEmptyEventLoop ?? context.api?.lambdaOptions?.callbackWaitsForEmptyEventLoop ?? ctx.callbackWaitsForEmptyEventLoop;
+
         extraHeaders = { ...getCorsHeaders(request.requestContext.domainName, context.api?.cors?.origins), ...(extraHeaders ?? {}) }
         const authContext = await getContext(request)
         try {

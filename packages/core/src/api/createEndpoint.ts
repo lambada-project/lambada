@@ -136,7 +136,7 @@ export const createEndpointSimpleCompat = (args: LambadaEndpointArgs, context: L
     else {
         return createEndpoint<Request, Response>(
             name, context,
-            path, method, createCallback({ callbackDefinition, context, extraHeaders }), [],
+            path, method, createCallback({ options, callbackDefinition, context, extraHeaders }), [],
             environmentVariables, auth?.useCognitoAuthorizer,
             resources,
             auth?.useApiKey,
@@ -156,7 +156,7 @@ export type LambadaEndpointResult<E, R> = {
 export type HTTP_METHODS = "GET" | "POST" | "DELETE" | "PUT" | "PATCH" | "OPTIONS"
 export const createEndpoint = <E, R>(
     name: string,
-    embroideryContext: LambadaResources,
+    lambadaContext: LambadaResources,
     path: string,
     method: HTTP_METHODS,
     callbackDefinition: Callback<E, R> | FolderLambda,
@@ -169,17 +169,17 @@ export const createEndpoint = <E, R>(
     options?: LambdaOptions
 ): LambadaEndpointResult<E, R> => {
 
-    var environment = embroideryContext.environment
+    var environment = lambadaContext.environment
     resources = resources || []
 
     if (!policyStatements) {
         policyStatements = []
     }
 
-    if (embroideryContext.kmsKeys && embroideryContext.kmsKeys.dynamodb) {
+    if (lambadaContext.kmsKeys && lambadaContext.kmsKeys.dynamodb) {
         resources.push(
             {
-                kmsKey: embroideryContext.kmsKeys.dynamodb,
+                kmsKey: lambadaContext.kmsKeys.dynamodb,
                 access: [
                     "kms:Encrypt",
                     "kms:Decrypt",
@@ -190,7 +190,7 @@ export const createEndpoint = <E, R>(
             })
     }
 
-    const envVars = { ...(embroideryContext.environmentVariables || {}), ...(environmentVariables || {}) }
+    const envVars = { ...(lambadaContext.environmentVariables || {}), ...(environmentVariables || {}) }
 
     const callback = createLambda<E, R>(
         name,
@@ -200,26 +200,23 @@ export const createEndpoint = <E, R>(
         envVars,
         resources,
         undefined,
-        {
-            ...options,
-            vpcConfig: options?.vpcConfig ?? embroideryContext.api?.vpcConfig
-        },
-        `${embroideryContext.projectName} ${method} ${path}`
+        mergeOptions(options, lambadaContext.api?.lambdaOptions),
+        `${lambadaContext.projectName} ${method} ${path}`
     )
 
     let auth: (CognitoAuthorizer | LambdaAuthorizer)[] = []
 
     if (lambdaAuthorizer)
         auth.push(lambdaAuthorizer)
-    else if (typeof enableAuth === 'boolean' ? enableAuth : embroideryContext?.api?.auth?.useCognitoAuthorizer === true)
-        auth = [...auth, ...(embroideryContext.authorizers ?? [])]
+    else if (typeof enableAuth === 'boolean' ? enableAuth : lambadaContext?.api?.auth?.useCognitoAuthorizer === true)
+        auth = [...auth, ...(lambadaContext.authorizers ?? [])]
 
     return {
-        path: `${embroideryContext.api?.apiPath ?? ''}${path}`,
+        path: `${lambadaContext.api?.apiPath ?? ''}${path}`,
         method: method,
         authorizers: auth,
         eventHandler: callback,
-        apiKeyRequired: typeof apiKeyRequired === 'boolean' ? apiKeyRequired : embroideryContext?.api?.auth?.useApiKey === true
+        apiKeyRequired: typeof apiKeyRequired === 'boolean' ? apiKeyRequired : lambadaContext?.api?.auth?.useApiKey === true
     }
 }
 
@@ -412,6 +409,19 @@ function runBundle(args: LambadaEndpointArgs, context: LambadaResources): Embroi
         resources,
         auth?.useApiKey,
         auth?.lambdaAuthorizer,
-        options
+        mergeOptions(options, context.api?.lambdaOptions)
     );
 }
+
+export function mergeOptions(lambdaOptions: LambdaOptions | undefined, globalOptions: LambdaOptions | undefined): LambdaOptions {
+    return {
+        memorySize: lambdaOptions?.memorySize ?? globalOptions?.memorySize,
+        vpcConfig: lambdaOptions?.vpcConfig ?? globalOptions?.vpcConfig,
+        architecture: lambdaOptions?.architecture ?? globalOptions?.architecture,
+        callbackWaitsForEmptyEventLoop: lambdaOptions?.callbackWaitsForEmptyEventLoop ?? globalOptions?.callbackWaitsForEmptyEventLoop,
+        reservedConcurrentExecutions: lambdaOptions?.reservedConcurrentExecutions ?? globalOptions?.reservedConcurrentExecutions,
+        runtime: lambdaOptions?.runtime ?? globalOptions?.runtime,
+        timeout: lambdaOptions?.timeout ?? globalOptions?.timeout,
+    }
+}
+
