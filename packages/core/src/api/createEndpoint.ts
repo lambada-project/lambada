@@ -201,7 +201,8 @@ export const createEndpoint = <E, R>(
         resources,
         undefined,
         mergeOptions(options, lambadaContext.api?.lambdaOptions),
-        `${lambadaContext.projectName} ${method} ${path}`
+        `${lambadaContext.projectName} ${method} ${path}`,
+        lambadaContext.globalTags
     )
 
     let auth: (CognitoAuthorizer | LambdaAuthorizer)[] = []

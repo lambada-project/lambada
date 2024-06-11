@@ -1,5 +1,6 @@
 import * as pulumi from "@pulumi/pulumi";
 import * as awsx from "@pulumi/awsx/classic";
+import * as aws from "@pulumi/aws";
 
 import createApi, { LambadaCreator } from './api/createApi'
 import { createCloudFront } from './cdn/index'
@@ -92,6 +93,16 @@ type LambadaRunArguments = {
             }
         }
     },
+    resourceGroups?: {
+        /** 
+         * Does not create a resource group 
+         * */
+        skipCreate?: boolean
+        /** 
+         * Overrides the default name (projectName-environment)
+         */
+        name?: string
+    },
     options?: {
         dependsOn: pulumi.Input<pulumi.Resource> | pulumi.Input<pulumi.Input<pulumi.Resource>[]> | undefined;
     }
@@ -102,14 +113,14 @@ export type EmbroideryEnvironmentVariables = pulumi.Input<{
 }> | undefined
 
 export const run = (projectName: string, environment: string, args: LambadaRunArguments) => {
-    const tags = {
+    const globalTags = {
         "Lambada:Project": projectName,
         "Lambada:Environment": environment
     }
 
     const encryptionKeys = args.keys ? CreateKMSKeys(projectName, environment, args.keys) : {}
     const secrets = args.secrets ? createSecrets(projectName, environment, args.secrets) : {}
-    const databases = createDynamoDbTables(environment, args.tables, args.tablePrefix, encryptionKeys, args.tablesRef)
+    const databases = createDynamoDbTables(environment, args.tables, args.tablePrefix, encryptionKeys, args.tablesRef, globalTags)
 
     const pool: UserPool | undefined = args.auth && args.auth.createCognito ?
         createUserPool(projectName, environment, encryptionKeys, {
@@ -125,7 +136,7 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
     const cognitoPoolId = isPool(pool) ? pool.id : undefined
 
 
-    const messaging = createMessaging(environment, args.messages, args.messagesRef, tags)
+    const messaging = createMessaging(environment, args.messages, args.messagesRef, globalTags)
     const queues = createQueues(environment, args.queues, args.queuesRef)
     const notifications = createNotifications(projectName, environment, args?.notifications)
 
@@ -141,7 +152,7 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
     const authorizers: CognitoAuthorizer[] = authorizerProviderARNs.length > 0 ? [authorizer] : [];
 
 
- 
+
     // TODO: option to add projectName as prefix to all functions
     const lambadaContext: LambadaResources = {
         projectName: projectName,
@@ -163,7 +174,7 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
         kmsKeys: encryptionKeys,
         environmentVariables: args.environmentVariables || {},
         secrets: secrets,
-        globalTags: tags
+        globalTags: globalTags
     }
 
     if (args.messageHandlerDefinitions) {
@@ -242,6 +253,21 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
         },
         args.cdn.customDomain,
     ) : undefined
+
+
+    if (!args.resourceGroups?.skipCreate) {
+        const groupName = args.resourceGroups?.name ?? `${projectName}-${environment}`
+
+        new aws.resourcegroups.Group(groupName, {
+            name: groupName,
+            resourceQuery: {
+                query: JSON.stringify({
+                    ResourceTypeFilters: ["AWS::AllSupported"],
+                    TagFilters: globalTags
+                })
+            }
+        })
+    }
 
     return {
         api: api,
