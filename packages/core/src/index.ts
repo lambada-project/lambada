@@ -263,8 +263,15 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
             resourceQuery: {
                 query: JSON.stringify({
                     ResourceTypeFilters: ["AWS::AllSupported"],
-                    TagFilters: globalTags
-                })
+                    TagFilters: [{
+                        "Key": "Lambada:Project",
+                        "Values": [projectName]
+                    }, {
+                        "Key": "Lambada:Environment",
+                        "Values": [environment]
+                    }]
+                }),
+                type: "TAG_FILTERS_1_0"
             }
         })
     }
