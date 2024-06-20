@@ -3,7 +3,7 @@ import { getCorsHeaders } from '@lambada/utils';
 import { getContext } from '@lambada/utils';
 
 import { Response } from '@pulumi/awsx/classic/apigateway/api'
-import { EmbroideryCallback } from "./createEndpoint"
+import { EmbroideryCallback, LambadaEndpointArgs } from "./createEndpoint"
 import * as awslambda from "aws-lambda"
 import { LambadaResources } from '..';
 import { LambdaOptions } from '../lambdas';
@@ -19,12 +19,14 @@ export function createCallback(
         callbackDefinition,
         context,
         extraHeaders,
-        options
+        options,
+        cacheControl
     }: {
         callbackDefinition: EmbroideryCallback,
         context: LambadaResources,
         extraHeaders?: {},
-        options?: LambdaOptions
+        options?: LambdaOptions,
+        cacheControl?: string
     }
 ): Wrapper {
     const isResponse = (result: any): boolean => {
@@ -36,6 +38,9 @@ export function createCallback(
         ctx.callbackWaitsForEmptyEventLoop = options?.callbackWaitsForEmptyEventLoop ?? context.api?.lambdaOptions?.callbackWaitsForEmptyEventLoop ?? ctx.callbackWaitsForEmptyEventLoop;
 
         extraHeaders = { ...getCorsHeaders(request.requestContext.domainName, context.api?.cors?.origins), ...(extraHeaders ?? {}) }
+        if (cacheControl)
+            extraHeaders = { ...extraHeaders, ...({ 'cache-control': cacheControl }) }
+
         const authContext = await getContext(request)
         try {
             const result = await callbackDefinition({
@@ -54,8 +59,8 @@ export function createCallback(
                 return {
                     ...resultTyped,
                     headers: {
+                        ...(extraHeaders || {}),
                         ...(resultTyped.headers || {}),
-                        ...(extraHeaders || {})
                     }
                 }
             }

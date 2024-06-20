@@ -35,6 +35,8 @@ export const createCloudFront = (
     const behaviours: aws.types.input.cloudfront.DistributionOrderedCacheBehavior[] = []
 
     if (www) {
+        // TODO: Detect if S3, then http instead of https
+        // OR allow these options to be passed in
         origins.push({
             originId: wwwOriginId,
             domainName: www.domain,

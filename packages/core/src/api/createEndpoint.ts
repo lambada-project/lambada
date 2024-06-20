@@ -37,6 +37,9 @@ export type LambadaEndpointArgs = {
     callbackDefinition: EmbroideryCallback,
     resources?: LambdaResource[],
     extraHeaders?: {},
+    cache?: {
+        control?: 'string'
+    },
     environmentVariables?: EmbroideryEnvironmentVariables,
     openapi?: (registry: OpenAPIRegistry) => DistributiveOmit<RouteConfig, 'path' | 'method'>
     webhook?: {
@@ -98,7 +101,7 @@ export const createEndpointSimple = (
         useApiKey?: boolean,
         lambdaAuthorizer?: LambdaAuthorizer
     },
-    options?: LambdaOptions
+    options?: LambdaOptions,
 ) => createEndpointSimpleCompat({
     name,
     path,
@@ -136,7 +139,7 @@ export const createEndpointSimpleCompat = (args: LambadaEndpointArgs, context: L
     else {
         return createEndpoint<Request, Response>(
             name, context,
-            path, method, createCallback({ options, callbackDefinition, context, extraHeaders }), [],
+            path, method, createCallback({ callbackDefinition, context, extraHeaders, options, cacheControl: args.cache?.control }), [],
             environmentVariables, auth?.useCognitoAuthorizer,
             resources,
             auth?.useApiKey,
