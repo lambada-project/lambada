@@ -38,7 +38,7 @@ export type LambadaEndpointArgs = {
     resources?: LambdaResource[],
     extraHeaders?: {},
     cache?: {
-        control?: 'string'
+        control?: string
     },
     environmentVariables?: EmbroideryEnvironmentVariables,
     openapi?: (registry: OpenAPIRegistry) => DistributiveOmit<RouteConfig, 'path' | 'method'>
