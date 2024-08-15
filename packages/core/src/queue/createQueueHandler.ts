@@ -4,7 +4,7 @@ import { LambadaResources, EmbroideryEnvironmentVariables, mergeOptions } from "
 import { createLambda, LambdaOptions, LambdaResource } from '../lambdas'
 
 import { Callback } from '@pulumi/aws/lambda';
-import { QueueEvent, QueueEventSubscription } from "@pulumi/aws/sqs";
+import { QueueEvent, QueueEventSubscription, QueueEventSubscriptionArgs } from "@pulumi/aws/sqs";
 
 export type QueueHandlerEvent = QueueEvent
 export type QueueHandlerCallback = Callback<QueueHandlerEvent, void>
@@ -16,7 +16,8 @@ export type LambdaQueueHandler = {
     policyStatements?: aws.iam.PolicyStatement[]
     environmentVariables?: EmbroideryEnvironmentVariables,
     resources: LambdaResource[]
-    lambdaOptions?: LambdaOptions
+    lambdaOptions?: LambdaOptions,
+    subscriptionArgs: QueueEventSubscriptionArgs | undefined
 }
 
 
@@ -65,7 +66,10 @@ export const createQueueHandler = (
     )
 
     if (queue.awsQueue)
-        return queue.awsQueue.onEvent(`${topicName}_${queueHandler.name}_${environment}`, callback)
+        return queue.awsQueue.onEvent(`${topicName}_${queueHandler.name}_${environment}`, callback, {
+            batchSize: queueHandler.subscriptionArgs?.batchSize,
+            maximumBatchingWindowInSeconds: queueHandler.subscriptionArgs?.maximumBatchingWindowInSeconds
+        })
     else
         throw `Cannot subscribe to this queue: ${queue.definition.name}`
 }
