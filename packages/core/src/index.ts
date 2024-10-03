@@ -35,7 +35,7 @@ type LambadaRunArguments = {
         
         policy?: pulumi.Input<string> | undefined,
         openAPIDocument?: OpenAPIObjectConfigV31
-        lambdaDefaultOptions:  LambdaOptions
+        lambdaDefaultOptions?:  LambdaOptions
     },
     cdn?: {
         useCDN: boolean,
