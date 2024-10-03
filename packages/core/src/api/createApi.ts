@@ -32,10 +32,6 @@ type CreateApiArgs = {
             origins: string[]
         },
         openApiSpec?: OpenAPIObjectConfigV31
-        /**
-         * Configures all lambdas with it
-         */
-        vpcConfig?: pulumi.Input<FunctionVpcConfig>
     }
     www?: {
         local: string,

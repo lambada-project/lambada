@@ -95,6 +95,12 @@ export type LambdaOptions = {
      * Set to false to send the response right away and not wait for the event loop to be empty
      */
     callbackWaitsForEmptyEventLoop?: boolean
+
+    /**
+     * Layers to add to the lambda
+     */
+    //layers?: aws.lambda.LayerVersion[]
+    layers?: pulumi.Input<pulumi.Input<string>[]> | undefined
 }
 
 export const createLambda = <E, R>(
@@ -265,7 +271,7 @@ export const createLambda = <E, R>(
     const reservedConcurrentExecutions = options?.reservedConcurrentExecutions ?? -1
     const runtime = options?.runtime ?? aws.lambda.Runtime.NodeJS18dX
     const architectures = options?.architecture ? [options?.architecture] : undefined
-
+    const layers = options?.layers 
 
     const _vpcConfig = options?.vpcConfig ?? {
         securityGroupIds: [],
@@ -287,7 +293,8 @@ export const createLambda = <E, R>(
             runtime: runtime,
             architectures: architectures,
             vpcConfig: _vpcConfig,
-            tags: tags
+            tags: tags,
+            layers: layers
         })
     }
     else if ((definition as FolderLambda).functionFolder) {
@@ -310,7 +317,7 @@ export const createLambda = <E, R>(
                 //THE CONTENT OF DIST 1:1 
                 handler: handlerInfo.handler, //"./auth/lambdas/src/index.main",
                 role: lambdaRole.arn,
-                layers: [],
+                layers: layers,
                 environment: functionEnvironment, // TODO:
                 reservedConcurrentExecutions: reservedConcurrentExecutions,
                 vpcConfig: _vpcConfig,

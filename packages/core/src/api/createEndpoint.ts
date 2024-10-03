@@ -426,6 +426,7 @@ export function mergeOptions(lambdaOptions: LambdaOptions | undefined, globalOpt
         reservedConcurrentExecutions: lambdaOptions?.reservedConcurrentExecutions ?? globalOptions?.reservedConcurrentExecutions,
         runtime: lambdaOptions?.runtime ?? globalOptions?.runtime,
         timeout: lambdaOptions?.timeout ?? globalOptions?.timeout,
+        layers: lambdaOptions?.layers ?? globalOptions?.layers,
     }
 }
 
