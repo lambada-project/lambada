@@ -1,5 +1,6 @@
 import * as pulumi from "@pulumi/pulumi";
 import * as awsx from "@pulumi/awsx/classic";
+import * as aws from "@pulumi/aws";
 
 import createApi, { LambadaCreator } from './api/createApi'
 import { createCloudFront } from './cdn/index'
@@ -7,14 +8,14 @@ import { LambadaResources } from './context'
 
 // import createUserPool from './auth'
 // import createApi from './api/createApi'
-import { createMessaging, LambadaMessages, LambadaSubscriptionCreator } from './messaging'
+import { createMessaging, LambadaMessages, LambadaSubscriptionCreator, MessagingResult } from './messaging'
 import createNotifications, { NotificationConfig } from './notifications'
-import { EmbroideryTables, createDynamoDbTables } from './database'
+import { DatabaseResult, EmbroideryTables, createDynamoDbTables } from './database'
 import { CreateKMSKeys, createSecrets, EmbroideryEncryptionKeys, EmbroiderySecrets } from "./security";
 import { UserPool } from "@pulumi/aws/cognito/userPool";
 import createUserPool from "./auth";
 import { CognitoAuthorizer } from "@pulumi/awsx/classic/apigateway";
-import { createQueues, LambadaQueues, LambadaQueueSubscriptionCreator } from "./queue";
+import { createQueues, LambadaQueues, LambadaQueueSubscriptionCreator, QueuesResult } from "./queue";
 import { createQueueHandler } from "./queue/createQueueHandler";
 import { OpenAPIObjectConfigV31 } from "@asteasolutions/zod-to-openapi/dist/v3.1/openapi-generator";
 import { FunctionVpcConfig } from "./lambdas";
@@ -57,16 +58,16 @@ type LambadaRunArguments = {
     /** Tables to create */
     tables?: EmbroideryTables
     /** Referenced tables, does not create anything */
-    tablesRef?: EmbroideryTables
+    tablesRef?: EmbroideryTables | DatabaseResult
 
     /** Topics to create */
     messages?: LambadaMessages,
     /** Referenced topics, does not create anything */
-    messagesRef?: LambadaMessages,
+    messagesRef?: LambadaMessages | MessagingResult
     messageHandlerDefinitions?: LambadaSubscriptionCreator[],
 
     queues?: LambadaQueues,
-    queuesRef?: LambadaQueues,
+    queuesRef?: LambadaQueues | QueuesResult,
     queueHandlerDefinitions?: LambadaQueueSubscriptionCreator[]
 
     environmentVariables?: EmbroideryEnvironmentVariables,
@@ -92,6 +93,16 @@ type LambadaRunArguments = {
             }
         }
     },
+    resourceGroups?: {
+        /** 
+         * Does not create a resource group 
+         * */
+        skipCreate?: boolean
+        /** 
+         * Overrides the default name (projectName-environment)
+         */
+        name?: string
+    },
     options?: {
         dependsOn: pulumi.Input<pulumi.Resource> | pulumi.Input<pulumi.Input<pulumi.Resource>[]> | undefined;
     }
@@ -102,10 +113,14 @@ export type EmbroideryEnvironmentVariables = pulumi.Input<{
 }> | undefined
 
 export const run = (projectName: string, environment: string, args: LambadaRunArguments) => {
+    const globalTags = {
+        "Lambada:Project": projectName,
+        "Lambada:Environment": environment
+    }
 
     const encryptionKeys = args.keys ? CreateKMSKeys(projectName, environment, args.keys) : {}
     const secrets = args.secrets ? createSecrets(projectName, environment, args.secrets) : {}
-    const databases = createDynamoDbTables(environment, args.tables, args.tablePrefix, encryptionKeys, args.tablesRef)
+    const databases = createDynamoDbTables(environment, args.tables, args.tablePrefix, encryptionKeys, args.tablesRef, globalTags)
 
     const pool: UserPool | undefined = args.auth && args.auth.createCognito ?
         createUserPool(projectName, environment, encryptionKeys, {
@@ -121,7 +136,7 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
     const cognitoPoolId = isPool(pool) ? pool.id : undefined
 
 
-    const messaging = createMessaging(environment, args.messages, args.messagesRef)
+    const messaging = createMessaging(environment, args.messages, args.messagesRef, globalTags)
     const queues = createQueues(environment, args.queues, args.queuesRef)
     const notifications = createNotifications(projectName, environment, args?.notifications)
 
@@ -135,6 +150,8 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
         //methodsToAuthorize: ["https://yourdomain.com/user.read"]
     })
     const authorizers: CognitoAuthorizer[] = authorizerProviderARNs.length > 0 ? [authorizer] : [];
+
+
 
     // TODO: option to add projectName as prefix to all functions
     const lambadaContext: LambadaResources = {
@@ -156,7 +173,8 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
         environment: environment,
         kmsKeys: encryptionKeys,
         environmentVariables: args.environmentVariables || {},
-        secrets: secrets
+        secrets: secrets,
+        globalTags: globalTags
     }
 
     if (args.messageHandlerDefinitions) {
@@ -199,7 +217,8 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
         auth: {
             apiKey: args.auth?.useApiKey
         },
-        options: args.options
+        options: args.options,
+
     })
 
     let apiKey: awsx.apigateway.AssociatedAPIKeys | undefined = undefined
@@ -234,6 +253,28 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
         },
         args.cdn.customDomain,
     ) : undefined
+
+
+    if (!args.resourceGroups?.skipCreate) {
+        const groupName = args.resourceGroups?.name ?? `${projectName}-${environment}`
+
+        new aws.resourcegroups.Group(groupName, {
+            name: groupName,
+            resourceQuery: {
+                query: JSON.stringify({
+                    ResourceTypeFilters: ["AWS::AllSupported"],
+                    TagFilters: [{
+                        "Key": "Lambada:Project",
+                        "Values": [projectName]
+                    }, {
+                        "Key": "Lambada:Environment",
+                        "Values": [environment]
+                    }]
+                }),
+                type: "TAG_FILTERS_1_0"
+            }
+        })
+    }
 
     return {
         api: api,

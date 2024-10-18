@@ -3,7 +3,7 @@ import { createLambda, LambdaOptions, LambdaResource } from '../lambdas'
 import { MessagingContext, MessagingResultItem } from ".";
 import { Callback } from '@pulumi/aws/lambda';
 import  * as sns from "@pulumi/aws/sns";
-import { LambadaResources, EmbroideryEnvironmentVariables } from "..";
+import { LambadaResources, EmbroideryEnvironmentVariables, mergeOptions } from "..";
 
 export type TopicEventSubscriptionArgs = sns.TopicEventSubscriptionArgs & { customConfig: Omit<sns.TopicSubscriptionArgs, 
 |'topic'
@@ -123,7 +123,10 @@ export const subscribeToTopic = (
         envVars,
         subscription.resources,
         undefined,
-        options
+        mergeOptions(options, context.api?.lambdaOptions),
+        `Handler for ${topic.definition.name} in ${environment} with subscription ${subscription.name}`,
+        context.globalTags
+
     )
     if (topic.awsTopic){
         return new TopicEventSubscription(`${topicName}_${subscription.name}_${environment}`, topic.awsTopic, callback, subscription.subscriptionArgs)

@@ -1,6 +1,6 @@
 {
   "name": "@lambada/utils",
-  "version": "2.0.0",
+  "version": "2.0.2",
   "main": "dist/index.js",
   "module": "dist/index.js",
   "typings": "dist/index.d.ts",
@@ -26,9 +26,9 @@
     "@types/jest": "^29",
     "ts-jest": "^29",
     "@aws-sdk/client-dynamodb": "^3.465.0",
-    "@aws-sdk/util-dynamodb": "3.465.0",
-    "@aws-sdk/client-secrets-manager": "3.465.0",
-    "@aws-sdk/client-cognito-identity-provider": "3.465.0"
+    "@aws-sdk/util-dynamodb": "^3.465.0",
+    "@aws-sdk/client-secrets-manager": "^3.465.0",
+    "@aws-sdk/client-cognito-identity-provider": "^3.465.0"
   },
   "peerDependencies": {
     "@aws-sdk/client-dynamodb": "^3.465.0",

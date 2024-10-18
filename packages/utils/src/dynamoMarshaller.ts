@@ -13,8 +13,8 @@ export interface IMarshaller {
 }
 
 export const DefaultMarshaller: IMarshaller = {
-    marshallItem: Converter.marshall,
+    marshallItem: x => Converter.marshall(x, {removeUndefinedValues:true}),
     unmarshallItem: Converter.unmarshall,
-    marshallValue: Converter.convertToAttr,
+    marshallValue: x => Converter.convertToAttr(x, {removeUndefinedValues:true}),
     unmarshallValue: Converter.convertToNative,
 };

@@ -24,7 +24,7 @@ export const createOpenApiDocumentEndpoint = (args: {
     }
 }) => {
     const registry = new OpenAPIRegistry();
-    const name = args.auth?.name ?? 'bearerAuth'
+    const name = args.auth?.name ?? 'Authorization'
 
     const bearerAuth = registry.registerComponent('securitySchemes', name, {
         type: 'apiKey',
@@ -48,6 +48,7 @@ export const createOpenApiDocumentEndpoint = (args: {
                 ...config,
                 method: toLowerCase(x.method),
                 path: x.path,
+                responses: config.responses //not sure why ts is not getting that config.responses is a RouteConfig and {responses: config.responses
             } satisfies RouteConfig
 
             if (x.webhook) {

@@ -1,0 +1,23 @@
+{
+  "name": "@lambada/diagram",
+  "version": "1.0.0",
+  "description": "Generate diagrams from your lambada services",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "typings": "dist/index.d.ts",
+  "scripts": {
+    "prebuild": "rm -rf dist/*",
+    "build": "tsc",
+    "generate": "diagrams build",
+    "start": "ts-node src/index.ts"
+  },
+  "author": "Juan C. Andreu",
+  "license": "ISC",
+  "dependencies": {
+    "@aws-sdk/client-lambda": "^3.54.0",
+    "@aws-sdk/client-resource-groups-tagging-api": "^3.54.0",
+    "@aws-sdk/client-sns": "^3.54.1",
+    "ts-node": "^10.7.0",
+    "typescript": "^4.6.2"
+  }
+}

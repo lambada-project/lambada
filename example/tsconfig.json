@@ -1,9 +1,8 @@
 {
     "compilerOptions": {
         "strict": true,
-        "target": "ES6",
-        "module": "commonjs",
-        "noEmit": true,
+        "target": "ES2022",
+        "module": "CommonJS",
         "noImplicitAny": true,
         "moduleResolution": "Node",
         "sourceMap": true,
@@ -13,18 +12,21 @@
         "noFallthroughCasesInSwitch": true,
         "noImplicitReturns": true,
         "forceConsistentCasingInFileNames": true,
+        "outDir": "dist",
+
+        "allowArbitraryExtensions": true,
+        
         "types": [
             "@types/jest",
             "node"
         ],
         "lib": [
-            "DOM"
+            "es2020"
         ]
     },
     "files": [
         "src/index.ts"
     ],
-
     "exclude": [
         "node_modules"
     ]

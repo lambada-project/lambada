@@ -85,6 +85,16 @@ export type LambdaOptions = {
      * The amount of reserved concurrent executions for this lambda function. A value of `0` disables lambda from being triggered and `-1` removes any concurrency limitations. Defaults to Unreserved Concurrency Limits `-1`. See [Managing Concurrency](https://docs.aws.amazon.com/lambda/latest/dg/concurrent-executions.html) 
      * */
     reservedConcurrentExecutions?: number
+
+    /**
+     * VPC configuration associated with your Lambda function. See [VPC Configuration](https://docs.aws.amazon.com/lambda/latest/dg/configuration-vpc.html)
+     * */
+    vpcConfig?: Input<FunctionVpcConfig>
+
+    /**
+     * Set to false to send the response right away and not wait for the event loop to be empty
+     */
+    callbackWaitsForEmptyEventLoop?: boolean
 }
 
 export const createLambda = <E, R>(
@@ -96,7 +106,8 @@ export const createLambda = <E, R>(
     resources: LambdaResource[],
     overrideRole?: aws.iam.Role,
     options?: LambdaOptions,
-    vpcConfig?: pulumi.Input<FunctionVpcConfig>
+    description?: string,
+    tags?: pulumi.Input<{ [key: string]: pulumi.Input<string> }>
 ): aws.lambda.EventHandler<E, R> => {
 
     let lambdaRole = overrideRole
@@ -228,7 +239,7 @@ export const createLambda = <E, R>(
         }
     }
 
-    if (vpcConfig) {
+    if (options?.vpcConfig) {
         policyStatements.push(VPCAccessExecutionStatement)
     }
 
@@ -249,32 +260,34 @@ export const createLambda = <E, R>(
     } : undefined
 
     // TODO: This should be exposed per lambda and as global defaults
-    const memorySize = options?.memorySize ?? 384
+    const memorySize = options?.memorySize ?? 512
     const timeout = options?.timeout ?? 90
     const reservedConcurrentExecutions = options?.reservedConcurrentExecutions ?? -1
     const runtime = options?.runtime ?? aws.lambda.Runtime.NodeJS18dX
     const architectures = options?.architecture ? [options?.architecture] : undefined
 
 
-
-    const _vpcConfig = vpcConfig ? vpcConfig : {
+    const _vpcConfig = options?.vpcConfig ?? {
         securityGroupIds: [],
         subnetIds: []
     }
+
+    description = description ?? `${name}-${environment}`
 
     if (typeof definition === 'function') {
         const callbackDefinition = definition as Callback<E, R>
         return new aws.lambda.CallbackFunction(`${name}-${environment}`, {
             callback: callbackDefinition,
             role: lambdaRole,
-            description: `Lambda ${name} - ${environment}`,
+            description: description,
             environment: functionEnvironment,
             memorySize: memorySize,
             timeout: timeout,
             reservedConcurrentExecutions: reservedConcurrentExecutions,
             runtime: runtime,
             architectures: architectures,
-            vpcConfig: _vpcConfig
+            vpcConfig: _vpcConfig,
+            tags: tags
         })
     }
     else if ((definition as FolderLambda).functionFolder) {
@@ -284,6 +297,7 @@ export const createLambda = <E, R>(
             return new aws.lambda.Function(`${name}-${environment}`, {
                 runtime: runtime,
                 architectures: architectures,
+                description: description,
                 code: new pulumi.asset.AssetArchive({
                     ".": new pulumi.asset.FileArchive(
                         handlerInfo.functionFolder
@@ -299,7 +313,8 @@ export const createLambda = <E, R>(
                 layers: [],
                 environment: functionEnvironment, // TODO:
                 reservedConcurrentExecutions: reservedConcurrentExecutions,
-                vpcConfig: _vpcConfig
+                vpcConfig: _vpcConfig,
+                tags: tags
             });
         }
         else {

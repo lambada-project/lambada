@@ -21,7 +21,8 @@ function createTable(
     attributes?: TableAttribute[],
     secondaryIndexes?: TableIndexDefinition[],
     ttl?: { attributeName: string, enabled: boolean },
-    options?: TableOptions
+    options?: TableOptions,
+    tags?: pulumi.Input<{ [key: string]: pulumi.Input<string> }>
 ) {
     const tableName = `${name}-${environment}`
 
@@ -44,9 +45,7 @@ function createTable(
         hashKey: primaryKeyName,
         rangeKey: rangeKeyName,
         //readCapacity: 20,
-        tags: {
-            Environment: environment,
-        },
+        tags: tags,
         ttl: ttl ? {
             attributeName: ttl.attributeName,
             enabled: ttl.enabled
@@ -89,9 +88,9 @@ export type TableDefinition = {
 
 export type EmbroideryTables = { [id: string]: TableDefinition }
 
-export const createDynamoDbTables = (environment: string, tables?: EmbroideryTables, prefix?: string, kmsKeys?: SecurityResult, tableRefs?: EmbroideryTables): DatabaseResult => {
+export const createDynamoDbTables = (environment: string, tables?: EmbroideryTables, prefix?: string, kmsKeys?: SecurityResult, tableRefs?: EmbroideryTables | DatabaseResult, tags?: pulumi.Input<{ [key: string]: pulumi.Input<string> }>): DatabaseResult => {
 
-    const result: any = {}
+    const result: DatabaseResult = {}
     for (const key in tables) {
         if (Object.prototype.hasOwnProperty.call(tables, key)) {
             const table = tables[key];
@@ -100,7 +99,8 @@ export const createDynamoDbTables = (environment: string, tables?: EmbroideryTab
                 tableName, environment, table.primaryKey, table.rangeKey,
                 kmsKeys?.dynamodb?.awsKmsKey,
                 table.attributes, table.indexes, table.ttl,
-                table.options
+                table.options,
+                tags
             )
 
             result[key] = {
@@ -121,13 +121,21 @@ export const createDynamoDbTables = (environment: string, tables?: EmbroideryTab
             if (result[key]) {
                 throw new Error(`Cannot create a ref table with the same name of an existing table: ${key}`)
             }
-
             const table = tableRefs[key];
-            result[key] = {
-                ref: findTable(table.name, environment),
-                definition: table,
-                kmsKey: kmsKeys?.dynamodb?.awsKmsKey
-            } as DatabaseResultItem
+
+            function isRef(obj: DatabaseResultItem | TableDefinition): obj is DatabaseResultItem {
+                return !!((obj as DatabaseResultItem).awsTable && (obj as DatabaseResultItem).ref)
+            }
+
+            if (isRef(table)) {
+                result[key] = table
+            } else {
+                result[key] = {
+                    ref: findTable(table.name, environment),
+                    definition: table,
+                    kmsKey: kmsKeys?.dynamodb?.awsKmsKey
+                } as DatabaseResultItem
+            }
         }
     }
 

@@ -1,17 +1,21 @@
 import { tables } from './tables'
 import { ToDoDynamoDBRepository } from './todo'
-import { ConfigureAwsEnvironment, RemoveResources } from '@lambada/core'
+import { ConfigureAwsEnvironment, LambadaEnvironmentConfig, RemoveResources } from '@lambada/core'
 
 
 describe('todo repos', () => {
 
-    const config = {
+    const config: LambadaEnvironmentConfig = {
         options: {
             tables: tables,
             aws: {
-                region: 'local',
                 dynamodb: {
-                    endpoint: 'http://dynamo:8000'
+                    endpoint: 'http://dynamo:8000',
+                    region: 'local',
+                    credentials: {
+                        accessKeyId: '123',
+                        secretAccessKey: '321'
+                    }
                 }
             }
         }

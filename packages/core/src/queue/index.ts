@@ -25,7 +25,7 @@ export type LambadaQueueSubscriptionCreator = (context: LambadaResources) => Lam
 export const createQueues = (
     environment: string,
     queues?: LambadaQueues,
-    queuesRef?: LambadaQueues
+    queuesRef?: LambadaQueues | QueuesResult
 ) => {
     const result: QueuesResult = {}
 
@@ -62,14 +62,25 @@ export const createQueues = (
             if (result[key]) {
                 throw new Error(`Cannot create a ref message with the same name of an existing topic: ${key}`)
             }
-            const queue = findQueue(queueRef.name, environment, queueRef.options?.fifoQueue ?? false)
 
-            result[key] = {
-                awsQueue: aws.sqs.Queue.get(`${queueRef.name}-${environment}`, queue.id),
-                envKeyName: queueRef.envKeyName,
-                ref: queue,
-                definition: queueRef
-            } as QueueResultItem
+            function isRef(obj: any): obj is QueueResultItem {
+                return obj.awsQueue && obj.ref
+            }
+
+            if (isRef(queueRef)) {
+                result[key] = queueRef
+            }
+            else {
+                const queue = findQueue(queueRef.name, environment, queueRef.options?.fifoQueue ?? false)
+
+                result[key] = {
+                    awsQueue: aws.sqs.Queue.get(`${queueRef.name}-${environment}`, queue.id),
+                    envKeyName: queueRef.envKeyName,
+                    ref: queue,
+                    definition: queueRef
+                } satisfies QueueResultItem
+            }
+
         }
     }
 

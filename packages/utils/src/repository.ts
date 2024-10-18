@@ -8,6 +8,8 @@ export class RepositoryBase {
 
     protected clientConfig?: DynamoDB.DynamoDBClientConfig
 
+    private db: DynamoDB.DynamoDB | undefined
+
     constructor(
         protected readonly table: {
             envKeyName: string
@@ -18,7 +20,7 @@ export class RepositoryBase {
         customMarshaller?: IMarshaller,
         clientConfig?: DynamoDB.DynamoDBClientConfig
     ) {
-        this.tableName = table.name ?? process.env[table.envKeyName] ?? ''
+        this.tableName = process.env[table.envKeyName] ?? table.name ?? '';
         if (customMarshaller) {
             this.marshaller = customMarshaller
         } else {
@@ -33,12 +35,14 @@ export class RepositoryBase {
      * That's because the resource access given to each lambda also sets he environment variables needed.
      */
     protected getDb() {
+        if (this.db) return this.db
         if (!this.tableName || this.tableName.length < 3) //AWS rule
             throw new Error(`Could not find env var: ${this.table.envKeyName}`)
         if (this.clientConfig?.region) { // WTF https://github.com/aws/aws-sdk-js-v3/issues/3469#issuecomment-1078404172
             process.env['AWS_REGION'] = this.clientConfig.region.toString()
         }
-        return new DynamoDB.DynamoDB(this.clientConfig ?? {})
+        this.db = new DynamoDB.DynamoDB(this.clientConfig ?? {})
+        return this.db
     }
 
     protected async scan<T>(args?: {

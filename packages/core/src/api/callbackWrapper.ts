@@ -1,22 +1,32 @@
-import { Response } from '@pulumi/awsx/classic/apigateway/api'
+
 import { getCorsHeaders } from '@lambada/utils';
-import { AuthExecutionContext, getContext } from '@lambada/utils';
-import { EmbroideryCallback } from "./createEndpoint"
+import { getContext } from '@lambada/utils';
+
+import { Response } from '@pulumi/awsx/classic/apigateway/api'
+import { EmbroideryCallback, LambadaEndpointArgs } from "./createEndpoint"
 import * as awslambda from "aws-lambda"
 import { LambadaResources } from '..';
+import { LambdaOptions } from '../lambdas';
 export declare type Request = awslambda.APIGatewayProxyEvent;
+export declare type LambdaContext = awslambda.Context
 
-type Wrapper = (request: Request) => Promise<Response>
+type Wrapper = (request: Request, ctx: LambdaContext) => Promise<Response>
+
+
 
 export function createCallback(
     {
         callbackDefinition,
         context,
-        extraHeaders
+        extraHeaders,
+        options,
+        cacheControl
     }: {
         callbackDefinition: EmbroideryCallback,
         context: LambadaResources,
-        extraHeaders?: {}
+        extraHeaders?: {},
+        options?: LambdaOptions,
+        cacheControl?: string
     }
 ): Wrapper {
     const isResponse = (result: any): boolean => {
@@ -24,10 +34,14 @@ export function createCallback(
             result.body && result.statusCode
         )
     }
-    const callback = async (request: Request): Promise<Response> => {
+    const callback = async (request: Request, ctx: LambdaContext): Promise<Response> => {
+        ctx.callbackWaitsForEmptyEventLoop = options?.callbackWaitsForEmptyEventLoop ?? context.api?.lambdaOptions?.callbackWaitsForEmptyEventLoop ?? ctx.callbackWaitsForEmptyEventLoop;
+
         extraHeaders = { ...getCorsHeaders(request.requestContext.domainName, context.api?.cors?.origins), ...(extraHeaders ?? {}) }
+        if (cacheControl)
+            extraHeaders = { ...extraHeaders, ...({ 'cache-control': cacheControl }) }
+
         const authContext = await getContext(request)
-        //const user = authContext?.currentUsername && authContext ? await getUser(authContext.currentUsername, authContext) : undefined
         try {
             const result = await callbackDefinition({
                 user: authContext,
@@ -45,8 +59,8 @@ export function createCallback(
                 return {
                     ...resultTyped,
                     headers: {
+                        ...(extraHeaders || {}),
                         ...(resultTyped.headers || {}),
-                        ...(extraHeaders || {})
                     }
                 }
             }
@@ -89,10 +103,10 @@ export function createCallback(
                     }),
                     headers: (extraHeaders || {})
                 }
-            } ``
+            }
         }
-
-
     }
+
+
     return callback
 }

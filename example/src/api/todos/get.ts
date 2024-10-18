@@ -1,6 +1,4 @@
-import { EmbroideryCallback, EmbroideryRequest, LambadaResources, EmbroideryEventHandlerRoute, createEndpointSimpleCors, LambadaEndpointCreator, LambadaEndpointArgs } from '@lambada/core'
-import { LambdaResourceAccess } from '@lambada/core/dist/lambdas';
-
+import { EmbroideryCallback, EmbroideryRequest, LambadaResources, LambadaEndpointCreator, LambadaEndpointArgs, LambdaResourceAccess } from '@lambada/core'
 import { ToDoService } from "../../lib/todos/service";
 
 export type ToDoItemView = {
@@ -14,7 +12,7 @@ export type ToDosView = {
     total: number
 }
 
-export const getToDos: EmbroideryCallback = async (request: EmbroideryRequest): Promise<ToDosView> => {
+export const handler: EmbroideryCallback = async (request: EmbroideryRequest): Promise<ToDosView> => {
     const todos = ToDoService.production()
 
     const items = await todos.getToDos('1')
@@ -27,11 +25,14 @@ export const getToDos: EmbroideryCallback = async (request: EmbroideryRequest): 
 }
 
 
-export const createGetToDos: LambadaEndpointCreator = (apiContext: LambadaResources): LambadaEndpointArgs => {
+export default (apiContext: LambadaResources): LambadaEndpointArgs => {
+    
     return {
+        name: 'lambada-example-todos-get',
         path: '/todos',
         method: 'GET',
-        callbackDefinition: getToDos,
+        useBundle: '/workspace/example/src/api/todos/get.ts', //import.meta.url,
+        callbackDefinition: handler,
         resources: [
             {
                 table: apiContext.databases?.todos,
