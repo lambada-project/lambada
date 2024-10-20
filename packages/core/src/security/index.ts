@@ -1,10 +1,10 @@
-import * as pulumi from "@pulumi/pulumi"
 import * as aws from "@pulumi/aws"
-import * as awsx from "@pulumi/awsx/classic"
-
+import { KeyArgs } from '@pulumi/aws/kms/key.d'
 export * from './secrets'
 
-export function CreateKey(item: EncryptionKeyItem, name: string, environment: string, roles: aws.iam.Role[]): SecurityResultItem {
+type KeyParams = Omit<KeyArgs, "tags" | 'description'>
+
+export function CreateKey(item: EncryptionKeyItem, name: string, environment: string, args: KeyParams): SecurityResultItem {
     const keyname = `${name}-${environment}`
 
     const key = new aws.kms.Key(keyname, {
@@ -14,7 +14,7 @@ export function CreateKey(item: EncryptionKeyItem, name: string, environment: st
             'CreatedBy': 'Embroidery',
             'Environment': environment
         },
-        //policy: generatePolicy(roles)
+        ...args
     })
 
     return {
@@ -26,6 +26,7 @@ export function CreateKey(item: EncryptionKeyItem, name: string, environment: st
 export type EncryptionKeyItem = {
     name: string
     envKeyName: string
+    options?: KeyParams
 } | undefined
 
 export type EmbroideryEncryptionKeys = {
@@ -36,13 +37,13 @@ export type EmbroideryEncryptionKeys = {
 
 export function CreateKMSKeys(projectName: string, environment: string, keys: EmbroideryEncryptionKeys): SecurityResult {
     const result: SecurityResult = {
-        dynamodb: keys.dynamodb ? CreateKey(keys.dynamodb, `${projectName}-dynamodb-data-encryption`, environment, []) : undefined
+        dynamodb: keys.dynamodb ? CreateKey(keys.dynamodb, `${projectName}-dynamodb-data-encryption`, environment, {}) : undefined
     }
 
     for (const key in keys) {
         if (keys.hasOwnProperty(key)) {
             const keyItem = keys[key];
-            result[key] = CreateKey(keyItem, `${projectName}-${keyItem?.name}`, environment, [])
+            result[key] = CreateKey(keyItem, `${projectName}-${keyItem?.name}`, environment, keyItem?.options ?? {})
         }
     }
     return result
