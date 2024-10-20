@@ -205,12 +205,6 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
             path: wwwPath,
         } : undefined,
         context: lambadaContext,
-        // databases: databases,
-        // environmentVariables: args.environmentVariables || {},
-        // secrets: secrets,
-        // authorizerProviderARNs: pool ? [pool] : undefined,
-        // kmsKeys: encryptionKeys,
-        // messaging: messaging,
         auth: {
             apiKey: args.auth?.useApiKey
         },
@@ -284,6 +278,7 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
         queues: queues,
         databases: databases,
         apiKey: apiKey,
-        secrets: secrets
+        secrets: secrets,
+        security: encryptionKeys
     }
 }
