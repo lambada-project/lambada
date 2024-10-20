@@ -82,7 +82,7 @@ export default function createApi(
         auth,
         options,
     }: CreateApiArgs
-): awsx.apigateway.API {
+): awsx.apigateway.API | undefined {
 
     const stageName = 'app'
 
@@ -91,6 +91,9 @@ export default function createApi(
         .filter(x => !!x)
         .map(x => x as NonNullable<LambadaCreatorTypes>) : []
 
+    if(lambadaEndpoints.length === 0) {
+        return undefined
+    }
     const routes = lambadaEndpoints
         .map(x => {
             if (IsProxy(x)) return createProxyIntegrationCompat(x, context)

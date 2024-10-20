@@ -220,7 +220,7 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
 
     let apiKey: awsx.apigateway.AssociatedAPIKeys | undefined = undefined
 
-    if (args.auth?.useApiKey) {
+    if (api && args.auth?.useApiKey) {
         apiKey = awsx.apigateway.createAssociatedAPIKeys(`${projectName}-api-keys-${environment}`, {
             apis: [api],
             apiKeys: [{
@@ -232,7 +232,7 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
 
     const getDomain = (x: string) => x.substr(8, x.indexOf('.com') - 8 + 4)
 
-    const cdn = args.cdn && args.cdn.useCDN ? createCloudFront(
+    const cdn = api && args.cdn && args.cdn.useCDN ? createCloudFront(
         projectName,
         environment,
         {
