@@ -11,7 +11,7 @@ import { LambadaResources } from './context'
 import { createMessaging, LambadaMessages, LambadaSubscriptionCreator, MessagingResult } from './messaging'
 import createNotifications, { NotificationConfig } from './notifications'
 import { DatabaseResult, EmbroideryTables, createDynamoDbTables } from './database'
-import { CreateKMSKeys, createSecrets, EmbroideryEncryptionKeys, EmbroiderySecrets } from "./security";
+import { CreateKMSKeys, createSecrets, EmbroideryEncryptionKeys, EmbroiderySecrets, SecretsResult } from "./security";
 import { UserPool } from "@pulumi/aws/cognito/userPool";
 import createUserPool from "./auth";
 import { CognitoAuthorizer } from "@pulumi/awsx/classic/apigateway";
@@ -70,6 +70,7 @@ type LambadaRunArguments = {
 
     environmentVariables?: EmbroideryEnvironmentVariables,
     secrets?: EmbroiderySecrets
+    secretsRef?: SecretsResult
     keys?: EmbroideryEncryptionKeys
     notifications?: NotificationConfig
     naming?: { // TODO: Should I do this? or not
@@ -117,7 +118,7 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
     }
 
     const encryptionKeys = args.keys ? CreateKMSKeys(projectName, environment, args.keys) : {}
-    const secrets = args.secrets ? createSecrets(projectName, environment, args.secrets) : {}
+    const secrets = createSecrets(projectName, environment, args.secrets, args.secretsRef)
     const databases = createDynamoDbTables(environment, args.tables, args.tablePrefix, encryptionKeys, args.tablesRef, globalTags)
 
     const pool: UserPool | undefined = args.auth && args.auth.createCognito ?
