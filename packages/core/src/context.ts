@@ -1,4 +1,4 @@
-import { CognitoAuthorizer } from "@pulumi/awsx/classic/apigateway";
+import { CognitoAuthorizer, LambdaAuthorizer } from "@pulumi/awsx/classic/apigateway";
 import { DatabaseResult } from "./database";
 import { SecretsResult, SecurityResult } from "./security";
 import { MessagingResult } from "./messaging";
@@ -13,7 +13,7 @@ export type LambadaResources = {
     api?: {
         apiPath: string,
         auth?: {
-            useCognitoAuthorizer?: boolean,
+            useAuthorizers?: boolean,
             useApiKey?: boolean
         },
         cors?: {
@@ -22,7 +22,7 @@ export type LambadaResources = {
         vpcConfig?: Input<FunctionVpcConfig>
         lambdaOptions?: LambdaOptions
     },
-    authorizers: CognitoAuthorizer[]
+    authorizers: (CognitoAuthorizer | LambdaAuthorizer)[]
     messaging?: MessagingResult
     queues?: QueuesResult
     notifications?: NotificationResult

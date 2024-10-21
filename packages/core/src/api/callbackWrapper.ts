@@ -40,6 +40,19 @@ export function createCallback(
         extraHeaders = { ...getCorsHeaders(request.requestContext.domainName, context.api?.cors?.origins), ...(extraHeaders ?? {}) }
         if (cacheControl)
             extraHeaders = { ...extraHeaders, ...({ 'cache-control': cacheControl }) }
+        
+        if (request.requestContext.accountId === "000000000000" && process.env.IS_LOCALSTACK === 'true') {
+            console.log('Mocking user on account 000000000000');
+            request.requestContext.authorizer = {
+                claims: {
+                    iss: '123456789',
+                    sub: request.headers['x-mock-user-id'],
+                    username: request.headers['x-mock-username'],
+                    'cognito:username': request.headers['x-mock-username'],
+                    email: request.headers['x-mock-email'],
+                }
+            }
+        }
 
         const authContext = await getContext(request)
         try {

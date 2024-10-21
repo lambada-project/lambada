@@ -14,11 +14,11 @@ import { DatabaseResult, EmbroideryTables, createDynamoDbTables } from './databa
 import { CreateKMSKeys, createSecrets, EmbroideryEncryptionKeys, EmbroiderySecrets, SecretsResult } from "./security";
 import { UserPool } from "@pulumi/aws/cognito/userPool";
 import createUserPool from "./auth";
-import { CognitoAuthorizer } from "@pulumi/awsx/classic/apigateway";
+import { LambdaAuthorizer } from "@pulumi/awsx/classic/apigateway";
 import { createQueues, LambadaQueues, LambadaQueueSubscriptionCreator, QueuesResult } from "./queue";
 import { createQueueHandler } from "./queue/createQueueHandler";
 import { OpenAPIObjectConfigV31 } from "@asteasolutions/zod-to-openapi/dist/v3.1/openapi-generator";
-import { FunctionVpcConfig, LambdaOptions } from "./lambdas";
+import { LambdaOptions } from "./lambdas";
 
 export * from './context'
 export * from './api/index'
@@ -32,10 +32,10 @@ type LambadaRunArguments = {
         endpointDefinitions?: LambadaCreator[],
         gatewayType?: 'EDGE' | 'REGIONAL' | 'PRIVATE'
         vpcEndpointIds?: pulumi.Input<pulumi.Input<string>[]> | undefined,
-        
+
         policy?: pulumi.Input<string> | undefined,
         openAPIDocument?: OpenAPIObjectConfigV31
-        lambdaDefaultOptions?:  LambdaOptions
+        lambdaDefaultOptions?: LambdaOptions
     },
     cdn?: {
         useCDN: boolean,
@@ -80,7 +80,7 @@ type LambadaRunArguments = {
     },
     auth?: {
         createCognito?: boolean
-        extraAuthorizers: (pulumi.Input<string> | UserPool)[],
+        extraAuthorizers: (pulumi.Input<string> | UserPool | LambdaAuthorizer)[],
         cognitoOptions?: {
             useEmailAsUsername?: boolean
             preventResourceDeletion: boolean
@@ -143,12 +143,25 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
     const wwwPath = args.naming?.wwwPath ?? '/www'
     const apiPath = args.naming?.apiPath ?? '/api'
 
-    const authorizerProviderARNs = pool ? [pool, ...(args.auth?.extraAuthorizers ?? [])] : (args.auth?.extraAuthorizers ?? [])
-    const authorizer = awsx.apigateway.getCognitoAuthorizer({
-        providerARNs: authorizerProviderARNs,
+
+    // normalize authorizers
+    function isCognitoAuthorizer(x: any): x is UserPool {
+        return !isLambdaAuthorizer(x)
+        //return typeof x === 'object' && 'usernameAttributes' in x && 'passwordPolicy' in x
+    }
+    const userPools = args.auth?.extraAuthorizers?.filter(x => isCognitoAuthorizer(x)) ?? []
+    const allUserPools = pool ? [pool, ...userPools] : (userPools ?? [])
+    const cognitoAuthorizer = awsx.apigateway.getCognitoAuthorizer({
+        providerARNs: allUserPools,
         //methodsToAuthorize: ["https://yourdomain.com/user.read"]
     })
-    const authorizers: CognitoAuthorizer[] = authorizerProviderARNs.length > 0 ? [authorizer] : [];
+
+    function isLambdaAuthorizer(x: any): x is LambdaAuthorizer {
+        return typeof x === 'object' && 'parameterLocation' in x && 'handler' in x
+    }
+    const lambdaAuthorizers = args.auth?.extraAuthorizers?.filter(x => isLambdaAuthorizer(x)) ?? []
+
+    const authorizers = [...(allUserPools.length > 0 ? [cognitoAuthorizer] : []), ...lambdaAuthorizers]
 
 
 
@@ -160,7 +173,7 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
             cors: args.cors,
             auth: {
                 useApiKey: typeof args.auth?.useApiKey != 'undefined',
-                useCognitoAuthorizer: !!args.auth?.createCognito || !!args.auth?.extraAuthorizers?.length
+                useAuthorizers: !!args.auth?.createCognito || !!args.auth?.extraAuthorizers?.length
             },
             lambdaOptions: args.api?.lambdaDefaultOptions
         } : undefined,

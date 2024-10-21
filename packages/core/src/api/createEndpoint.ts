@@ -212,7 +212,7 @@ export const createEndpoint = <E, R>(
 
     if (lambdaAuthorizer)
         auth.push(lambdaAuthorizer)
-    else if (typeof enableAuth === 'boolean' ? enableAuth : lambadaContext?.api?.auth?.useCognitoAuthorizer === true)
+    else if (typeof enableAuth === 'boolean' ? enableAuth : lambadaContext?.api?.auth?.useAuthorizers === true)
         auth = [...auth, ...(lambadaContext.authorizers ?? [])]
 
     return {
