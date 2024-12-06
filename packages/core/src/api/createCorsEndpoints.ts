@@ -7,7 +7,7 @@ import { getNameFromPath } from './utils';
 import { getCorsHeaders } from '@lambada/utils';
 import { Role } from '@pulumi/aws/iam';
 
-export const createCorsEndpoints = (endpoints: EmbroideryEventHandlerRoute[], embroideryContext: LambadaResources, origins?: string[]): EmbroideryEventHandlerRoute[] => {
+export const createCorsEndpoints = (endpoints: EmbroideryEventHandlerRoute[], embroideryContext: LambadaResources, origins: string[] | undefined, headers: string[] | undefined): EmbroideryEventHandlerRoute[] => {
     function uniq(a: string[]) {
         return Array.from(new Set(a));
     }
@@ -34,17 +34,17 @@ export const createCorsEndpoints = (endpoints: EmbroideryEventHandlerRoute[], em
         assumeRolePolicy: lambdaAssumeRole,
     })
 
-    return [createCorsFunction(origins, `allow-cors-${embroideryContext.projectName}`, embroideryContext, sharedCorsRole, '/{path+}')]
+    return [createCorsFunction(origins, headers, `allow-cors-${embroideryContext.projectName}`, embroideryContext, sharedCorsRole, '/{path+}')]
 }
 
-function createCorsFunction(origins: string[] | undefined, name: string, embroideryContext: LambadaResources, sharedCorsRole: Role, path: string): EventHandlerRoute {
-    // Tried adding these, but apigateways throws error
+function createCorsFunction(origins: string[] | undefined, headers: string[] | undefined, name: string, embroideryContext: LambadaResources, sharedCorsRole: Role, path: string): EventHandlerRoute {
+    // Tried adding these, but apigateway throws error
     //"Cache-Control": "public, max-age=86400",
     //"Vary": "origin" 
     const callback = async (req: Request): Promise<Response> => {
         return {
             statusCode: 200,
-            headers: getCorsHeaders(req.requestContext.domainName, origins),
+            headers: getCorsHeaders(req.requestContext.domainName, origins, headers),
             body: JSON.stringify({
                 data: {}
             }),

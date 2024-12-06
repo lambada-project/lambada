@@ -3,9 +3,6 @@ import * as pulumi from "@pulumi/pulumi";
 
 import { Route, StaticRoute } from "@pulumi/awsx/classic/apigateway/api";
 
-//import { MessagingResult } from "../messaging";
-
-//import { NotificationResult } from "../notifications";
 import { createCorsEndpoints } from "./createCorsEndpoints";
 import { LambadaResources } from "../context";
 import { createStaticEndpoint, EmbroideryApiEndpointCreator, LambadaCreatorTypes, LambadaEndpointCreator, LambadaProxyCreator, ProxyIntegrationArgs } from ".";
@@ -13,7 +10,6 @@ import { createEndpointSimpleCompat, LambadaEndpointArgs } from "./createEndpoin
 import { createProxyIntegrationCompat } from "./createProxyIntegration";
 import { createOpenApiDocumentEndpoint } from "./openApiDocument";
 import { OpenAPIObjectConfigV31 } from "@asteasolutions/zod-to-openapi/dist/v3.1/openapi-generator";
-import { FunctionVpcConfig } from "../lambdas";
 
 export type LambadaCreator = EmbroideryApiEndpointCreator | LambadaEndpointCreator | LambadaProxyCreator
 type LambadaCreatorReturn = Route | LambadaEndpointArgs | ProxyIntegrationArgs
@@ -30,6 +26,7 @@ type CreateApiArgs = {
         policy?: pulumi.Input<string> | undefined,
         cors?: {
             origins: string[]
+            headers: string[]
         },
         openApiSpec?: OpenAPIObjectConfigV31
     }
@@ -91,7 +88,7 @@ export default function createApi(
         .filter(x => !!x)
         .map(x => x as NonNullable<LambadaCreatorTypes>) : []
 
-    if(lambadaEndpoints.length === 0) {
+    if (lambadaEndpoints.length === 0) {
         return undefined
     }
     const routes = lambadaEndpoints
@@ -114,7 +111,7 @@ export default function createApi(
 
 
     const corsEndpoints = api?.cors && lambadaEndpoints.length > 0 ?
-        createCorsEndpoints(routes, context, api.cors.origins) : []
+        createCorsEndpoints(routes, context, api.cors.origins, api.cors.headers) : []
 
     const staticRoutes: StaticRoute[] = []
     if (www) {

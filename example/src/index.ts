@@ -24,7 +24,8 @@ const result = run(projectName, environment,
             ],
         },
         cors: {
-            origins: ['*']
+            origins: ['*'],
+            headers: ['*']
         },
         messageHandlerDefinitions: [
             createHandlerTodoItem_created
@@ -42,5 +43,5 @@ const result = run(projectName, environment,
         }
     })
 
-export const apiUrl = result.api.url
+export const apiUrl = result.api?.url
 export const cdnUrl = result.cdn?.domainName

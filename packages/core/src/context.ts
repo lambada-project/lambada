@@ -18,6 +18,7 @@ export type LambadaResources = {
         },
         cors?: {
             origins: string[]
+            headers: string[]
         }
         vpcConfig?: Input<FunctionVpcConfig>
         lambdaOptions?: LambdaOptions

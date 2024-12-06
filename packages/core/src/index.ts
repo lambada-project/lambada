@@ -49,6 +49,7 @@ type LambadaRunArguments = {
     },
     cors?: {
         origins: string[]
+        headers: string[]
     },
     staticSiteLocalPath?: string
 
