@@ -34,6 +34,7 @@ export const subscribeToTopic = (
     topic: MessagingResultItem,
     subscription: LambdaSubscription,
     options?: LambdaOptions,
+    overrideRole?: aws.iam.Role
 ): TopicEventSubscription => {
     const environment = context.environment
     const topicName = topic.definition.name
@@ -68,7 +69,7 @@ export const subscribeToTopic = (
         subscription.policyStatements,
         envVars,
         subscription.resources,
-        undefined,
+        overrideRole,
         mergeOptions(options, context.api?.lambdaOptions),
         `Handler for ${topic.definition.name} in ${environment} with subscription ${subscription.name}`,
         context.globalTags
