@@ -1,10 +1,8 @@
 import { Request, Response, Route } from '@pulumi/awsx/classic/apigateway/api'
 import * as aws from "@pulumi/aws";
-import * as pulumi from '@pulumi/pulumi'
-import { createLambda, FolderLambda, FunctionVpcConfig, LambdaOptions, LambdaResource } from '../lambdas';
+import { createLambda, FolderLambda, LambdaOptions, LambdaResource } from '../lambdas';
 import { LambadaResources } from '../context';
 import { Callback } from '@pulumi/aws/lambda';
-import { PolicyStatement } from "@pulumi/aws/iam";
 import { AuthExecutionContext } from '@lambada/utils';
 import { EmbroideryEnvironmentVariables } from '..';
 import { CognitoAuthorizer, LambdaAuthorizer, Method } from '@pulumi/awsx/classic/apigateway';
@@ -427,6 +425,7 @@ export function mergeOptions(lambdaOptions: LambdaOptions | undefined, globalOpt
         runtime: lambdaOptions?.runtime ?? globalOptions?.runtime,
         timeout: lambdaOptions?.timeout ?? globalOptions?.timeout,
         layers: lambdaOptions?.layers ?? globalOptions?.layers,
+        enableXRay: lambdaOptions?.enableXRay ?? globalOptions?.enableXRay,
     }
 }
 

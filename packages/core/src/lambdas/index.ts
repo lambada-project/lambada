@@ -49,6 +49,20 @@ const VPCAccessExecutionStatement: PolicyStatement = {
     "Resource": "*"
 }
 
+//AWSXRayDaemonWriteAccess 
+const AWSXRayDaemonWriteAccess: PolicyStatement = {
+    "Effect": "Allow",
+    "Action": [
+        "xray:PutTraceSegments",
+        "xray:PutTelemetryRecords",
+        "xray:GetSamplingRules",
+        "xray:GetSamplingTargets",
+        "xray:GetSamplingStatisticSummaries"
+    ],
+    "Resource": "*"
+}
+
+
 export type FolderLambda = {
     /**
      * Handler directory location
@@ -101,6 +115,11 @@ export type LambdaOptions = {
      */
     //layers?: aws.lambda.LayerVersion[]
     layers?: pulumi.Input<pulumi.Input<string>[]> | undefined
+
+    /**
+     * Enables XRay access from this lambda
+     */
+    enableXRay?: pulumi.Input<boolean>
 }
 
 export const createLambda = <E, R>(
@@ -249,6 +268,10 @@ export const createLambda = <E, R>(
         policyStatements.push(VPCAccessExecutionStatement)
     }
 
+    if (options?.enableXRay) {
+        policyStatements.push(AWSXRayDaemonWriteAccess)
+    }
+
     if (createRole) {
         lambdaRole = createLambdaRoleAndPolicies(name, environment, policyStatements)
     }
@@ -271,7 +294,7 @@ export const createLambda = <E, R>(
     const reservedConcurrentExecutions = options?.reservedConcurrentExecutions ?? -1
     const runtime = options?.runtime ?? aws.lambda.Runtime.NodeJS18dX
     const architectures = options?.architecture ? [options?.architecture] : undefined
-    const layers = options?.layers 
+    const layers = options?.layers
 
     const _vpcConfig = options?.vpcConfig ?? {
         securityGroupIds: [],
