@@ -30,6 +30,13 @@ export async function isUserInGroup(user: { username?: string, poolId?: string }
     if (!user.username) throw new LambadaError('[isUserInGroup] username is mandatory')
     if (!user.poolId) throw new LambadaError('[isUserInGroup] poolId is mandatory')
 
+           /**
+         claims: {
+            claims: {
+
+            'cognito:groups': 'GROUP,GROUP,GROUP',
+      
+         */
     const cognito = new CognitoIdentityProvider({ apiVersion: '2016-04-18' });
     const groups = await cognito.adminListGroupsForUser({
         Username: user.username,
