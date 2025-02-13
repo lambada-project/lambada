@@ -36,8 +36,10 @@ export type SecurityKeys = {
 
 
 export function createKMSKeys(projectName: string, environment: string, keys: SecurityKeys | undefined, keysRef: SecurityResult | undefined): SecurityResult {
-    const result: SecurityResult = {
-        dynamodb: keys && keys.dynamodb ? CreateKey(keys.dynamodb, `${projectName}-dynamodb-data-encryption`, environment, {}) : undefined
+    const result: SecurityResult = {}
+
+    if (keys && keys.dynamodb) {
+        result['dynamodb'] = CreateKey(keys.dynamodb, `${projectName}-dynamodb-data-encryption`, environment, {})
     }
 
     for (const key in keys) {
