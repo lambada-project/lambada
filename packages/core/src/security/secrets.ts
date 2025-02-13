@@ -1,7 +1,7 @@
 import * as pulumi from "@pulumi/pulumi"
 import * as aws from "@pulumi/aws"
 import * as awsx from "@pulumi/awsx/classic"
-import { EmbroideryEncryptionKeys } from "."
+import { SecurityKeys } from "."
 
 
 export type SecretDefinition = {
@@ -11,7 +11,7 @@ export type SecretDefinition = {
 }
 export type EmbroiderySecrets = { [id: string]: SecretDefinition }
 
-export function createSecret(projectName: string, environment: string, secret: SecretDefinition, keys?: EmbroideryEncryptionKeys) {
+export function createSecret(projectName: string, environment: string, secret: SecretDefinition, keys?: SecurityKeys) {
     const secretName = secret.name
     const name = `${projectName}-${secretName}-${environment}`
     const kmsKeyId = secret.encryptionKeyName && keys ? keys[secret.encryptionKeyName]?.name : undefined
@@ -26,7 +26,7 @@ export function createSecret(projectName: string, environment: string, secret: S
     })
 }
 
-export function createSecrets(projectName: string, environment: string, secrets: EmbroiderySecrets | undefined = {}, secretsRef?: SecretsResult, keys?: EmbroideryEncryptionKeys): SecretsResult {
+export function createSecrets(projectName: string, environment: string, secrets: EmbroiderySecrets | undefined = {}, secretsRef?: SecretsResult, keys?: SecurityKeys): SecretsResult {
     const result: SecretsResult = {}
     for (const key in secrets) {
         if (secrets.hasOwnProperty(key)) {

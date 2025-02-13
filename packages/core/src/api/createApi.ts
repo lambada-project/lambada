@@ -126,6 +126,7 @@ export default function createApi(
 
     const apigateway = new awsx.apigateway.API(`${projectName}-${environment}`, {
         routes: allRoutes,
+        //     warning: urn:pulumi:dev::backend-config-service::aws:apigateway:x:API$aws:apigateway/deployment:Deployment::configs-service-admin-dev verification warning: The attribute "stage_name" will be removed in a future major version. Use an explicit "aws_api_gateway_stage" instead.
         stageName: stageName,
         restApiArgs: {
             endpointConfiguration: api?.type || api?.vpcEndpointIds ? {

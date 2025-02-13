@@ -11,7 +11,7 @@ import { LambadaResources } from './context'
 import { createMessaging, LambadaMessages, LambadaSubscriptionCreator, MessagingResult } from './messaging'
 import createNotifications, { NotificationConfig } from './notifications'
 import { DatabaseResult, EmbroideryTables, createDynamoDbTables } from './database'
-import { CreateKMSKeys, createSecrets, EmbroideryEncryptionKeys, EmbroiderySecrets, SecretsResult } from "./security";
+import { createKMSKeys, createSecrets, SecurityKeys, EmbroiderySecrets, SecretsResult, SecurityResult } from "./security";
 import { UserPool } from "@pulumi/aws/cognito/userPool";
 import createUserPool from "./auth";
 import { LambdaAuthorizer } from "@pulumi/awsx/classic/apigateway";
@@ -72,7 +72,8 @@ type LambadaRunArguments = {
     environmentVariables?: EmbroideryEnvironmentVariables,
     secrets?: EmbroiderySecrets
     secretsRef?: SecretsResult
-    keys?: EmbroideryEncryptionKeys
+    keys?: SecurityKeys
+    keysRef?: SecurityResult
     notifications?: NotificationConfig
     naming?: { // TODO: Should I do this? or not
         apiPath?: string
@@ -118,7 +119,7 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
         "Lambada:Environment": environment
     }
 
-    const encryptionKeys = args.keys ? CreateKMSKeys(projectName, environment, args.keys) : {}
+    const encryptionKeys = createKMSKeys(projectName, environment, args.keys, args.keysRef)
     const secrets = createSecrets(projectName, environment, args.secrets, args.secretsRef)
     const databases = createDynamoDbTables(environment, args.tables, args.tablePrefix, encryptionKeys, args.tablesRef, globalTags)
 

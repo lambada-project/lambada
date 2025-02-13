@@ -4,7 +4,7 @@ export * from './secrets'
 
 type KeyParams = Omit<KeyArgs, "tags" | 'description'>
 
-export function CreateKey(item: EncryptionKeyItem, name: string, environment: string, args: KeyParams): SecurityResultItem {
+export function CreateKey(item: SecurityKeyItem, name: string, environment: string, args: KeyParams): SecurityResultItem {
     const keyname = `${name}-${environment}`
 
     const key = new aws.kms.Key(keyname, {
@@ -23,21 +23,21 @@ export function CreateKey(item: EncryptionKeyItem, name: string, environment: st
     }
 }
 
-export type EncryptionKeyItem = {
+export type SecurityKeyItem = {
     name: string
     envKeyName: string
     options?: KeyParams
 } | undefined
 
-export type EmbroideryEncryptionKeys = {
-    [id: string]: EncryptionKeyItem
-    dynamodb?: EncryptionKeyItem
+export type SecurityKeys = {
+    [id: string]: SecurityKeyItem
+    dynamodb?: SecurityKeyItem
 }
 
 
-export function CreateKMSKeys(projectName: string, environment: string, keys: EmbroideryEncryptionKeys): SecurityResult {
+export function createKMSKeys(projectName: string, environment: string, keys: SecurityKeys | undefined, keysRef: SecurityResult | undefined): SecurityResult {
     const result: SecurityResult = {
-        dynamodb: keys.dynamodb ? CreateKey(keys.dynamodb, `${projectName}-dynamodb-data-encryption`, environment, {}) : undefined
+        dynamodb: keys && keys.dynamodb ? CreateKey(keys.dynamodb, `${projectName}-dynamodb-data-encryption`, environment, {}) : undefined
     }
 
     for (const key in keys) {
@@ -46,12 +46,33 @@ export function CreateKMSKeys(projectName: string, environment: string, keys: Em
             result[key] = CreateKey(keyItem, `${projectName}-${keyItem?.name}`, environment, keyItem?.options ?? {})
         }
     }
+
+    for (const key in keysRef) {
+        if (keysRef.hasOwnProperty(key)) {
+            if (result[key]) {
+                throw new Error(`Cannot create a ref key with the same name of an existing key: ${key}`)
+            }
+            const keyItem = keysRef[key];
+
+            function isRef(obj: SecurityResultItem | SecurityKeyItem): obj is SecurityResultItem {
+                if (!obj) return false
+                return !!(obj as SecurityResultItem)?.awsKmsKey
+            }
+
+            if (isRef(keyItem)) {
+                result[key] = keyItem
+            } else {
+                throw new Error(`Cannot create ref key: ${key}`)
+            }
+        }
+    }
+
     return result
 }
 
 export type SecurityResultItem = {
     awsKmsKey: aws.kms.Key
-    definition: EncryptionKeyItem
+    definition: SecurityKeyItem
 } | undefined
 
 export type SecurityResult = {
