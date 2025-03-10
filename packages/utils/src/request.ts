@@ -26,21 +26,24 @@ export function getBody<TBody>(request: Request): TBody {
     return body
 }
 
-export async function isUserInGroup(user: { username?: string, poolId?: string }, groupName: string) {
-    if (!user.username) throw new LambadaError('[isUserInGroup] username is mandatory')
-    if (!user.poolId) throw new LambadaError('[isUserInGroup] poolId is mandatory')
+export async function isUserInGroup(
+    context: AuthExecutionContext,
+    groupName: string
+) {
 
-           /**
-         claims: {
-            claims: {
+    if (!context.username) throw new LambadaError('[isUserInGroup] username is mandatory')
+    if (!context.poolId) throw new LambadaError('[isUserInGroup] poolId is mandatory')
+    
+    // We save a bit if we check the claims first
+    const claimGroups = context.claims['cognito:groups']?.split(',')
+    if (claimGroups && claimGroups.includes(groupName)) {
+        return true
+    }
 
-            'cognito:groups': 'GROUP,GROUP,GROUP',
-      
-         */
     const cognito = new CognitoIdentityProvider({ apiVersion: '2016-04-18' });
     const groups = await cognito.adminListGroupsForUser({
-        Username: user.username,
-        UserPoolId: user.poolId
+        Username: context.username,
+        UserPoolId: context.poolId
     })
 
     return typeof groups.Groups?.find(x => x.GroupName == groupName) !== 'undefined'
@@ -66,7 +69,7 @@ declare global {
 }
 
 async function _FindUser(userPoolId: string, userId?: string, username?: string): Promise<AuthenticatedUser> {
-    
+
     global.globalCognitoIdp = global.globalCognitoIdp ?? new CognitoIdentityProvider({ apiVersion: '2016-04-18' });
     global.globalUserCacheBySub = global.globalUserCacheBySub ?? new Map<string, AuthenticatedUser>()
     global.globalUserCacheByUsername = global.globalUserCacheByUsername ?? new Map<string, AuthenticatedUser>()

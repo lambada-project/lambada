@@ -1,15 +1,25 @@
 import * as pulumi from "@pulumi/pulumi";
 import * as aws from "@pulumi/aws";
 import { dynamodb } from '@pulumi/aws/types/input'
-import * as awsx from "@pulumi/awsx/classic";
 import { seedData } from './seedData'
 import { SecurityResult } from "../security";
 
 export type TableAttribute = dynamodb.TableAttribute
 type TableOptions = {
-    pointInTimeRecoveryEnabled?: boolean,
-    streamEnabled?: boolean,
+
+    /**
+     * Enable point-in-time recovery options. See below.
+     */
+    pointInTimeRecoveryEnabled?: boolean   
+
+    /**
+     * Enables deletion protection for table. Defaults to false.
+     */
+    deletionProtectionEnabled?: boolean
+
+    streamEnabled?: boolean
     streamViewType?: `KEYS_ONLY` | `NEW_IMAGE` | `OLD_IMAGE` | `NEW_AND_OLD_IMAGES`
+    
 }
 
 function createTable(
@@ -60,7 +70,8 @@ function createTable(
             enabled: options?.pointInTimeRecoveryEnabled ?? false
         } : undefined,
         streamEnabled: options?.streamEnabled,
-        streamViewType: options?.streamEnabled ? options?.streamViewType : undefined
+        streamViewType: options?.streamEnabled ? options?.streamViewType : undefined,
+        deletionProtectionEnabled: options?.deletionProtectionEnabled,
     })
 }
 
@@ -86,9 +97,9 @@ export type TableDefinition = {
     options?: TableOptions
 }
 
-export type EmbroideryTables = { [id: string]: TableDefinition }
+export type LambadaTables = { [id: string]: TableDefinition }
 
-export const createDynamoDbTables = (environment: string, tables?: EmbroideryTables, prefix?: string, kmsKeys?: SecurityResult, tableRefs?: EmbroideryTables | DatabaseResult, tags?: pulumi.Input<{ [key: string]: pulumi.Input<string> }>): DatabaseResult => {
+export const createDynamoDbTables = (environment: string, tables?: LambadaTables, prefix?: string, kmsKeys?: SecurityResult, tableRefs?: LambadaTables | DatabaseResult, tags?: pulumi.Input<{ [key: string]: pulumi.Input<string> }>): DatabaseResult => {
 
     const result: DatabaseResult = {}
     for (const key in tables) {

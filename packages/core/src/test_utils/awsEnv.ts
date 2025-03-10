@@ -1,4 +1,4 @@
-import { EmbroideryTables } from '../database/index'
+import { LambadaTables } from '../database/index'
 import { CreateTableInput, DynamoDB, DynamoDBClientConfig } from '@aws-sdk/client-dynamodb';
 type AWSOptionTypes = { dynamodb?: DynamoDBClientConfig }
 
@@ -6,7 +6,7 @@ let currentAWSConfig: AWSOptionTypes;
 export type LambadaEnvironmentConfig = {
     options?: {
         aws?: AWSOptionTypes,
-        tables?: EmbroideryTables
+        tables?: LambadaTables
     }
 }
 
@@ -117,8 +117,8 @@ export async function RemoveResources(config: LambadaEnvironmentConfig): Promise
     }
 }
 
-function validateTables(tables: EmbroideryTables): asserts tables is EmbroideryTables {
-    const isString = (s?: string | EmbroideryTables[string]['primaryKey'] | Required<EmbroideryTables[string]>['attributes'][number]['name']): s is string => typeof s === 'string'
+function validateTables(tables: LambadaTables): asserts tables is LambadaTables {
+    const isString = (s?: string | LambadaTables[string]['primaryKey'] | Required<LambadaTables[string]>['attributes'][number]['name']): s is string => typeof s === 'string'
     for (const tableKey in tables) {
         const table = tables[tableKey]
         const tableKeys = [table.primaryKey, table.rangeKey,].filter(isString)

@@ -10,7 +10,7 @@ import { LambadaResources } from './context'
 // import createApi from './api/createApi'
 import { createMessaging, LambadaMessages, LambadaSubscriptionCreator, MessagingResult } from './messaging'
 import createNotifications, { NotificationConfig } from './notifications'
-import { DatabaseResult, EmbroideryTables, createDynamoDbTables } from './database'
+import { DatabaseResult, LambadaTables, createDynamoDbTables } from './database'
 import { createKMSKeys, createSecrets, SecurityKeys, EmbroiderySecrets, SecretsResult, SecurityResult } from "./security";
 import { UserPool } from "@pulumi/aws/cognito/userPool";
 import createUserPool from "./auth";
@@ -55,9 +55,9 @@ type LambadaRunArguments = {
 
     tablePrefix?: string
     /** Tables to create */
-    tables?: EmbroideryTables
+    tables?: LambadaTables
     /** Referenced tables, does not create anything */
-    tablesRef?: EmbroideryTables | DatabaseResult
+    tablesRef?: LambadaTables | DatabaseResult
 
     /** Topics to create */
     messages?: LambadaMessages,
@@ -182,7 +182,7 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
         authorizers: authorizers,
         messaging: messaging,
         queues: queues,
-        notifications: notifications, // TODO: 
+        notifications: notifications,
         databases: databases,
         environment: environment,
         kmsKeys: encryptionKeys,
