@@ -5,12 +5,12 @@ import { seedData } from './seedData'
 import { SecurityResult } from "../security";
 
 export type TableAttribute = dynamodb.TableAttribute
-type TableOptions = {
+export type TableOptions = {
 
     /**
      * Enable point-in-time recovery options. See below.
      */
-    pointInTimeRecoveryEnabled?: boolean   
+    pointInTimeRecoveryEnabled?: boolean
 
     /**
      * Enables deletion protection for table. Defaults to false.
@@ -19,7 +19,7 @@ type TableOptions = {
 
     streamEnabled?: boolean
     streamViewType?: `KEYS_ONLY` | `NEW_IMAGE` | `OLD_IMAGE` | `NEW_AND_OLD_IMAGES`
-    
+
 }
 
 function createTable(
@@ -99,7 +99,15 @@ export type TableDefinition = {
 
 export type LambadaTables = { [id: string]: TableDefinition }
 
-export const createDynamoDbTables = (environment: string, tables?: LambadaTables, prefix?: string, kmsKeys?: SecurityResult, tableRefs?: LambadaTables | DatabaseResult, tags?: pulumi.Input<{ [key: string]: pulumi.Input<string> }>): DatabaseResult => {
+export const createDynamoDbTables = (
+    environment: string,
+    tables?: LambadaTables,
+    prefix?: string,
+    kmsKeys?: SecurityResult,
+    tableRefs?: LambadaTables | DatabaseResult,
+    tags?: pulumi.Input<{ [key: string]: pulumi.Input<string> }>,
+    globalOptions?: TableOptions
+): DatabaseResult => {
 
     const result: DatabaseResult = {}
     for (const key in tables) {
@@ -110,7 +118,10 @@ export const createDynamoDbTables = (environment: string, tables?: LambadaTables
                 tableName, environment, table.primaryKey, table.rangeKey,
                 kmsKeys?.dynamodb?.awsKmsKey,
                 table.attributes, table.indexes, table.ttl,
-                table.options,
+                {
+                    ...globalOptions,
+                    ...table.options
+                },
                 tags
             )
 

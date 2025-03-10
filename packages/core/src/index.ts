@@ -10,7 +10,7 @@ import { LambadaResources } from './context'
 // import createApi from './api/createApi'
 import { createMessaging, LambadaMessages, LambadaSubscriptionCreator, MessagingResult } from './messaging'
 import createNotifications, { NotificationConfig } from './notifications'
-import { DatabaseResult, LambadaTables, createDynamoDbTables } from './database'
+import { DatabaseResult, LambadaTables, TableOptions, createDynamoDbTables } from './database'
 import { createKMSKeys, createSecrets, SecurityKeys, EmbroiderySecrets, SecretsResult, SecurityResult } from "./security";
 import { UserPool } from "@pulumi/aws/cognito/userPool";
 import createUserPool from "./auth";
@@ -58,6 +58,8 @@ type LambadaRunArguments = {
     tables?: LambadaTables
     /** Referenced tables, does not create anything */
     tablesRef?: LambadaTables | DatabaseResult
+    /** Global Table Options. Changes defaults of all tables */
+    tableOptions?: TableOptions
 
     /** Topics to create */
     messages?: LambadaMessages,
