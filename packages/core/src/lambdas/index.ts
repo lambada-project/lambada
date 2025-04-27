@@ -12,6 +12,7 @@ import { NotificationResult } from '../notifications';
 import { EmbroideryEnvironmentVariables } from '..';
 import { enums } from '@pulumi/aws/types';
 import { QueueResultItem } from '../queue';
+import { StorageResultItem } from '../storage';
 //import { NotificationResult, NotificationResultItem } from '../notifications';
 
 export const lambdaAssumeRole: PolicyDocument = {
@@ -173,6 +174,17 @@ export const createLambda = <E, R>(
                 }
             }
 
+        }
+        else if (access.storage) {
+            //S3 connections need the bucket name to talk to S3
+            envVarsFromResources[access.storage.definition.envKeyName] = access.storage.ref.arn
+            policyStatements.push(
+                {
+                    Action: access.access,
+                    Resource: access.storage.ref.arn,
+                    Effect: 'Allow'
+                }
+            )
         }
         else if (access.topic) {
             //PubSub connections need the topic ARN to talk to SNS
@@ -412,6 +424,7 @@ export class LambdaResourceAccess {
 
 export type LambdaDynamoDbResource = {
     table?: DatabaseResultItem
+    storage?: StorageResultItem
     topic?: MessagingResultItem
     queue?: QueueResultItem
     notification?: NotificationResult

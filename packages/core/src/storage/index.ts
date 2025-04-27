@@ -38,7 +38,7 @@ export type BucketDefinition = {
     name: string
     envKeyName: string
     options?: StorageParams
-} | undefined
+}
 
 export type LambadaBuckets = {
     [id: string]: BucketDefinition
