@@ -7,6 +7,7 @@ import { EmbroideryEnvironmentVariables } from ".";
 import { QueuesResult } from "./queue";
 import { FunctionVpcConfig, LambdaOptions } from "./lambdas";
 import { Input } from '@pulumi/pulumi'
+import { StorageResult } from "./storage";
 
 export type LambadaResources = {
     projectName: string
@@ -28,6 +29,7 @@ export type LambadaResources = {
     queues?: QueuesResult
     notifications?: NotificationResult
     databases?: DatabaseResult
+    storage?: StorageResult
     environment: string
     kmsKeys?: SecurityResult
     environmentVariables: EmbroideryEnvironmentVariables

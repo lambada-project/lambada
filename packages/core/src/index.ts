@@ -19,6 +19,7 @@ import { createQueues, LambadaQueues, LambadaQueueSubscriptionCreator, QueuesRes
 import { createQueueHandler } from "./queue/createQueueHandler";
 import { OpenAPIObjectConfigV31 } from "@asteasolutions/zod-to-openapi/dist/v3.1/openapi-generator";
 import { LambdaOptions } from "./lambdas";
+import { LambadaBuckets, createStorageBuckets, StorageResult } from "./storage";
 
 export * from './context'
 export * from './api/index'
@@ -60,6 +61,9 @@ type LambadaRunArguments = {
     tablesRef?: LambadaTables | DatabaseResult
     /** Global Table Options. Changes defaults of all tables */
     tableOptions?: TableOptions
+
+    buckets?: LambadaBuckets
+    bucketsRef?: LambadaBuckets | StorageResult
 
     /** Topics to create */
     messages?: LambadaMessages,
@@ -124,6 +128,7 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
     const encryptionKeys = createKMSKeys(projectName, environment, args.keys, args.keysRef)
     const secrets = createSecrets(projectName, environment, args.secrets, args.secretsRef)
     const databases = createDynamoDbTables(environment, args.tables, args.tablePrefix, encryptionKeys, args.tablesRef, globalTags)
+    const storage = createStorageBuckets(projectName, environment, args.buckets, args.bucketsRef)
 
     const pool: UserPool | undefined = args.auth && args.auth.createCognito ?
         createUserPool(projectName, environment, encryptionKeys, {
@@ -294,6 +299,7 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
         },
         messaging: messaging,
         queues: queues,
+        storage: storage,
         databases: databases,
         apiKey: apiKey,
         secrets: secrets,
