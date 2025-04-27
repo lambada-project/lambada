@@ -191,6 +191,7 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
         queues: queues,
         notifications: notifications,
         databases: databases,
+        storage: storage,
         environment: environment,
         kmsKeys: encryptionKeys,
         environmentVariables: args.environmentVariables || {},
