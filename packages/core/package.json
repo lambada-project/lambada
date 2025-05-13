@@ -1,6 +1,6 @@
 {
 	"name": "@lambada/core",
-	"version": "1.21.4",
+	"version": "1.22.0",
 	"description": "A VERY opinionated infrastructure as code framework.",
 	"main": "dist/index.js",
 	"module": "dist/index.js",
@@ -18,7 +18,7 @@
 	},
 	"peerDependencies": {
 		"@asteasolutions/zod-to-openapi": "^5.2.0",
-		"@aws-sdk/client-sqs": "3.731.0",
+		"@aws-sdk/client-sqs": "~3.808.0",
 		"@aws/dynamodb-auto-marshaller": "^0.7.1",
 		"@lambada/utils": "^2.0.0",
 		"@pulumi/aws": "^6.0.0",
@@ -28,10 +28,10 @@
 	},
 	"devDependencies": {
 		"@asteasolutions/zod-to-openapi": "^5.2.0",
-		"@aws-sdk/client-dynamodb": "^3.731.0",
-		"@aws-sdk/client-pinpoint": "3.731.0",
+		"@aws-sdk/client-dynamodb": "~3.808.0",
+		"@aws-sdk/client-pinpoint": "~3.808.0",
 		"@aws/dynamodb-auto-marshaller": "^0.7.1",
-		"@lambada/utils": "^2.0.0",
+		"@lambada/utils": "^2.2.0",
 		"@pulumi/aws": "^6.0.0",
 		"@pulumi/awsx": "^2.0.0",
 		"@pulumi/pulumi": "^3.0.0",
