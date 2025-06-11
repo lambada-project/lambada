@@ -26,7 +26,7 @@ export function createSecret(projectName: string, environment: string, secret: S
     })
 }
 
-export function createSecrets(projectName: string, environment: string, secrets: EmbroiderySecrets | undefined = {}, secretsRef?: SecretsResult, keys?: SecurityKeys): SecretsResult {
+export function createSecrets(projectName: string, environment: string, secrets: EmbroiderySecrets | undefined = {}, secretsRef?: SecretsResult | EmbroiderySecrets, keys?: SecurityKeys): SecretsResult {
     const result: SecretsResult = {}
     for (const key in secrets) {
         if (secrets.hasOwnProperty(key)) {
@@ -46,26 +46,52 @@ export function createSecrets(projectName: string, environment: string, secrets:
             if (result[key]) {
                 throw new Error(`Cannot create a ref secret with the same name of an existing secret: ${key}`)
             }
-            const secret = secretsRef[key];
+            const secretRef = secretsRef[key];
 
             function isRef(obj: SecretResultItem | SecretDefinition): obj is SecretResultItem {
                 return !!(obj as SecretResultItem).awsSecret
             }
 
-            if (isRef(secret)) {
-                result[key] = secret
+            if (isRef(secretRef)) {
+                result[key] = secretRef
             } else {
-                // result[key] = {
-                //     awsSecret: secret,
-                //     definition: secret
-                //     //kmsKey: kmsKeys?.dynamodb?.awsKmsKey
-                // } as SecretResultItem
+                const secret = findSecret(projectName, environment, secretRef, keys)
+
+                result[key] = {
+                    awsSecret: aws.secretsmanager.Secret.get(`${secretRef.name}-${environment}`, secret.id),
+                    definition: secretRef
+                } satisfies SecretResultItem
                 throw new Error(`Cannot create ref secret: ${key}`)
             }
         }
     }
 
     return result;
+}
+
+function findSecret(projectName: string, environment: string, secret: SecretDefinition, keys?: SecurityKeys): pulumi.Output< {
+    name: string;
+    id: string;
+    arn: string;
+}> {
+    const secretName = secret.name
+    const name = `${projectName}-${secretName}-${environment}`
+    const kmsKeyId = secret.encryptionKeyName && keys ? keys[secret.encryptionKeyName]?.name : undefined
+
+    const getSecret = async (name: string) => {
+        try {
+            const topic = await aws.secretsmanager.getSecret({
+                name: name,
+            }, { async: true })
+            return topic
+        } catch (e) {
+            console.error('Failed to get secret', name);
+            throw e
+        }
+
+    }
+
+    return pulumi.output(getSecret(name));
 }
 
 export type SecretResultItem = {
