@@ -1,6 +1,6 @@
 {
 	"name": "@lambada/core",
-	"version": "1.22.0",
+	"version": "1.22.1",
 	"description": "A VERY opinionated infrastructure as code framework.",
 	"main": "dist/index.js",
 	"module": "dist/index.js",

@@ -14,6 +14,7 @@ extendZodWithOpenApi(z);
 
 
 export const createOpenApiDocumentEndpoint = (args: {
+    projectName: string,
     openApiSpec: OpenAPIObjectConfigV31,
     endpoints: LambadaEndpointArgs[],
     auth?: {
@@ -75,7 +76,7 @@ export const createOpenApiDocumentEndpoint = (args: {
 
 
     return (context: LambadaResources): LambadaEndpointArgs => ({
-        name: 'get_openapi_spec',
+        name: `${args.projectName}_get_openapi`,
         path: '/openapi',
         method: 'GET',
         auth: {
