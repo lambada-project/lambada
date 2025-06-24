@@ -110,10 +110,25 @@ export const createCloudFront = (
         const functionName = `${projectName}-cloudfront-www-index-${environment}`
         const wwwFunction = new aws.cloudfront.Function(functionName, {
             code: `
-                function handler(event) {
-                    event.request.uri = '${www.spa?.entrypoint ?? '/index.html'}';
-                    return event.request;
-                }
+function handler(event) {
+    var uri = event.request.uri;
+    var extensions = [
+        '.js', '.css', '.svg', '.jpg', '.jpeg', '.gif',
+        '.ico', '.webp', '.json', '.png', '.woff', '.woff2',
+        '.ttf', '.otf', '.eot', '.mp4', '.webm', '.ogg',
+        '.mp3', '.wav', '.wasm', '.map'
+    ];
+
+    for (var i = 0; i < extensions.length; i++) {
+        if (uri.endsWith(extensions[i])) {
+            return event.request;
+        }
+    }
+
+    event.request.uri = '/index.html';
+    return event.request;
+}
+
                 `,
             runtime: 'cloudfront-js-1.0',
             publish: true,
