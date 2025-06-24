@@ -116,7 +116,7 @@ function handler(event) {
         '.js', '.css', '.svg', '.jpg', '.jpeg', '.gif',
         '.ico', '.webp', '.json', '.png', '.woff', '.woff2',
         '.ttf', '.otf', '.eot', '.mp4', '.webm', '.ogg',
-        '.mp3', '.wav', '.wasm', '.map'
+        '.mp3', '.wav', '.wasm', '.map', '.html'
     ];
 
     for (var i = 0; i < extensions.length; i++) {
