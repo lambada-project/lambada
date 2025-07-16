@@ -127,7 +127,6 @@ export const createEndpointSimpleCompat = (args: LambadaEndpointArgs, context: L
         options,
         webhook,
     } = args
-    console.log('createEndpointSimpleCompat', args.name, context.api?.lambdaOptions?.layers)
     if (webhook?.wrapInQueue) {
         return createWebhook(args, context)
     }
