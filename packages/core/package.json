@@ -39,7 +39,7 @@
 		"@types/node": "^22.0.0",
 		"typescript": "^5.9.2"
 	},
-	"gitHead": "c7d2a32a29dc0c1a9cc28cfbebdc167e23c14b96",
+	"gitHead": "487cc342922d5e6fc5a1e9b2d8737f744c6e032c",
 	"dependencies": {
 		"bun": "^1.2.20",
 		"func-loc": "^0.1.16"

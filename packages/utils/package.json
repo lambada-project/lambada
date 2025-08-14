@@ -18,23 +18,24 @@
   },
   "license": "MIT",
   "devDependencies": {
-    "@types/aws-lambda": "^8.10.72",
-    "rimraf": "^6.0.1",
-    "typescript": "^5.9.2",
-    "@types/node": "^22.0.0",
-    "@aws-sdk/client-dynamodb": "~3.864.0",
-    "@aws-sdk/util-dynamodb": "~3.864.0",
-    "@aws-sdk/client-secrets-manager": "~3.864.0",
     "@aws-sdk/client-cognito-identity-provider": "~3.864.0",
+    "@aws-sdk/client-dynamodb": "~3.864.0",
+    "@aws-sdk/client-secrets-manager": "~3.864.0",
+    "@aws-sdk/util-dynamodb": "~3.864.0",
+    "@types/aws-lambda": "^8.10.72",
+    "@types/bun": "^1.2.20",
+    "@types/node": "^22.0.0",
     "bun": "^1.2.20",
-    "@types/bun": "^1.2.20"
+    "rimraf": "^6.0.1",
+    "typescript": "^5.9.2"
   },
   "peerDependencies": {
-    "@aws-sdk/client-dynamodb": "~3.864.0",
-    "@aws-sdk/util-dynamodb": "~3.864.0",
-    "@aws-sdk/client-secrets-manager": "~3.864.0",
     "@aws-sdk/client-cognito-identity-provider": "~3.864.0",
-	  "@types/aws-lambda": "^8.10.152"
+    "@aws-sdk/client-dynamodb": "~3.864.0",
+    "@aws-sdk/client-secrets-manager": "~3.864.0",
+    "@aws-sdk/util-dynamodb": "~3.864.0",
+    "@types/aws-lambda": "^8.10.152"
   },
-  "description": ""
+  "description": "",
+  "gitHead": "487cc342922d5e6fc5a1e9b2d8737f744c6e032c"
 }
