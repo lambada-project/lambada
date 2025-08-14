@@ -1,6 +1,6 @@
 {
 	"name": "@lambada/core",
-	"version": "1.22.7",
+	"version": "1.23.0",
 	"description": "A VERY opinionated infrastructure as code framework.",
 	"main": "dist/index.js",
 	"module": "dist/index.js",
@@ -18,30 +18,30 @@
 	},
 	"peerDependencies": {
 		"@asteasolutions/zod-to-openapi": "^5.2.0",
-		"@aws-sdk/client-sqs": "~3.808.0",
+		"@aws-sdk/client-sqs": "~3.864.0",
 		"@aws/dynamodb-auto-marshaller": "^0.7.1",
 		"@lambada/utils": "^2.0.0",
-		"@pulumi/aws": "^6.0.0",
+		"@pulumi/aws": "^7.0.0",
 		"@pulumi/awsx": "^2.0.0",
 		"@pulumi/pulumi": "^3.0.0",
 		"zod": "^3.21.4"
 	},
 	"devDependencies": {
 		"@asteasolutions/zod-to-openapi": "^5.2.0",
-		"@aws-sdk/client-dynamodb": "~3.808.0",
-		"@aws-sdk/client-pinpoint": "~3.808.0",
+		"@aws-sdk/client-dynamodb": "~3.864.0",
+		"@aws-sdk/client-pinpoint": "~3.864.0",
 		"@aws/dynamodb-auto-marshaller": "^0.7.1",
-		"@lambada/utils": "^2.2.0",
-		"@pulumi/aws": "^6.0.0",
-		"@pulumi/awsx": "^2.0.0",
+		"@lambada/utils": "^2.3.0",
+		"@pulumi/aws": "^7.0.0",
+		"@pulumi/awsx": "^3.0.0",
 		"@pulumi/pulumi": "^3.0.0",
-		"@types/bun": "^1.1.17",
-		"@types/node": "^20.0.0",
-		"typescript": "^5.6.3"
+		"@types/bun": "^1.2.20",
+		"@types/node": "^22.0.0",
+		"typescript": "^5.9.2"
 	},
 	"gitHead": "c7d2a32a29dc0c1a9cc28cfbebdc167e23c14b96",
 	"dependencies": {
-		"bun": "^1.1.45",
+		"bun": "^1.2.20",
 		"func-loc": "^0.1.16"
 	},
 	"sideEffects": false

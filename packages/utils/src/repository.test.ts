@@ -1,11 +1,8 @@
 import { RepositoryBase } from './repository'
 import { DefaultMarshaller, IMarshaller } from "./dynamoMarshaller"
+import { describe, test, expect } from 'bun:test'
 
 describe("Repository", () => {
-
-    beforeAll(() => {
-
-    })
 
     test("Marshaller", async () => {
         const repo = new TestRepo({

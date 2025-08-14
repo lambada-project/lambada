@@ -2,13 +2,17 @@
   "name": "root",
   "private": true,
   "devDependencies": {
-    "lerna": "^3.22.1"
+    "lerna": "^8.2.3"
   },
   "scripts": {
-    "lb": "lerna bootstrap --hoist {aws-sdk,lerna}",
     "clean": "lerna clean",
     "build": "lerna run build",
     "update": "npm run lb && lerna run update-packages",
     "lerna:publish": "npm run build && lerna publish from-package"
-  }
+  },
+  "workspaces": [
+    "packages/core",
+    "packages/create",
+    "packages/utils"
+  ]
 }
