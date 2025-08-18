@@ -73,7 +73,8 @@ type LambadaRunArguments = {
 
     environmentVariables?: EmbroideryEnvironmentVariables,
     secrets?: EmbroiderySecrets
-    secretsRef?: SecretsResult
+    /** Referenced secrets, does not create anything */
+    secretsRef?: SecretsResult | EmbroiderySecrets
     keys?: SecurityKeys
     keysRef?: SecurityResult
     notifications?: NotificationConfig
