@@ -10,7 +10,7 @@
 	},
 	"dependencies": {
 		"@aws-sdk/util-dynamodb": "~3.864.0",
-		"@lambada/utils": "~2.0.0",
+		"@lambada/utils": "~2.3.0",
 		"aws-sdk": "^2.1077.0",
 		"uuid": "^9.0.0"
 	},
