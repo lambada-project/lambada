@@ -70,7 +70,7 @@ jobs:
           echo "Validating packages can be packed..."
           npx lerna exec -- npm pack --dry-run
 
-      - run: cd packages/core && npm publish --access public
+      #- run: cd packages/core && npm publish --access public
       - name: Publish packages
         run: |
           npx lerna publish from-package --yes
