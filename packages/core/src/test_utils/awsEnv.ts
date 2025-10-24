@@ -141,17 +141,42 @@ export async function ConfigureAwsEnvironment({ options }: LambadaEnvironmentCon
 }
 
 export async function RemoveResources(config: LambadaEnvironmentConfig): Promise<void> {
-    const db = new DynamoDB(config.options?.aws?.dynamodb ?? {})
-    const tables = config.options?.tables ?? {};
 
-    const existingTableNames = (await db.listTables({})).TableNames ?? []
+    const tables = config.options?.tables
+    if (tables) {
+        const db = new DynamoDB(config.options?.aws?.dynamodb ?? {})
 
-    for (const tableKey of Object.keys(tables)) {
-        const table = tables[tableKey];
-        if (existingTableNames.includes(table.name)) {
-            await db.deleteTable({
-                TableName: table.name,
-            });
+        const existingTableNames = (await db.listTables({})).TableNames ?? []
+
+        for (const tableKey of Object.keys(tables)) {
+            const table = tables[tableKey];
+            if (existingTableNames.includes(table.name)) {
+                await db.deleteTable({
+                    TableName: table.name,
+                });
+            }
+        }
+    }
+
+    const keys = config.options?.keys
+    if (keys) {
+
+        const kms = new KMS(currentAWSConfig.kms ?? {});
+
+        const existingKeys = (await kms.listAliases({})).Aliases ?? []
+
+        for (const key in keys) {
+            if (keys.hasOwnProperty(key)) {
+                const keyConfig = keys[key]!
+                const alias = `alias/${keyConfig.name}`
+                const existingKey = existingKeys.find((x) => x.AliasName === alias)
+                if (existingKey) {
+                    // Deleting key also deletes aliases
+                    await kms.scheduleKeyDeletion({
+                        KeyId: existingKey.TargetKeyId
+                    })
+                }
+            }
         }
     }
 }
