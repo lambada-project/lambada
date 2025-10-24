@@ -43,5 +43,6 @@ export const getMockRequest = (authenticated: boolean, body?: any): EmbroideryRe
     return {
         request: request,
         user: getContext(request),
+        context: {} as any
     }
 }

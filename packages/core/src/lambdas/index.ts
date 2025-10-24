@@ -161,16 +161,14 @@ export const createLambda = <E, R>(
                 }
             )
 
-            if (access.table.definition.indexes) {
-                for (const index of access.table.definition.indexes) {
-                    policyStatements.push(
-                        {
-                            Action: access.access,
-                            Resource: pulumi.interpolate`${access.table.ref.arn}/index/${index.name}`,
-                            Effect: 'Allow'
-                        }
-                    )
-                }
+            if (access.table.definition.indexes?.length) {
+                policyStatements.push(
+                    {
+                        Action: access.access,
+                        Resource: pulumi.interpolate`${access.table.ref.arn}/index/*`,
+                        Effect: 'Allow'
+                    }
+                )
             }
 
         }
@@ -292,7 +290,7 @@ export const createLambda = <E, R>(
     const memorySize = options?.memorySize ?? 512
     const timeout = options?.timeout ?? 90
     const reservedConcurrentExecutions = options?.reservedConcurrentExecutions ?? -1
-    const runtime = options?.runtime ?? aws.lambda.Runtime.NodeJS18dX
+    const runtime = options?.runtime ?? aws.lambda.Runtime.NodeJS22dX
     const architectures = options?.architecture ? [options?.architecture] : undefined
     const layers = options?.layers
 
