@@ -34,21 +34,7 @@ export const createCloudFront = (
     const origins: aws.types.input.cloudfront.DistributionOrigin[] = []
     const behaviours: aws.types.input.cloudfront.DistributionOrderedCacheBehavior[] = []
 
-    if (www) {
-        // TODO: Detect if S3, then http instead of https
-        // OR allow these options to be passed in
-        origins.push({
-            originId: wwwOriginId,
-            domainName: www.domain,
-            originPath: www.path,
-            customOriginConfig: {
-                originProtocolPolicy: "https-only",
-                originSslProtocols: ['TLSv1.2'],
-                httpPort: 80,
-                httpsPort: 443,
-            },
-        })
-    }
+
     if (api) {
         origins.push({
             originId: apiOriginId,
@@ -104,6 +90,93 @@ export const createCloudFront = (
         )
     }
 
+    if (www) {
+        // TODO: Detect if S3, then http instead of https
+        // OR allow these options to be passed in
+        origins.push({
+            originId: wwwOriginId,
+            domainName: www.domain,
+            originPath: www.path,
+            customOriginConfig: {
+                originProtocolPolicy: "https-only",
+                originSslProtocols: ['TLSv1.2'],
+                httpPort: 80,
+                httpsPort: 443,
+            },
+
+        })
+
+        // TODO: add flag
+        const functionName = `${projectName}-cloudfront-www-index-${environment}`
+        const wwwFunction = new aws.cloudfront.Function(functionName, {
+            code: `
+function handler(event) {
+    var uri = event.request.uri;
+    var extensions = [
+        '.js', '.css', '.svg', '.jpg', '.jpeg', '.gif',
+        '.ico', '.webp', '.json', '.png', '.woff', '.woff2',
+        '.ttf', '.otf', '.eot', '.mp4', '.webm', '.ogg',
+        '.mp3', '.wav', '.wasm', '.map', '.html'
+    ];
+
+    for (var i = 0; i < extensions.length; i++) {
+        if (uri.endsWith(extensions[i])) {
+            return event.request;
+        }
+    }
+
+    event.request.uri = '/index.html';
+    return event.request;
+}
+
+                `,
+            runtime: 'cloudfront-js-1.0',
+            publish: true,
+            name: functionName
+        })
+
+        behaviours.push(
+            {
+                pathPattern: `*`,
+                allowedMethods: [
+                    "GET",
+                    "HEAD",
+                    "OPTIONS",
+                ],
+                cachedMethods: [
+                    "GET",
+                    "HEAD",
+                    "OPTIONS",
+                ],
+                targetOriginId: wwwOriginId,
+                forwardedValues: {
+                    queryString: true,
+                    //headers: ["*"],
+                    headers: [
+                        'Access-Control-Request-Headers',
+                        'Access-Control-Request-Method',
+                        'Origin',
+                        'Authorization',
+                        "Cache-Control",
+                        'Set-Cookie'
+                    ],
+                    cookies: {
+                        forward: "all",
+                    },
+                },
+                minTtl: 0,
+                defaultTtl: 60,
+                maxTtl: 120,
+                compress: true,
+                viewerProtocolPolicy: "https-only",
+                functionAssociations: [{
+                    eventType: 'viewer-request',
+                    functionArn: wwwFunction.arn
+                }]
+            }
+        )
+    }
+
     // Note: CF certificates MUST be on us-east-1
     const useast1 = customDomain ? new aws.Provider("useast1", {
         profile: aws.config.profile,
@@ -124,13 +197,13 @@ export const createCloudFront = (
         origins: origins,
         aliases: customDomain?.aliases ?? undefined,
 
-        customErrorResponses: www?.spa?.notFoundRedirection ? [
-            {
-                errorCode: 400,
-                responseCode: 200,
-                responsePagePath: www.spa?.entrypoint ?? '/index.html'
-            }
-        ] : [],
+        // customErrorResponses: www?.spa?.notFoundRedirection ? [
+        //     {
+        //         errorCode: 400,
+        //         responseCode: 200,
+        //         responsePagePath: www.spa?.entrypoint ?? '/index.html'
+        //     }
+        // ] : [],
 
         orderedCacheBehaviors: behaviours,
         defaultCacheBehavior: {

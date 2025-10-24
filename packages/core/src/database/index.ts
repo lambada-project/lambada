@@ -90,6 +90,7 @@ export type TableDefinition = {
     primaryKey: string
     rangeKey?: string
     envKeyName: string
+    /** Seed data */
     data?: (string | object)[]
     indexes?: TableIndexDefinition[]
     attributes?: TableAttribute[]

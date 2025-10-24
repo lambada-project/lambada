@@ -1,8 +1,6 @@
 import * as pulumi from '@pulumi/pulumi'
 import * as aws from "@pulumi/aws";
-import * as awsx from "@pulumi/awsx/classic";
 import { CallbackFunction } from '@pulumi/aws/lambda';
-import { ManagedPolicies } from '@pulumi/aws/iam/managedPolicies'
 import { PolicyDocument, PolicyStatement } from '@pulumi/aws/iam/documents'
 import { logsStatement, LambdaResourceAccess } from '../lambdas';
 import { DatabaseResultItem } from '../database';
@@ -36,7 +34,7 @@ export function createAuthLambdas(environment: string, userAccountTable: Databas
     })
 
     const postConfirmation = new aws.lambda.Function(`postConfirmation-${environment}`, {
-        runtime: aws.lambda.NodeJS12dXRuntime,
+        runtime: 'nodejs22.x',
         code: new pulumi.asset.AssetArchive({
             ".": new pulumi.asset.FileArchive("./auth/lambdas/src/dist"),
         }),

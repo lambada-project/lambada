@@ -101,6 +101,7 @@ export default function createApi(
 
     if (api?.openApiSpec) {
         const route = createOpenApiDocumentEndpoint({
+            projectName,
             openApiSpec: api?.openApiSpec,
             endpoints: lambadaEndpoints.filter(IsEndpointsArgs),
             auth: auth?.apiKey

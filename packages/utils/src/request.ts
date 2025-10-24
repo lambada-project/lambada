@@ -1,7 +1,7 @@
 import * as awslambda from "aws-lambda"
 import { LambadaError } from "./error";
 import { AttributeType, CognitoIdentityProvider } from '@aws-sdk/client-cognito-identity-provider'
-import * as crypto from 'crypto'
+import * as crypto from 'node:crypto'
 
 
 export declare type Request = awslambda.APIGatewayProxyEvent;
@@ -59,14 +59,13 @@ type AuthenticatedUser = {
 }
 
 declare global {
-    namespace NodeJS {
-        interface Global {
-            globalCognitoIdp?: CognitoIdentityProvider;
-            globalUserCacheBySub?: Map<string, AuthenticatedUser>;
-            globalUserCacheByUsername?: Map<string, AuthenticatedUser>;
-        }
+    namespace globalThis {
+        var globalCognitoIdp: CognitoIdentityProvider | undefined;
+        var globalUserCacheBySub: Map<string, AuthenticatedUser> | undefined;
+        var globalUserCacheByUsername: Map<string, AuthenticatedUser> | undefined;
     }
 }
+
 
 async function _FindUser(userPoolId: string, userId?: string, username?: string): Promise<AuthenticatedUser> {
 
@@ -100,7 +99,7 @@ async function _FindUser(userPoolId: string, userId?: string, username?: string)
             if (!cu.UserAttributes) throw 'User has no attributes'
 
             //TODO Pass environment
-            var cutomAttributes = cu.UserAttributes.filter(x => x.Name?.startsWith('dev:custom:'))
+            var customAttributes = cu.UserAttributes.filter(x => x.Name?.startsWith('dev:custom:'))
             userId = cu.UserAttributes.find(x => x.Name == 'sub')?.Value;
             var email = cu.UserAttributes.find(x => x.Name == 'email')?.Value
             var name = cu.UserAttributes.find(x => x.Name == 'name')?.Value
@@ -113,7 +112,7 @@ async function _FindUser(userPoolId: string, userId?: string, username?: string)
                 name,
                 email: email ?? '',
                 enabled: cu.Enabled,
-                attributes: cutomAttributes
+                attributes: customAttributes
             }
 
         }
@@ -131,7 +130,7 @@ async function _FindUser(userPoolId: string, userId?: string, username?: string)
 
                 username = cu.Username
 
-                var cutomAttributes = cu.Attributes.filter(x => x.Name?.startsWith('dev:custom:'));
+                var customAttributes = cu.Attributes.filter(x => x.Name?.startsWith('dev:custom:'));
                 var sub = cu.Attributes.find(x => x.Name == 'sub')?.Value;
                 var name = cu.Attributes.find(x => x.Name == 'name')?.Value
                 var email = cu.Attributes.find(x => x.Name == 'email')?.Value
@@ -141,7 +140,7 @@ async function _FindUser(userPoolId: string, userId?: string, username?: string)
 
                 user = {
                     id: sub,
-                    attributes: cutomAttributes,
+                    attributes: customAttributes,
                     name,
                     username,
                     enabled: cu.Enabled,

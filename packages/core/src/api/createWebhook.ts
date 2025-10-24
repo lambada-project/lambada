@@ -15,7 +15,7 @@ export type LambadaWebhookCallback = (event: EmbroideryRequest, queueRecord: aws
 export function createWebhook(
     endpointParams: (LambadaEndpointArgs & {
         callbackDefinition: LambadaWebhookCallback,
-    } ),
+    }),
     context: LambadaResources
 ): EmbroideryEventHandlerRoute {
     if (!endpointParams.name) throw new Error("Webhook name is empty");
@@ -93,7 +93,10 @@ export function createWebhook(
         handlerEnvVars,
         handlerResources,
         undefined,
-        { ...endpointParams.options, timeout: endpointOptions.timeout }
+        {
+            ...mergeOptions(endpointParams.options, context.api?.lambdaOptions),
+            timeout: endpointOptions.timeout,
+        }
     )
 
     queue.onEvent(queueName, queueHandler, {

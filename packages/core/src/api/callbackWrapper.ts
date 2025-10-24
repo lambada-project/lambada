@@ -58,7 +58,8 @@ export function createCallback(
         try {
             const result = await callbackDefinition({
                 user: authContext,
-                request
+                request,
+                context: ctx
             })
 
             if (isResponse(result)) {

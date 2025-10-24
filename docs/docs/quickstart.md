@@ -59,6 +59,8 @@ Now, we want our new api up and running, and to do so we call the pulumi cli (co
 pulumi up
 ```
 
+**Note:** Ensure your AWS credentials are correctly configured before running the above command. You can verify this by running `aws configure` or checking your environment variables.
+
 This will ask to create several resources in AWS:
 - 1 APIGateway
 - 1 Lambda
@@ -71,4 +73,4 @@ If you want to know more about Pulumi, check out their amazing documentation: ht
 
 
 ### Final steps
-Congratulations!!, you have saved hours by using this tool and not doing the `ClickyClicky` (Trademark pending) 
+Congratulations!!, you have saved hours by using this tool and not doing the `ClickyClicky` (Trademark pending)
