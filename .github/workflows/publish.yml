@@ -70,7 +70,13 @@ jobs:
           echo "Validating packages can be packed..."
           npx lerna exec -- npm pack --dry-run
 
-      #- run: cd packages/core && npm publish --access public
-      - name: Publish packages
-        run: |
-          npx lerna publish from-package --yes
+      # For some reason publishing with lerna fails with a E404 error even though authentication seems fine.
+      - run: cd packages/core && npm publish --access public
+        continue-on-error: true
+      - run: cd packages/utils && npm publish --access public
+        continue-on-error: true
+      - run: cd packages/create && npm publish --access public
+        continue-on-error: true
+      # - name: Publish packages
+      #   run: |
+      #     npx lerna publish from-package --yes
