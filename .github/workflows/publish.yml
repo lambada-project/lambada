@@ -71,10 +71,10 @@ jobs:
             npm view $package version 2>/dev/null && echo "$package exists on npm" || echo "$package does not exist on npm"
           done
 
-      - name: Dry run publish
+      - name: Validate packages before publish
         run: |
-          echo "Testing publish with dry-run..."
-          npx lerna publish from-package --yes --dry-run
+          echo "Validating packages can be packed..."
+          npx lerna exec -- npm pack --dry-run
 
       - name: Publish packages
         run: |
