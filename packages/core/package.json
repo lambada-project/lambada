@@ -8,8 +8,14 @@
 	"files": [
 		"dist"
 	],
+	"repository": {
+		"type": "git",
+		"url": "ssh://git@github.com/lambada-project/lambada.git",
+		"directory": "packages/core"
+	},
 	"publishConfig": {
-		"access": "public"
+		"access": "public",
+		"registry": "https://npm.pkg.github.com/"
 	},
 	"author": "Juan C. Andreu",
 	"scripts": {
