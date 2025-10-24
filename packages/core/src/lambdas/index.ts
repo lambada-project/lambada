@@ -161,7 +161,7 @@ export const createLambda = <E, R>(
                 }
             )
 
-            if (access.table.definition.indexes) {
+            if (access.table.definition.indexes?.length) {
                 policyStatements.push(
                     {
                         Action: access.access,
