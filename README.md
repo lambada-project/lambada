@@ -1,20 +1,15 @@
 ## LAMBADA
-Lambada is a very opinionated set of tools and frameworks put together to speed up developer productivity.
+Lambada is a highly opinionated framework designed to simplify and accelerate the development of serverless applications. It provides a cohesive set of tools and abstractions for creating robust infrastructure with minimal effort.
 
-We believe in "true" Infrastructure as Code, Replicable development environments, Integration Testing, Security, and Serverless.
-
+### Key Features
+- **True Infrastructure as Code**: Define your infrastructure entirely in TypeScript.
+- **Replicable Development Environments**: Ensure consistency across local and production environments.
+- **Security**: Simplified management of permissions and secrets.
+- **Serverless First**: Optimized for serverless architectures with AWS.
 
 ## Example
 
-Let's say we want to put all these together:
- - API Gateway
- - DynamoDB Table
- - Lambda to get list of TODO with
-   - Readonly (Query) Access to the table 
- - CloudFront
- 
-
-We can get it in seconds with the following script:
+Here’s how you can define an API Gateway, DynamoDB table, Lambda function, and CloudFront distribution in seconds:
 
 ```typescript
 const result = run(projectName, environment, {
@@ -22,44 +17,33 @@ const result = run(projectName, environment, {
         (context) => ({
             path: '/todos',
             method: 'GET',
-            callbackDefinition: async (event) => ({ result: [] }), // Just a callback with whatever data as body
-            resources: [{ // When we set access on a resource, we inject the env var with the final name
+            callbackDefinition: async (event) => ({ result: [] }),
+            resources: [{
                 table: context.databases?.todos,
                 access: [ LambdaResourceAccess.DynamoDbQuery ],
             }]
         })
     ],
-    createOptionsForCors: true, // Want to have cors of all lambdas? Done
+    createOptionsForCors: true,
     tables: {
         'todos': {
-            name: 'todos', // Will have a final name of {name}-{environment}
+            name: 'todos',
             primaryKey: 'userId',
             rangeKey: 'id',
-            envKeyName: 'TODOS_TABLE_NAME' // To get the actual table name on runtime
+            envKeyName: 'TODOS_TABLE_NAME'
         }
     },
     cdn: {
-        useCDN: true // Want to have Cloudfront on top? Done
+        useCDN: true
     },
-})
-
+});
 ```
-
 
 ## Tooling
 
-Running `npm create @lambada` will bootstrap:
-
-- DevContainer configuration
-- Docker Compose with:
-  - Dockerfile to dev on, with:
-    - Node
-    - AWS-SDK V2
-    - Latest Pulumi CLI
-  - DynamoDb container image
-- Pre-populated package.json with:
-  - AWS-SDK
-  - Pulumi-SDK
-  - @lambada/core
-- Example `run` configuration with a health endpoint.
+Running `npm create @lambada` will bootstrap a project with:
+- **DevContainer Configuration**: Pre-configured for VS Code.
+- **Docker Compose**: Includes a development container with Node.js, AWS SDK, Pulumi CLI, and a local DynamoDB instance.
+- **Pre-populated Package.json**: Includes dependencies like AWS SDK, Pulumi SDK, and Lambada core utilities.
+- **Example Configuration**: A working example with a health endpoint and basic infrastructure setup.
 

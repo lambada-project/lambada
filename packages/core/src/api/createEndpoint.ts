@@ -21,6 +21,7 @@ import { join } from 'path'
 export type EmbroideryRequest = {
     user?: AuthExecutionContext
     request: Request
+    context: aws.lambda.Context
 }
 
 export type DistributiveOmit<T, K extends keyof T> = T extends any ? Omit<T, K> : never
@@ -127,7 +128,6 @@ export const createEndpointSimpleCompat = (args: LambadaEndpointArgs, context: L
         options,
         webhook,
     } = args
-
     if (webhook?.wrapInQueue) {
         return createWebhook(args, context)
     }
