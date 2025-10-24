@@ -98,8 +98,7 @@ export async function ConfigureAwsEnvironment({ options }: LambadaEnvironmentCon
     const existingKeys = (await kms.listAliases({})).Aliases ?? []
 
     for (const key in keys) {
-        if (Object.hasOwn(keys, key)) {
-            // biome-ignore lint/style/noNonNullAssertion: move to @lambada/core
+        if (keys.hasOwnProperty(key)) {
             const keyConfig = keys[key]!
             const alias = `alias/${keyConfig.name}`
             const existingKey = existingKeys.find((x) => x.AliasName === alias)
