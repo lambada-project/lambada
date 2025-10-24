@@ -1,19 +1,16 @@
 import * as aws from "@pulumi/aws"
-import * as pulumi from "@pulumi/pulumi";
+import * as pulumi from "@pulumi/pulumi"
 import { BucketArgs } from '@pulumi/aws/s3'
 
 type StorageParams = Omit<BucketArgs, "tags" | 'description'>
 
 
-export function CreateBucket(item: BucketDefinition, name: string, environment: string, args: StorageParams): StorageResultItem {
+export function CreateBucket(item: BucketDefinition, name: string, environment: string, args: StorageParams,tags?: pulumi.Input<{ [key: string]: pulumi.Input<string> }>,): StorageResultItem {
     const bucketName = `${name}-${environment}`
 
     const bucket = new aws.s3.Bucket(bucketName, {
         // description: `KMS key: ${name} - Environment: ${environment} - Created by Embroidery`,
-        tags: {
-            'CreatedBy': 'Embroidery',
-            'Environment': environment
-        },
+        tags,
         ...args
     })
 
@@ -31,7 +28,7 @@ function findTable(name: string, environment: string): pulumi.Output<BucketRefer
     const bucketName = `${name}-${environment}`
     return pulumi.output(aws.s3.getBucket({
         bucket: bucketName,
-    }, { async: true }));
+    }, { async: true }))
 }
 
 export type BucketDefinition = {
@@ -45,13 +42,13 @@ export type LambadaBuckets = {
 }
 
 
-export function createStorageBuckets(projectName: string, environment: string, buckets: LambadaBuckets | undefined, bucketRef: LambadaBuckets | StorageResult | undefined): StorageResult {
+export function createStorageBuckets(projectName: string, environment: string, buckets: LambadaBuckets | undefined, bucketRef: LambadaBuckets | StorageResult | undefined, tags?: pulumi.Input<{ [key: string]: pulumi.Input<string> }>,): StorageResult {
     const result: StorageResult = {}
 
     for (const bucket in buckets) {
         if (buckets.hasOwnProperty(bucket)) {
-            const bucketItem = buckets[bucket];
-            result[bucket] = CreateBucket(bucketItem, `${projectName}-${bucketItem?.name}`, environment, bucketItem?.options ?? {})
+            const bucketItem = buckets[bucket]
+            result[bucket] = CreateBucket(bucketItem, `${projectName}-${bucketItem.name}`, environment, bucketItem.options ?? {}, tags)
         }
     }
 
@@ -60,11 +57,10 @@ export function createStorageBuckets(projectName: string, environment: string, b
             if (result[key]) {
                 throw new Error(`Cannot create a ref key with the same name of an existing key: ${key}`)
             }
-            const bucket = bucketRef[key];
+            const bucket = bucketRef[key]
 
             function isRef(obj: StorageResultItem | BucketDefinition): obj is StorageResultItem {
-                if (!obj) return false
-                return !!(obj as StorageResultItem)?.awsS3Bucket
+                return !!(obj as StorageResultItem).awsS3Bucket
             }
 
             if (isRef(bucket)) {
@@ -90,7 +86,7 @@ export type StorageResultItem = {
     awsS3Bucket?: aws.s3.Bucket
     ref: pulumi.Output<BucketReference>
     definition: BucketDefinition
-} | undefined
+}
 
 export type StorageResult = {
     [id: string]: StorageResultItem

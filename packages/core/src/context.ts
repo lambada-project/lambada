@@ -25,14 +25,14 @@ export type LambadaResources = {
         lambdaOptions?: LambdaOptions
     },
     authorizers: (CognitoAuthorizer | LambdaAuthorizer)[]
-    messaging: undefined | MessagingResult
-    queues: undefined | QueuesResult
-    notifications: undefined | NotificationResult
-    databases: undefined | DatabaseResult
-    storage: undefined | StorageResult
+    messaging?: MessagingResult
+    queues?: QueuesResult
+    notifications?: NotificationResult
+    databases?: DatabaseResult
+    storage?: StorageResult
     environment: string
-    kmsKeys: undefined | SecurityResult
+    kmsKeys?: SecurityResult
     environmentVariables: EmbroideryEnvironmentVariables
-    secrets: undefined | SecretsResult
-    globalTags: undefined | Input<{ [key: string]: Input<string> }>
+    secrets?: SecretsResult
+    globalTags?: Input<{ [key: string]: Input<string> }>
 }
