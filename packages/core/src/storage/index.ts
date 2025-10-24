@@ -24,7 +24,7 @@ export function CreateBucket(item: BucketDefinition, name: string, environment: 
     }
 }
 
-function findTable(name: string, environment: string): pulumi.Output<BucketReference> {
+function findBucket(name: string, environment: string): pulumi.Output<BucketReference> {
     const bucketName = `${name}-${environment}`
     return pulumi.output(aws.s3.getBucket({
         bucket: bucketName,
@@ -67,9 +67,9 @@ export function createStorageBuckets(projectName: string, environment: string, b
                 result[key] = bucket
             } else {
                 result[key] = {
-                    ref: findTable(bucket.name, environment),
+                    ref: findBucket(bucket.name, environment),
                     definition: bucket,
-                } as StorageResultItem
+                }
             }
         }
     }
