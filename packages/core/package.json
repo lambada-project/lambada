@@ -35,6 +35,7 @@
 	"devDependencies": {
 		"@asteasolutions/zod-to-openapi": "^5.2.0",
 		"@aws-sdk/client-dynamodb": "~3.864.0",
+		"@aws-sdk/client-kms": "~3.864.0",
 		"@aws-sdk/client-pinpoint": "~3.864.0",
 		"@aws-sdk/util-dynamodb": "~3.864.0",
 		"@lambada/utils": "^2.3.0",

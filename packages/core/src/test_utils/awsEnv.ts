@@ -1,12 +1,18 @@
 import { LambadaTables } from '../database/index'
 import { CreateTableInput, DynamoDB, DynamoDBClientConfig } from '@aws-sdk/client-dynamodb';
-type AWSOptionTypes = { dynamodb?: DynamoDBClientConfig }
+import { KMS, KMSClientConfig } from '@aws-sdk/client-kms'
+import { SecurityKeys } from '../security';
+type AWSOptionTypes = {
+    dynamodb?: DynamoDBClientConfig
+    kms?: KMSClientConfig
+}
 
 let currentAWSConfig: AWSOptionTypes;
 export type LambadaEnvironmentConfig = {
     options?: {
         aws?: AWSOptionTypes,
         tables?: LambadaTables
+        keys?: SecurityKeys
     }
 }
 
@@ -15,8 +21,9 @@ export async function ConfigureAwsEnvironment({ options }: LambadaEnvironmentCon
 
     currentAWSConfig = options?.aws ?? {}
     const tables = options?.tables ?? {};
+    const keys = options?.keys ?? {};
 
-    process.env.AWS_REGION = currentAWSConfig.dynamodb?.region?.toString() ?? ''
+    process.env.AWS_REGION = (currentAWSConfig.dynamodb?.region ?? currentAWSConfig.kms?.region ?? '').toString()
     const db = new DynamoDB(currentAWSConfig?.dynamodb ?? {})
 
     const existingTableNames = (await db.listTables({})).TableNames ?? []
@@ -83,6 +90,32 @@ export async function ConfigureAwsEnvironment({ options }: LambadaEnvironmentCon
                 }))
 
             } as CreateTableInput)
+        }
+    }
+
+    const kms = new KMS(currentAWSConfig.kms ?? {});
+
+    const existingKeys = (await kms.listAliases({})).Aliases ?? []
+
+    for (const key in keys) {
+        if (keys.hasOwnProperty(key)) {
+            const keyConfig = keys[key]!
+            const alias = `alias/${keyConfig.name}`
+            const existingKey = existingKeys.find((x) => x.AliasName === alias)
+            if (existingKey) {
+                process.env[keyConfig.envKeyName] = existingKey.TargetKeyId
+                continue
+            }
+            const result = await kms.createKey({
+                KeySpec: keyConfig.options?.customerMasterKeySpec?.toString() as never,
+                KeyUsage: keyConfig.options?.keyUsage?.toString() as never,
+            })
+
+            process.env[keyConfig.envKeyName] = result.KeyMetadata?.KeyId
+            await kms.createAlias({
+                AliasName: alias,
+                TargetKeyId: result.KeyMetadata?.KeyId,
+            })
         }
     }
 
