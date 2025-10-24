@@ -61,7 +61,6 @@ export function createSecrets(projectName: string, environment: string, secrets:
                     awsSecret: aws.secretsmanager.Secret.get(`${secretRef.name}-${environment}`, secret.id),
                     definition: secretRef
                 } satisfies SecretResultItem
-                throw new Error(`Cannot create ref secret: ${key}`)
             }
         }
     }
