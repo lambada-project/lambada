@@ -20,102 +20,108 @@ export type LambadaEnvironmentConfig = {
 export async function ConfigureAwsEnvironment({ options }: LambadaEnvironmentConfig): Promise<void> {
 
     currentAWSConfig = options?.aws ?? {}
-    const tables = options?.tables ?? {};
-    const keys = options?.keys ?? {};
+    const tables = options?.tables
+    const keys = options?.keys
 
     process.env.AWS_REGION = (currentAWSConfig.dynamodb?.region ?? currentAWSConfig.kms?.region ?? '').toString()
-    const db = new DynamoDB(currentAWSConfig?.dynamodb ?? {})
-
-    const existingTableNames = (await db.listTables({})).TableNames ?? []
     const delay = () => new Promise((resolve) => setTimeout(resolve, 200))
-    await delay()
 
-    validateTables(tables)
+    if (tables) {
+        const db = new DynamoDB(currentAWSConfig?.dynamodb ?? {})
 
-    for (const key in tables) {
+        const existingTableNames = (await db.listTables({})).TableNames ?? []
+        await delay()
 
-        if (tables.hasOwnProperty(key)) {
-            const table = tables[key];
-            process.env[table.envKeyName] = table.name
-            if (existingTableNames.includes(table.name)) {
-                continue;
-            }
-            await db.createTable({
-                TableName: table.name,
-                AttributeDefinitions: [
-                    {
-                        AttributeName: table.primaryKey,
-                        AttributeType: 'S'
-                    },
-                    table.rangeKey ?
+        validateTables(tables)
+
+        for (const key in tables) {
+
+            if (tables.hasOwnProperty(key)) {
+                const table = tables[key];
+                process.env[table.envKeyName] = table.name
+                if (existingTableNames.includes(table.name)) {
+                    continue;
+                }
+                await db.createTable({
+                    TableName: table.name,
+                    AttributeDefinitions: [
                         {
-                            AttributeName: table.rangeKey,
+                            AttributeName: table.primaryKey,
                             AttributeType: 'S'
-                        } : undefined,
-                    ...(table.attributes ?? []).map(x => ({
-                        AttributeName: x.name,
-                        AttributeType: x.type
-                    }))
+                        },
+                        table.rangeKey ?
+                            {
+                                AttributeName: table.rangeKey,
+                                AttributeType: 'S'
+                            } : undefined,
+                        ...(table.attributes ?? []).map(x => ({
+                            AttributeName: x.name,
+                            AttributeType: x.type
+                        }))
 
-                ].filter(x => typeof x !== 'undefined'),
-                KeySchema: [
-                    {
-                        AttributeName: table.primaryKey,
-                        KeyType: 'HASH'
-                    },
-                    table.rangeKey ?
-                        {
-                            AttributeName: table.rangeKey,
-                            KeyType: 'RANGE'
-                        } : undefined
-                ].filter(x => typeof x !== 'undefined'),
-                ProvisionedThroughput: {
-                    ReadCapacityUnits: 10,
-                    WriteCapacityUnits: 10
-                },
-                GlobalSecondaryIndexes: table.indexes?.map(x => ({
-                    IndexName: x.name,
+                    ].filter(x => typeof x !== 'undefined'),
                     KeySchema: [
-                        { AttributeName: x.hashKey, KeyType: "HASH" }, //Partition key
-                        ...(x.rangeKey ? [{ AttributeName: x.rangeKey, KeyType: "RANGE" }] : [])
-                    ],
-                    Projection: {
-                        ProjectionType: x.projectionType,
-                        NonKeyAttributes: x.projectionType == 'INCLUDE' ? x.nonKeyAttributes : undefined
-                    },
+                        {
+                            AttributeName: table.primaryKey,
+                            KeyType: 'HASH'
+                        },
+                        table.rangeKey ?
+                            {
+                                AttributeName: table.rangeKey,
+                                KeyType: 'RANGE'
+                            } : undefined
+                    ].filter(x => typeof x !== 'undefined'),
                     ProvisionedThroughput: {
                         ReadCapacityUnits: 10,
                         WriteCapacityUnits: 10
-                    }
-                }))
+                    },
+                    GlobalSecondaryIndexes: table.indexes?.map(x => ({
+                        IndexName: x.name,
+                        KeySchema: [
+                            { AttributeName: x.hashKey, KeyType: "HASH" }, //Partition key
+                            ...(x.rangeKey ? [{ AttributeName: x.rangeKey, KeyType: "RANGE" }] : [])
+                        ],
+                        Projection: {
+                            ProjectionType: x.projectionType,
+                            NonKeyAttributes: x.projectionType == 'INCLUDE' ? x.nonKeyAttributes : undefined
+                        },
+                        ProvisionedThroughput: {
+                            ReadCapacityUnits: 10,
+                            WriteCapacityUnits: 10
+                        }
+                    }))
 
-            } as CreateTableInput)
+                } as CreateTableInput)
+            }
         }
     }
 
-    const kms = new KMS(currentAWSConfig.kms ?? {});
+    if (keys) {
 
-    const existingKeys = (await kms.listAliases({})).Aliases ?? []
+        const kms = new KMS(currentAWSConfig.kms ?? {});
 
-    for (const key in keys) {
-        if (keys.hasOwnProperty(key)) {
-            const keyConfig = keys[key]!
-            const alias = `alias/${keyConfig.name}`
-            const existingKey = existingKeys.find((x) => x.AliasName === alias)
-            if (existingKey) {
-                process.env[keyConfig.envKeyName] = existingKey.TargetKeyId
-                continue
+        const existingKeys = (await kms.listAliases({})).Aliases ?? []
+
+        for (const key in keys) {
+            if (keys.hasOwnProperty(key)) {
+                const keyConfig = keys[key]!
+                const alias = `alias/${keyConfig.name}`
+                const existingKey = existingKeys.find((x) => x.AliasName === alias)
+                if (existingKey) {
+                    process.env[keyConfig.envKeyName] = existingKey.TargetKeyId
+                    continue
+                }
+                const result = await kms.createKey({
+                    KeySpec: keyConfig.options?.customerMasterKeySpec?.toString() as never,
+                    KeyUsage: keyConfig.options?.keyUsage?.toString() as never,
+                })
+
+                process.env[keyConfig.envKeyName] = result.KeyMetadata?.KeyId
+                await kms.createAlias({
+                    AliasName: alias,
+                    TargetKeyId: result.KeyMetadata?.KeyId,
+                })
             }
-            const result = await kms.createKey({
-                KeySpec: keyConfig.options?.customerMasterKeySpec?.toString() as never,
-                KeyUsage: keyConfig.options?.keyUsage?.toString() as never,
-            })
-
-            process.env[keyConfig.envKeyName] = result.KeyMetadata?.KeyId
-            await kms.createAlias({
-                AliasName: alias,
-                TargetKeyId: result.KeyMetadata?.KeyId,
-            })
         }
     }
 
