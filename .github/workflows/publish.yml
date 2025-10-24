@@ -3,14 +3,15 @@ name: Build and Publish to NPM
 on:
   push:
     branches: [main]
+  
+permissions: 
+  contents: read
+  id-token: write
 
 jobs:
   build-and-publish:
     runs-on: ubuntu-latest
     environment: production
-    permissions:
-      id-token: write
-      contents: read
     
     steps:
       - name: Checkout code

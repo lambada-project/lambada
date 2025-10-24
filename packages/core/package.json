@@ -15,7 +15,7 @@
 	},
 	"publishConfig": {
 		"access": "public",
-		"registry": "https://npm.pkg.github.com/"
+		"registry": "https://registry.npmjs.org"
 	},
 	"author": "Juan C. Andreu",
 	"scripts": {
