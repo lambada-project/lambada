@@ -161,16 +161,14 @@ export const createLambda = <E, R>(
                 }
             )
 
-            if (access.table.definition.indexes) {
-                for (const index of access.table.definition.indexes) {
-                    policyStatements.push(
-                        {
-                            Action: access.access,
-                            Resource: pulumi.interpolate`${access.table.ref.arn}/index/${index.name}`,
-                            Effect: 'Allow'
-                        }
-                    )
-                }
+            if (access.table.definition.indexes?.length) {
+                policyStatements.push(
+                    {
+                        Action: access.access,
+                        Resource: pulumi.interpolate`${access.table.ref.arn}/index/*`,
+                        Effect: 'Allow'
+                    }
+                )
             }
 
         }
