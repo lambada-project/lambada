@@ -2,12 +2,11 @@
   "name": "root",
   "private": true,
   "devDependencies": {
-    "lerna": "^8.2.3"
+    "lerna": "^9.0.1"
   },
   "scripts": {
     "clean": "lerna clean",
     "build": "lerna run build",
-    "update": "npm run lb && lerna run update-packages",
     "lerna:publish": "npm run build && lerna publish from-package"
   },
   "workspaces": [
