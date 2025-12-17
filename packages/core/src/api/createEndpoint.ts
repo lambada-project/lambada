@@ -154,7 +154,7 @@ export type LambadaEndpointResult<E, R> = {
     eventHandler: aws.lambda.EventHandler<E, R>
     apiKeyRequired: boolean | undefined
 }
-export type HTTP_METHODS = "GET" | "POST" | "DELETE" | "PUT" | "PATCH" | "OPTIONS"
+export type HTTP_METHODS = "GET" | "POST" | "DELETE" | "PUT" | "PATCH" | "OPTIONS" | "HEAD" | "ANY"
 export const createEndpoint = <E, R>(
     name: string,
     lambadaContext: LambadaResources,
