@@ -1,5 +1,5 @@
 import { LambadaResources, IsEndpointsArgs } from '..'
-import { LambadaEndpointArgs } from './createEndpoint'
+import { HTTP_METHODS, LambadaEndpointArgs } from './createEndpoint'
 
 import {
     OpenAPIRegistry,
@@ -44,19 +44,32 @@ export const createOpenApiDocumentEndpoint = (args: {
             const toLowerCase = <T extends string>(s: T): Lowercase<T> => {
                 return s.toLowerCase() as any;
             }
+            const method = toLowerCase(x.method)
 
-            const endpoint = {
-                ...config,
-                method: toLowerCase(x.method),
-                path: x.path,
-                responses: config.responses //not sure why ts is not getting that config.responses is a RouteConfig and {responses: config.responses
-            } satisfies RouteConfig
+            if (method === 'any') {
+                const anyMethod: Extract<Lowercase<HTTP_METHODS>, RouteConfig['method']>[] = ["get", "post", "delete", "put", "patch", "options", "head"]
 
-            if (x.webhook) {
-                registry.registerWebhook(endpoint)
+                for (const method of anyMethod) {
+                    register(method)
+                }
+            } else {
+                register(method)
             }
-            else {
-                registry.registerPath(endpoint)
+
+            function register(method: RouteConfig['method']) {
+                const endpoint = {
+                    ...config,
+                    method: method,
+                    path: x.path,
+                    responses: config.responses //not sure why ts is not getting that config.responses is a RouteConfig and {responses: config.responses
+                } satisfies RouteConfig
+
+                if (x.webhook) {
+                    registry.registerWebhook(endpoint)
+                }
+                else {
+                    registry.registerPath(endpoint)
+                }
             }
 
         })

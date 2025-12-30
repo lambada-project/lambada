@@ -31,7 +31,7 @@ export type LambadaEndpointArgs = {
     /** Custom name for your lambda, if empty it will take a name based on the path-verb */
     name?: string,
     path: string,
-    method: "GET" | "POST" | "DELETE" | "PUT" | "PATCH",
+    method: HTTP_METHODS,
     useBundle?: string,
     callbackDefinition: EmbroideryCallback,
     resources?: LambdaResource[],
@@ -154,7 +154,7 @@ export type LambadaEndpointResult<E, R> = {
     eventHandler: aws.lambda.EventHandler<E, R>
     apiKeyRequired: boolean | undefined
 }
-export type HTTP_METHODS = "GET" | "POST" | "DELETE" | "PUT" | "PATCH" | "OPTIONS"
+export type HTTP_METHODS = "GET" | "POST" | "DELETE" | "PUT" | "PATCH" | "OPTIONS" | "HEAD" | "ANY"
 export const createEndpoint = <E, R>(
     name: string,
     lambadaContext: LambadaResources,
