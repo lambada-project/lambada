@@ -36,6 +36,10 @@ type LambadaRunArguments = {
         policy?: pulumi.Input<string> | undefined,
         openAPIDocument?: OpenAPIObjectConfigV31
         lambdaDefaultOptions?: LambdaOptions
+        stage?: {
+            name?: string
+            variables?: Record<string, pulumi.Input<string>>
+        }
     },
     cdn?: {
         useCDN: boolean,
@@ -205,7 +209,6 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
         }
     }
 
-    //TODO pass stage name as parameter
     const api = createApi({
         projectName,
         environment,
@@ -222,6 +225,7 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
             local: args.staticSiteLocalPath,
             path: wwwPath,
         } : undefined,
+        stage: args.api?.stage,
         context: lambadaContext,
         auth: {
             apiKey: args.auth?.useApiKey
