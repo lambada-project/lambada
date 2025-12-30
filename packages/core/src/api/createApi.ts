@@ -35,13 +35,10 @@ type CreateApiArgs = {
         path: string
     },
     context: LambadaResources
-    // authorizerProviderARNs?:  (pulumi.Input<string> | aws.cognito.UserPool)[]
-    // messaging?: MessagingResult
-    // notifications?: NotificationResult
-    // databases?: DatabaseResult
-    // kmsKeys?: SecurityResult
-    // environmentVariables?: EmbroideryEnvironmentVariables
-    // secrets?: SecretsResult
+    stage?: {
+        name?: string
+        variables?: Record<string, pulumi.Input<string>>
+    }
     auth?: {
         apiKey?: {
             name?: string
@@ -69,19 +66,13 @@ export default function createApi(
         api,
         www,
         context,
-        // authorizerProviderARNs,
-        // messaging,
-        // notifications,
-        // databases,
-        // kmsKeys,
-        // environmentVariables,
-        // secrets
+        stage,
         auth,
         options,
     }: CreateApiArgs
 ): awsx.apigateway.API | undefined {
 
-    const stageName = 'app'
+    const stageName = stage?.name ?? 'app'
 
     const lambadaEndpoints: LambadaCreatorTypes[] = api?.apiEndpoints ? api.apiEndpoints
         .map(create => create(context))
@@ -129,6 +120,9 @@ export default function createApi(
         routes: allRoutes,
         //     warning: urn:pulumi:dev::backend-config-service::aws:apigateway:x:API$aws:apigateway/deployment:Deployment::configs-service-admin-dev verification warning: The attribute "stage_name" will be removed in a future major version. Use an explicit "aws_api_gateway_stage" instead.
         stageName: stageName,
+        stageArgs: stage?.variables ? {
+            variables: stage?.variables
+        } : undefined,
         restApiArgs: {
             endpointConfiguration: api?.type || api?.vpcEndpointIds ? {
                 types: api.type ?? 'EDGE',
