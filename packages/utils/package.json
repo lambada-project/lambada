@@ -7,9 +7,15 @@
   "files": [
     "dist"
   ],
-  "publishConfig": {
-    "access": "public"
-  },
+  "repository": {
+		"type": "git",
+		"url": "git+ssh://git@github.com/lambada-project/lambada.git",
+		"directory": "packages/utils"
+	},
+	"publishConfig": {
+		"access": "public",
+		"registry": "https://registry.npmjs.org"
+	},
   "author": "Juan C. Andreu",
   "scripts": {
     "prebuild": "rimraf dist",
