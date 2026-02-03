@@ -46,4 +46,3 @@ Running `npm create @lambada` will bootstrap a project with:
 - **Docker Compose**: Includes a development container with Node.js, AWS SDK, Pulumi CLI, and a local DynamoDB instance.
 - **Pre-populated Package.json**: Includes dependencies like AWS SDK, Pulumi SDK, and Lambada core utilities.
 - **Example Configuration**: A working example with a health endpoint and basic infrastructure setup.
-
