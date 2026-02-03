@@ -9,8 +9,8 @@
 		"build:bun": "bun build --target node --outdir dist src/index.mts"
 	},
 	"dependencies": {
-		"@aws-sdk/util-dynamodb": "~3.864.0",
-		"@lambada/utils": "~2.3.0",
+		"@aws-sdk/util-dynamodb": "~3.981.0",
+		"@lambada/utils": "file://../packages/utils",
 		"aws-sdk": "^2.1077.0",
 		"uuid": "^9.0.0"
 	},

@@ -1,6 +1,6 @@
 {
   "name": "@lambada/utils",
-  "version": "2.4.0",
+  "version": "2.4.1",
   "main": "dist/index.js",
   "module": "dist/index.js",
   "typings": "dist/index.d.ts",
@@ -35,10 +35,10 @@
     "typescript": "^5.9.2"
   },
   "peerDependencies": {
-    "@aws-sdk/client-cognito-identity-provider": "~3.864.0",
-    "@aws-sdk/client-dynamodb": "~3.864.0",
-    "@aws-sdk/client-secrets-manager": "~3.864.0",
-    "@aws-sdk/util-dynamodb": "~3.864.0",
+    "@aws-sdk/client-cognito-identity-provider": "~3.981.0",
+    "@aws-sdk/client-dynamodb": "~3.981.0",
+    "@aws-sdk/client-secrets-manager": "~3.981.0",
+    "@aws-sdk/util-dynamodb": "~3.981.0",
     "@types/aws-lambda": "^8.10.152"
   },
   "description": "",
