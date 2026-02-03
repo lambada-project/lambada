@@ -13,8 +13,7 @@
 		"directory": "packages/utils"
 	},
 	"publishConfig": {
-		"access": "public",
-		"registry": "https://registry.npmjs.org"
+		"access": "public"
 	},
   "author": "Juan C. Andreu",
   "scripts": {
