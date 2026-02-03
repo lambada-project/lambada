@@ -8,13 +8,13 @@
     "dist"
   ],
   "repository": {
-		"type": "git",
-		"url": "git+ssh://git@github.com/lambada-project/lambada.git",
-		"directory": "packages/utils"
-	},
-	"publishConfig": {
-		"access": "public"
-	},
+    "type": "git",
+    "url": "git+ssh://git@github.com/lambada-project/lambada.git",
+    "directory": "packages/utils"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "author": "Juan C. Andreu",
   "scripts": {
     "prebuild": "rimraf dist",
