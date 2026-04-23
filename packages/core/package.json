@@ -48,8 +48,7 @@
 	},
 	"gitHead": "487cc342922d5e6fc5a1e9b2d8737f744c6e032c",
 	"dependencies": {
-		"bun": "^1.2.20",
-		"func-loc": "^0.1.16"
+		"bun": "^1.2.20"
 	},
 	"sideEffects": false
 }
