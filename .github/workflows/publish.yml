@@ -26,9 +26,6 @@ jobs:
           node-version: '22'
           registry-url: 'https://registry.npmjs.org'
           cache: 'npm'
-
-      - run: npm install -g npm@latest
-
       - name: Install dependencies
         run: npm i # npm ci fails :/
 
