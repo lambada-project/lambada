@@ -71,7 +71,7 @@ export const createQueues = (
                 result[key] = queueRef
             }
             else {
-                const queue = findQueue(queueRef.name, environment, queueRef.options?.fifoQueue ?? false)
+                const queue = findQueue(queueRef.name, environment, liftOut(queueRef.options?.fifoQueue, x => x ?? false))
 
                 result[key] = {
                     awsQueue: aws.sqs.Queue.get(`${queueRef.name}-${environment}`, queue.id),
@@ -128,4 +128,8 @@ export type QueuesContext = {
     environment: string
     databases?: DatabaseResult
     kmsKeys?: SecurityResult
+}
+
+function liftOut<T, U>(out: pulumi.Input<T>, fn: (x:T)=>U) {
+    return pulumi.Output.isInstance(out) ? out.apply(fn) : out instanceof Promise ? out.then(fn) : fn(out)
 }

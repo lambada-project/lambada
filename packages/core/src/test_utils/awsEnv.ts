@@ -2,6 +2,7 @@ import { LambadaTables } from '../database/index'
 import { CreateTableInput, DynamoDB, DynamoDBClientConfig } from '@aws-sdk/client-dynamodb';
 import { KMS, KMSClientConfig } from '@aws-sdk/client-kms'
 import { SecurityKeys } from '../security';
+import { Input } from '@pulumi/pulumi';
 type AWSOptionTypes = {
     dynamodb?: DynamoDBClientConfig
     kms?: KMSClientConfig
@@ -182,7 +183,7 @@ export async function RemoveResources(config: LambadaEnvironmentConfig): Promise
 }
 
 function validateTables(tables: LambadaTables): asserts tables is LambadaTables {
-    const isString = (s?: string | LambadaTables[string]['primaryKey'] | Required<LambadaTables[string]>['attributes'][number]['name']): s is string => typeof s === 'string'
+    const isString = (s: string | undefined | Input<string | undefined> ): s is string => typeof s === 'string'
     for (const tableKey in tables) {
         const table = tables[tableKey]
         const tableKeys = [table.primaryKey, table.rangeKey,].filter(isString)

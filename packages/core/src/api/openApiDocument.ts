@@ -1,17 +1,16 @@
 import { LambadaResources, IsEndpointsArgs } from '..'
 import { HTTP_METHODS, LambadaEndpointArgs } from './createEndpoint'
-
 import {
     OpenAPIRegistry,
-    RouteConfig
+    RouteConfig,
+    extendZodWithOpenApi,
+    OpenApiGeneratorV31
 } from '@asteasolutions/zod-to-openapi';
-
-import { extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
+import { OpenAPIObject } from 'openapi3-ts/oas31';
 import { z } from 'zod';
-import { OpenAPIObjectConfigV31, OpenApiGeneratorV31, } from '@asteasolutions/zod-to-openapi/dist/v3.1/openapi-generator'
 
 extendZodWithOpenApi(z);
-
+export type OpenAPIObjectConfigV31 = Omit<OpenAPIObject, 'paths' | 'components' | 'webhooks'>;
 
 export const createOpenApiDocumentEndpoint = (args: {
     projectName: string,
