@@ -99,7 +99,7 @@ async function _FindUser(userPoolId: string, userId?: string, username?: string)
             if (!cu.UserAttributes) throw 'User has no attributes'
 
             //TODO Pass environment
-            var customAttributes = cu.UserAttributes.filter(x => x.Name?.startsWith('dev:custom:'))
+            var customAttributes = cu.UserAttributes.filter(x => x.Name?.startsWith('custom:'))
             userId = cu.UserAttributes.find(x => x.Name == 'sub')?.Value;
             var email = cu.UserAttributes.find(x => x.Name == 'email')?.Value
             var name = cu.UserAttributes.find(x => x.Name == 'name')?.Value
@@ -130,7 +130,7 @@ async function _FindUser(userPoolId: string, userId?: string, username?: string)
 
                 username = cu.Username
 
-                var customAttributes = cu.Attributes.filter(x => x.Name?.startsWith('dev:custom:'));
+                var customAttributes = cu.Attributes.filter(x => x.Name?.startsWith('custom:'));
                 var sub = cu.Attributes.find(x => x.Name == 'sub')?.Value;
                 var name = cu.Attributes.find(x => x.Name == 'name')?.Value
                 var email = cu.Attributes.find(x => x.Name == 'email')?.Value
