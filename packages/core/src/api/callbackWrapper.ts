@@ -1,5 +1,5 @@
 
-import { getCorsHeaders } from '@lambada/utils';
+import { getCorsHeaders, getRequestOrigin } from '@lambada/utils';
 import { getContext } from '@lambada/utils';
 
 import { Response } from '@pulumi/awsx/classic/apigateway/api'
@@ -37,7 +37,7 @@ export function createCallback(
     const callback = async (request: Request, ctx: LambdaContext): Promise<Response> => {
         ctx.callbackWaitsForEmptyEventLoop = options?.callbackWaitsForEmptyEventLoop ?? context.api?.lambdaOptions?.callbackWaitsForEmptyEventLoop ?? ctx.callbackWaitsForEmptyEventLoop;
 
-        extraHeaders = { ...getCorsHeaders(request.requestContext.domainName, context.api?.cors?.origins, context.api?.cors?.headers), ...(extraHeaders ?? {}) }
+        extraHeaders = { ...getCorsHeaders(getRequestOrigin(request.headers), context.api?.cors?.origins, context.api?.cors?.headers), ...(extraHeaders ?? {}) }
         if (cacheControl)
             extraHeaders = { ...extraHeaders, ...({ 'cache-control': cacheControl }) }
         

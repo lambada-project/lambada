@@ -4,7 +4,7 @@ import { Request, Response, EventHandlerRoute, IntegrationRoute } from '@pulumi/
 import { LambadaResources } from '../context';
 import { EmbroideryEventHandlerRoute } from '.';
 import { getNameFromPath } from './utils';
-import { getCorsHeaders } from '@lambada/utils';
+import { getCorsHeaders, getRequestOrigin } from '@lambada/utils';
 import { Role } from '@pulumi/aws/iam';
 
 export const createCorsEndpoints = (endpoints: EmbroideryEventHandlerRoute[], embroideryContext: LambadaResources, origins: string[] | undefined, headers: string[] | undefined): EmbroideryEventHandlerRoute[] => {
@@ -44,7 +44,7 @@ function createCorsFunction(origins: string[] | undefined, headers: string[] | u
     const callback = async (req: Request): Promise<Response> => {
         return {
             statusCode: 200,
-            headers: getCorsHeaders(req.requestContext.domainName, origins, headers),
+            headers: getCorsHeaders(getRequestOrigin(req.headers), origins, headers),
             body: JSON.stringify({
                 data: {}
             }),
