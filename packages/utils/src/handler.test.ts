@@ -73,6 +73,23 @@ describe('createHandler', () => {
         expect(response.headers?.['x-extra']).toBe('yes')
     })
 
+    /**
+     * Regression: the wrapper used to merge each request's CORS headers into a variable captured by
+     * its closure, so on a warm container the first request's allowed origin survived into every
+     * later one. `getCorsHeaders` only ever returns an allowlisted value, so this misroutes among
+     * trusted origins rather than admitting an untrusted one -- a correctness bug, not a CORS bypass.
+     */
+    test('does not leak CORS headers between invocations on a warm container', async () => {
+        const config = { cors: { origins: ['https://a.example', 'https://b.example'] } }
+        const handler = createHandler(async () => ({ ok: true }), config)
+
+        const first = await handler(makeRequest({ origin: 'https://a.example' }), makeContext())
+        const second = await handler(makeRequest({ origin: 'https://b.example' }), makeContext())
+
+        expect(first.headers?.['Access-Control-Allow-Origin']).toBe('https://a.example')
+        expect(second.headers?.['Access-Control-Allow-Origin']).toBe('https://b.example')
+    })
+
     test('does not mutate the config it was given', async () => {
         const config = { cors: { origins: ['https://a.example'] }, extraHeaders: { 'x-extra': 'yes' } }
         const handler = createHandler(async () => ({ ok: true }), config)

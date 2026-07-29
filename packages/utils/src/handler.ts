@@ -53,9 +53,6 @@ export function createHandler<TContext extends WrappableContext>(
     callbackDefinition: HandlerCallback<TContext>,
     config: WrapperConfig = {}
 ): (request: Request, ctx: TContext) => Promise<HandlerResponse> {
-    // Destructured to mirror `createCallback`'s parameter list one-for-one. `extraHeaders` is `let`
-    // because the original reassigned its parameter; see the commit that follows this one.
-    let { extraHeaders } = config
     const { cors, cacheControl, callbackWaitsForEmptyEventLoop } = config
 
     return async (request: Request, ctx: TContext): Promise<HandlerResponse> => {
@@ -63,9 +60,12 @@ export function createHandler<TContext extends WrappableContext>(
             ctx.callbackWaitsForEmptyEventLoop = callbackWaitsForEmptyEventLoop
         }
 
-        extraHeaders = {
+        // Must stay local to the invocation. Lambda reuses a warm container, so anything merged into
+        // a variable captured by this closure outlives the request that produced it -- and the CORS
+        // headers below are request-derived.
+        let extraHeaders: { [name: string]: string } = {
             ...getCorsHeaders(getRequestOrigin(request.headers), cors?.origins, cors?.headers),
-            ...(extraHeaders ?? {})
+            ...(config.extraHeaders ?? {})
         }
 
         if (cacheControl)
