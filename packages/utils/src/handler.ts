@@ -39,6 +39,64 @@ export type WrapperConfig = {
     callbackWaitsForEmptyEventLoop?: boolean
 }
 
+/**
+ * Environment variables carrying the wrapper config into a bundled Lambda. Declared here, next to the
+ * only code that reads them, so `@lambada/core` writing them and `wrapperConfigFromEnv` reading them
+ * cannot drift apart.
+ */
+export const WRAPPER_ENV = {
+    corsOrigins: 'LAMBADA_CORS_ORIGINS',
+    corsHeaders: 'LAMBADA_CORS_HEADERS',
+    extraHeaders: 'LAMBADA_EXTRA_HEADERS',
+    cacheControl: 'LAMBADA_CACHE_CONTROL',
+    callbackWaitsForEmptyEventLoop: 'LAMBADA_CALLBACK_WAITS_FOR_EMPTY_EVENT_LOOP'
+} as const
+
+/**
+ * Rebuilds the config inside a bundled Lambda, where there is no Pulumi closure to capture it from.
+ *
+ * An absent variable stays `undefined` rather than becoming a default, so the wrapper falls back to the
+ * same behaviour it has when the deployment configured nothing.
+ */
+export const wrapperConfigFromEnv = (env: { [key: string]: string | undefined } = process.env): WrapperConfig => {
+    const list = (value: string | undefined): string[] | undefined =>
+        value === undefined ? undefined : value.split(',').map(x => x.trim()).filter(x => x.length > 0)
+
+    const waits = env[WRAPPER_ENV.callbackWaitsForEmptyEventLoop]
+    const extraHeaders = env[WRAPPER_ENV.extraHeaders]
+
+    return {
+        cors: {
+            origins: list(env[WRAPPER_ENV.corsOrigins]),
+            headers: list(env[WRAPPER_ENV.corsHeaders])
+        },
+        extraHeaders: extraHeaders ? JSON.parse(extraHeaders) : undefined,
+        cacheControl: env[WRAPPER_ENV.cacheControl],
+        callbackWaitsForEmptyEventLoop: waits === undefined ? undefined : waits === 'true'
+    }
+}
+
+/**
+ * The config as environment variables, for a bundled Lambda that has no closure to capture it from.
+ * `@lambada/core` calls this at deploy time; `wrapperConfigFromEnv` above is the reader.
+ *
+ * Only set keys are emitted — an absent variable means "not configured", which the wrapper treats the
+ * same way as an unset field.
+ */
+export const toWrapperEnvVars = (config: WrapperConfig): { [key: string]: string } => {
+    const vars: { [key: string]: string } = {}
+
+    if (config.cors?.origins) vars[WRAPPER_ENV.corsOrigins] = config.cors.origins.join(',')
+    if (config.cors?.headers) vars[WRAPPER_ENV.corsHeaders] = config.cors.headers.join(',')
+    if (config.extraHeaders && Object.keys(config.extraHeaders).length > 0)
+        vars[WRAPPER_ENV.extraHeaders] = JSON.stringify(config.extraHeaders)
+    if (config.cacheControl) vars[WRAPPER_ENV.cacheControl] = config.cacheControl
+    if (config.callbackWaitsForEmptyEventLoop !== undefined)
+        vars[WRAPPER_ENV.callbackWaitsForEmptyEventLoop] = String(config.callbackWaitsForEmptyEventLoop)
+
+    return vars
+}
+
 const isResponse = (result: any): boolean => {
     return result && (
         result.body && result.statusCode

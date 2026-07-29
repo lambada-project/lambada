@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'bun:test'
-import { createHandler, WrappableContext } from './handler'
+import { createHandler, toWrapperEnvVars, WrappableContext, WrapperConfig, wrapperConfigFromEnv } from './handler'
 import { Request } from './request'
 
 const makeRequest = (overrides?: {
@@ -141,5 +141,52 @@ describe('createHandler', () => {
         } finally {
             delete process.env.IS_LOCALSTACK
         }
+    })
+})
+
+/**
+ * The deploy side writes these vars and the bundled Lambda reads them back. A round trip is what keeps
+ * the two halves honest: adding a WrapperConfig field to one without the other shows up here.
+ */
+describe('wrapper config over the environment', () => {
+    test('round-trips a fully populated config', () => {
+        const config: WrapperConfig = {
+            cors: { origins: ['https://a.example', 'https://b.example'], headers: ['authorization', 'content-type'] },
+            extraHeaders: { 'x-extra': 'yes' },
+            cacheControl: 'max-age=60',
+            callbackWaitsForEmptyEventLoop: false
+        }
+
+        expect(wrapperConfigFromEnv(toWrapperEnvVars(config))).toEqual(config)
+    })
+
+    test('an empty config sets nothing, and reads back as nothing configured', () => {
+        expect(toWrapperEnvVars({})).toEqual({})
+        expect(wrapperConfigFromEnv({})).toEqual({
+            cors: { origins: undefined, headers: undefined },
+            extraHeaders: undefined,
+            cacheControl: undefined,
+            callbackWaitsForEmptyEventLoop: undefined
+        })
+    })
+
+    test('a config restored from the environment produces the same headers as the original', async () => {
+        const config: WrapperConfig = { cors: { origins: ['https://a.example'] }, cacheControl: 'max-age=5' }
+        const request = makeRequest({ origin: 'https://a.example' })
+
+        const direct = await createHandler(async () => ({ ok: true }), config)(request, makeContext())
+        const viaEnv = await createHandler(
+            async () => ({ ok: true }),
+            wrapperConfigFromEnv(toWrapperEnvVars(config))
+        )(makeRequest({ origin: 'https://a.example' }), makeContext())
+
+        expect(viaEnv.headers).toEqual(direct.headers)
+    })
+
+    test('callbackWaitsForEmptyEventLoop survives as false, not as absent', () => {
+        expect(wrapperConfigFromEnv(toWrapperEnvVars({ callbackWaitsForEmptyEventLoop: false })))
+            .toMatchObject({ callbackWaitsForEmptyEventLoop: false })
+        expect(wrapperConfigFromEnv(toWrapperEnvVars({ callbackWaitsForEmptyEventLoop: true })))
+            .toMatchObject({ callbackWaitsForEmptyEventLoop: true })
     })
 })
