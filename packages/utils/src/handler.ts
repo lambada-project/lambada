@@ -1,6 +1,6 @@
 import * as awslambda from 'aws-lambda'
-import { getCorsHeaders, getRequestOrigin } from './cors'
-import { AuthExecutionContext, getContext, Request } from './request'
+import { getCorsHeaders, getRequestOrigin } from './cors.js'
+import { AuthExecutionContext, getContext, Request } from './request.js'
 
 export declare type HandlerResponse = awslambda.APIGatewayProxyResult
 

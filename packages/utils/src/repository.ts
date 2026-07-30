@@ -1,5 +1,5 @@
 import * as DynamoDB from "@aws-sdk/client-dynamodb"
-import { IMarshaller, DefaultMarshaller } from "./dynamoMarshaller";
+import { IMarshaller, DefaultMarshaller } from "./dynamoMarshaller.js";
 
 export class RepositoryBase {
     protected marshaller: IMarshaller

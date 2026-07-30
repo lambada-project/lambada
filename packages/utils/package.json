@@ -7,40 +7,49 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
+      "import": "./dist/esm/index.js",
+      "require": "./dist/index.js"
     },
     "./handler": {
       "types": "./dist/handler.d.ts",
-      "default": "./dist/handler.js"
+      "import": "./dist/esm/handler.js",
+      "require": "./dist/handler.js"
     },
     "./request": {
       "types": "./dist/request.d.ts",
-      "default": "./dist/request.js"
+      "import": "./dist/esm/request.js",
+      "require": "./dist/request.js"
     },
     "./cors": {
       "types": "./dist/cors.d.ts",
-      "default": "./dist/cors.js"
+      "import": "./dist/esm/cors.js",
+      "require": "./dist/cors.js"
     },
     "./users": {
       "types": "./dist/users.d.ts",
-      "default": "./dist/users.js"
+      "import": "./dist/esm/users.js",
+      "require": "./dist/users.js"
     },
     "./repository": {
       "types": "./dist/repository.d.ts",
-      "default": "./dist/repository.js"
+      "import": "./dist/esm/repository.js",
+      "require": "./dist/repository.js"
     },
     "./error": {
       "types": "./dist/error.d.ts",
-      "default": "./dist/error.js"
+      "import": "./dist/esm/error.js",
+      "require": "./dist/error.js"
     },
     "./package.json": "./package.json",
     "./dist/*.js": {
       "types": "./dist/*.d.ts",
-      "default": "./dist/*.js"
+      "import": "./dist/esm/*.js",
+      "require": "./dist/*.js"
     },
     "./dist/*": {
       "types": "./dist/*.d.ts",
-      "default": "./dist/*.js"
+      "import": "./dist/esm/*.js",
+      "require": "./dist/*.js"
     }
   },
   "files": [
@@ -57,7 +66,7 @@
   "author": "Juan C. Andreu",
   "scripts": {
     "prebuild": "rimraf dist",
-    "build": "tsc",
+    "build": "tsc && tsc -p tsconfig.esm.json && node -e \"require('fs').writeFileSync('dist/esm/package.json', JSON.stringify({type:'module'},null,2))\"",
     "test": "jest"
   },
   "license": "MIT",

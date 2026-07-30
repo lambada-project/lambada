@@ -1,6 +1,6 @@
 import { AttributeType, CognitoIdentityProvider } from '@aws-sdk/client-cognito-identity-provider'
-import { LambadaError } from "./error";
-import { AuthExecutionContext } from "./request";
+import { LambadaError } from "./error.js";
+import { AuthExecutionContext } from "./request.js";
 
 /**
  * Cognito-backed user lookups.

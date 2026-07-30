@@ -1,5 +1,5 @@
-import { RepositoryBase } from './repository'
-import { DefaultMarshaller, IMarshaller } from "./dynamoMarshaller"
+import { RepositoryBase } from './repository.js'
+import { DefaultMarshaller, IMarshaller } from "./dynamoMarshaller.js"
 import { describe, test, expect } from 'bun:test'
 
 describe("Repository", () => {

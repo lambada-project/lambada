@@ -1,5 +1,5 @@
 import * as awslambda from "aws-lambda"
-import { LambadaError } from "./error";
+import { LambadaError } from "./error.js";
 import * as crypto from 'node:crypto'
 
 

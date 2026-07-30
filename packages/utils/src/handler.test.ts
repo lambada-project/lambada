@@ -1,6 +1,6 @@
 import { describe, test, expect } from 'bun:test'
-import { createHandler, toWrapperEnvVars, WrappableContext, WrapperConfig, wrapperConfigFromEnv } from './handler'
-import { Request } from './request'
+import { createHandler, toWrapperEnvVars, WrappableContext, WrapperConfig, wrapperConfigFromEnv } from './handler.js'
+import { Request } from './request.js'
 
 const makeRequest = (overrides?: {
     origin?: string
