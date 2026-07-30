@@ -63,7 +63,7 @@ const AWSXRayDaemonWriteAccess: PolicyStatement = {
 }
 
 
-export type FolderLambda = {
+export type LambdaFolder = {
     /**
      * Handler directory location
      */
@@ -125,7 +125,7 @@ export type LambdaOptions = {
 export const createLambda = <E, R>(
     name: string,
     environment: string,
-    definition: Callback<E, R> | FolderLambda,
+    definition: Callback<E, R> | LambdaFolder,
     policyStatements: aws.iam.PolicyStatement[],
     environmentVariables: EmbroideryEnvironmentVariables,
     resources: LambdaResource[],
@@ -318,9 +318,9 @@ export const createLambda = <E, R>(
             layers: layers
         })
     }
-    else if ((definition as FolderLambda).functionFolder) {
+    else if ((definition as LambdaFolder).functionFolder) {
         if (lambdaRole) {
-            const handlerInfo = (definition as FolderLambda)
+            const handlerInfo = (definition as LambdaFolder)
 
             return new aws.lambda.Function(`${name}-${environment}`, {
                 runtime: runtime,

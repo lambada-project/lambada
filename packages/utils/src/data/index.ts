@@ -1,1 +1,1 @@
-export * from './repositoryExtended'
+export * from './repositoryExtended.js'

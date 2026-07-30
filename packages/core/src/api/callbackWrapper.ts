@@ -1,9 +1,8 @@
 
-import { getCorsHeaders, getRequestOrigin } from '@lambada/utils';
-import { getContext } from '@lambada/utils';
+import { createHandler, WrapperConfig } from '@lambada/utils';
 
 import { Response } from '@pulumi/awsx/classic/apigateway/api'
-import { EmbroideryCallback, LambadaEndpointArgs } from "./createEndpoint"
+import { EmbroideryCallback } from "./createEndpoint"
 import * as awslambda from "aws-lambda"
 import { LambadaResources } from '..';
 import { LambdaOptions } from '../lambdas';
@@ -13,6 +12,39 @@ export declare type LambdaContext = awslambda.Context
 type Wrapper = (request: Request, ctx: LambdaContext) => Promise<Response>
 
 
+/**
+ * Maps deploy-time `LambadaResources` onto the plain `WrapperConfig` that `@lambada/utils` consumes.
+ *
+ * The wrapper body itself lives in `@lambada/utils` because that package is Pulumi-free: a Lambda
+ * deployed as a pre-built bundle (rather than through Pulumi's closure serializer) can import it at
+ * runtime, while this package cannot. Keeping the adapter here and the behaviour there means both
+ * deployment styles share one implementation.
+ */
+export function toWrapperConfig(
+    {
+        context,
+        extraHeaders,
+        options,
+        cacheControl
+    }: {
+        context: LambadaResources,
+        extraHeaders?: {},
+        options?: LambdaOptions,
+        cacheControl?: string
+    }
+): WrapperConfig {
+    return {
+        cors: {
+            origins: context.api?.cors?.origins,
+            headers: context.api?.cors?.headers
+        },
+        extraHeaders: extraHeaders,
+        cacheControl: cacheControl,
+        callbackWaitsForEmptyEventLoop:
+            options?.callbackWaitsForEmptyEventLoop ??
+            context.api?.lambdaOptions?.callbackWaitsForEmptyEventLoop
+    }
+}
 
 export function createCallback(
     {
@@ -29,98 +61,8 @@ export function createCallback(
         cacheControl?: string
     }
 ): Wrapper {
-    const isResponse = (result: any): boolean => {
-        return result && (
-            result.body && result.statusCode
-        )
-    }
-    const callback = async (request: Request, ctx: LambdaContext): Promise<Response> => {
-        ctx.callbackWaitsForEmptyEventLoop = options?.callbackWaitsForEmptyEventLoop ?? context.api?.lambdaOptions?.callbackWaitsForEmptyEventLoop ?? ctx.callbackWaitsForEmptyEventLoop;
-
-        extraHeaders = { ...getCorsHeaders(getRequestOrigin(request.headers), context.api?.cors?.origins, context.api?.cors?.headers), ...(extraHeaders ?? {}) }
-        if (cacheControl)
-            extraHeaders = { ...extraHeaders, ...({ 'cache-control': cacheControl }) }
-        
-        if (request.requestContext.accountId === "000000000000" && process.env.IS_LOCALSTACK === 'true') {
-            console.log('Mocking user on account 000000000000');
-            request.requestContext.authorizer = {
-                claims: {
-                    iss: '123456789',
-                    sub: request.headers['x-mock-user-id'],
-                    username: request.headers['x-mock-username'],
-                    'cognito:username': request.headers['x-mock-username'],
-                    email: request.headers['x-mock-email'],
-                }
-            }
-        }
-
-        const authContext = await getContext(request)
-        try {
-            const result = await callbackDefinition({
-                user: authContext,
-                request,
-                context: ctx
-            })
-
-            if (isResponse(result)) {
-
-                const resultTyped = result as any
-
-                if (typeof resultTyped.body !== 'string') {
-                    resultTyped.body = JSON.stringify(resultTyped.body)
-                }
-
-                return {
-                    ...resultTyped,
-                    headers: {
-                        ...(extraHeaders || {}),
-                        ...(resultTyped.headers || {}),
-                    }
-                }
-            }
-
-            return {
-                statusCode: 200,
-                body: JSON.stringify(result ?? {}),
-                headers: (extraHeaders || {})
-            }
-
-        } catch (ex: any) {
-            console.error(ex)
-            const showErrorDetails = ex && (ex.showError || process.env['LAMBADA_SHOW_ALL_ERRORS'] == 'true')
-            if (showErrorDetails) {
-                return {
-                    statusCode: ex.statusCode ?? 500,
-                    body: JSON.stringify({
-
-                        error: {
-                            message: ex.message ?? ex.errorMessage,
-                            code: ex.code ?? ex.errorCode,
-                            data: ex.data
-                        },
-
-                        errors: [
-                            {
-                                message: ex.message ?? ex.errorMessage,
-                                code: ex.code ?? ex.errorCode,
-                                data: ex.data
-                            }
-                        ]
-                    }),
-                    headers: (extraHeaders || {})
-                }
-            } else {
-                return {
-                    statusCode: 500,
-                    body: JSON.stringify({
-                        error: 'Bad Request'
-                    }),
-                    headers: (extraHeaders || {})
-                }
-            }
-        }
-    }
-
-
-    return callback
+    return createHandler<LambdaContext>(
+        callbackDefinition,
+        toWrapperConfig({ context, extraHeaders, options, cacheControl })
+    )
 }

@@ -1,19 +1,16 @@
 import { Request, Response, Route } from '@pulumi/awsx/classic/apigateway/api'
 import * as aws from "@pulumi/aws";
-import { createLambda, FolderLambda, LambdaOptions, LambdaResource } from '../lambdas';
+import { createLambda, LambdaFolder, LambdaOptions, LambdaResource } from '../lambdas';
 import { LambadaResources } from '../context';
 import { Callback } from '@pulumi/aws/lambda';
-import { AuthExecutionContext } from '@lambada/utils';
+import { AuthExecutionContext, toWrapperEnvVars } from '@lambada/utils';
 import { EmbroideryEnvironmentVariables } from '..';
 import { CognitoAuthorizer, LambdaAuthorizer, Method } from '@pulumi/awsx/classic/apigateway';
 import { getNameFromPath } from './utils';
 import { createWebhook } from './createWebhook';
-import { createCallback } from './callbackWrapper';
+import { createCallback, toWrapperConfig } from './callbackWrapper';
 import { QueueArgs } from '@pulumi/aws/sqs';
 import { OpenAPIRegistry, RouteConfig } from '@asteasolutions/zod-to-openapi';
-import { execSync } from 'child_process'
-import { readFileSync, writeFileSync, mkdirSync } from 'fs'
-import { join } from 'path'
 
 
 
@@ -32,7 +29,16 @@ export type LambadaEndpointArgs = {
     name?: string,
     path: string,
     method: HTTP_METHODS,
-    useBundle?: string,
+    /**
+     * Deploy a pre-built bundle instead of a Pulumi-serialized closure: the folder to upload and the
+     * `file.export` to invoke. `callbackDefinition` is ignored when this is set — the handler comes from
+     * the bundle — but is still required, so an endpoint can carry both and fall back when no bundle was
+     * built for it.
+     *
+     * Building is the service's job (its own build step), not Pulumi's: an artifact on disk keeps
+     * `pulumi preview` pure and the upload reproducible.
+     */
+    useBundle?: LambdaFolder,
     callbackDefinition: EmbroideryCallback,
     resources?: LambdaResource[],
     extraHeaders?: {},
@@ -132,7 +138,20 @@ export const createEndpointSimpleCompat = (args: LambadaEndpointArgs, context: L
         return createWebhook(args, context)
     }
     else if (args.useBundle) {
-        return runBundle(args, context);
+        // The bundle cannot capture a Pulumi closure, so the wrapper config travels as env vars.
+        return createEndpoint<Request, Response>(
+            name, context,
+            path, method, args.useBundle, [],
+            {
+                ...(environmentVariables ?? {}),
+                ...toWrapperEnvVars(toWrapperConfig({ context, extraHeaders, options, cacheControl: args.cache?.control }))
+            },
+            auth?.useCognitoAuthorizer,
+            resources,
+            auth?.useApiKey,
+            auth?.lambdaAuthorizer,
+            options
+        )
     }
     else {
         return createEndpoint<Request, Response>(
@@ -160,7 +179,7 @@ export const createEndpoint = <E, R>(
     lambadaContext: LambadaResources,
     path: string,
     method: HTTP_METHODS,
-    callbackDefinition: Callback<E, R> | FolderLambda,
+    callbackDefinition: Callback<E, R> | LambdaFolder,
     policyStatements: aws.iam.PolicyStatement[],
     environmentVariables: EmbroideryEnvironmentVariables = undefined,
     enableAuth = true,
@@ -222,198 +241,7 @@ export const createEndpoint = <E, R>(
     }
 }
 
-function runBundle(args: LambadaEndpointArgs, context: LambadaResources): EmbroideryEventHandlerRoute {
-    const getRelativePath = (from: string, to: string) => {
-        return from.split('/').slice(2).map(() => '..').join('/') + '/' + to;
-    };
 
-    const readDependencies = (): { [key: string]: string } => {
-        const packageJsonPath = join(process.cwd(), 'package.json');
-        const packageJsonData = readFileSync(packageJsonPath, 'utf-8');
-        const packageJsonObj = JSON.parse(packageJsonData) ?? {};
-
-        if (packageJsonObj.pulumi?.customSerializer?.includeDependencies === false)
-            return {}
-        if (Array.isArray(packageJsonObj.pulumi?.customSerializer?.includeDependencies))
-            return packageJsonObj.pulumi?.customSerializer?.includeDependencies
-
-        return packageJsonObj.dependencies ?? {}
-    };
-
-    args.name = args.name ?? getNameFromPath(`${context.projectName}-${args.path}-${args.method.toLowerCase()}`)
-
-    const {
-        name,
-        path,
-        method,
-        callbackDefinition,
-        resources,
-        extraHeaders,
-        auth,
-        environmentVariables,
-        options,
-        webhook,
-    } = args
-
-    if (!args.useBundle) throw new Error('useBundle is required')
-
-
-    //const handlerLocation = 'LOCATION'// await locate(args.callbackDefinition);
-
-
-
-    const mainFileName = `main.js`;
-    const handlerFileName = `handler.js`;
-    const mainFilePath = args.useBundle
-
-    const hash = name;
-    const run = 'testing' //Date.now().toString();
-    const handlerName = 'lambda_handler';
-    const bundleDirectory = `/tmp/lambada/${run}/lambda-${hash}`;
-    execSync(`rm -rf ${bundleDirectory}/*`)
-
-    //'@lambada/core/*'
-    const excludeDependencies = ['@pulumi/*', 'aws-sdk']
-    const dependencies = readDependencies()
-    const externalFlat = [...Object.keys(dependencies), ...excludeDependencies].flatMap(x => ['--external', x]).join(' ')
-
-
-    mkdirSync(bundleDirectory, { recursive: true });
-
-
-    /** WRAPPER */
-    const wrapperPath = `${bundleDirectory}/wrapper.ts`
-    writeFileSync(wrapperPath, `
-    import { getContext } from '@lambada/utils';
-
-    const isResponse = (result: any): boolean => {
-        return result && (
-            result.body && result.statusCode
-        )
-    }
-
-    export const callback = async (request: Request, callbackDefinition: any): Promise<Response> => {
-        const extraHeaders = {}
-        const authContext = await getContext(request)
-        try {
-            const result = await callbackDefinition({
-                user: authContext,
-                request
-            })
-
-            if (isResponse(result)) {
-
-                const resultTyped = result as any
-
-                if (typeof resultTyped.body !== 'string') {
-                    resultTyped.body = JSON.stringify(resultTyped.body)
-                }
-
-                return {
-                    ...resultTyped,
-                    headers: {
-                        ...(resultTyped.headers || {}),
-                        ...(extraHeaders || {})
-                    }
-                }
-            }
-
-            return {
-                statusCode: 200,
-                body: JSON.stringify(result ?? {}),
-                headers: (extraHeaders || {})
-            }
-
-        } catch (ex: any) {
-            console.error(ex)
-            const showErrorDetails = ex && (ex.showError || process.env['LAMBADA_SHOW_ALL_ERRORS'] == 'true')
-            if (showErrorDetails) {
-                return {
-                    statusCode: ex.statusCode ?? 500,
-                    body: JSON.stringify({
-
-                        error: {
-                            message: ex.message ?? ex.errorMessage,
-                            code: ex.code ?? ex.errorCode,
-                            data: ex.data
-                        },
-
-                        errors: [
-                            {
-                                message: ex.message ?? ex.errorMessage,
-                                code: ex.code ?? ex.errorCode,
-                                data: ex.data
-                            }
-                        ]
-                    }),
-                    headers: (extraHeaders || {})
-                }
-            } else {
-                return {
-                    statusCode: 500,
-                    body: JSON.stringify({
-                        error: 'Bad Request'
-                    }),
-                    headers: (extraHeaders || {})
-                }
-            }
-        }
-    }
-
-    `);
-
-
-    /** ENTRYPOINT */
-    const entryPointPath = `${bundleDirectory}/${handlerFileName}`
-    writeFileSync(entryPointPath, `
-        import {handler} from '${mainFilePath}';
-        import {callback} from './wrapper';
-        
-
-        export const ${handlerName} = (e)=>callback(e, handler);
-        
-    `);
-
-    writeFileSync(entryPointPath + '-2.js', `
-        import {handler} from '${mainFilePath}';
-        export const ${handlerName} = handler;
-    `);
-
-
-    // hay que user outdir when --splitting is used
-    const script = `node_modules/bun/bin/bun build --splitting --target node  ${externalFlat} --outdir ${bundleDirectory} ${entryPointPath} ${entryPointPath + '-2.js'}`;
-    console.log(script)
-    execSync(script)
-
-
-    writeFileSync(`${bundleDirectory}/package.json`, ` {
-        "main": "./${handlerFileName}",
-        "type": "module",
-        "dependencies": {
-            ${Object.entries(dependencies)
-            .filter(x => !excludeDependencies.includes(x[0]))
-            .map(x => `"${x[0]}": "${x[1]}"`).join(',')}
-        }     
-    }`);
-
-    execSync(`cd ${bundleDirectory} && npm i`)
-
-    const folderLambda: FolderLambda = {
-        functionFolder: bundleDirectory,
-        handler: `${handlerFileName.replace('.js', '')}.${handlerName}`
-    };
-
-
-    return createEndpoint<Request, Response>(
-        name, context,
-        path, method, folderLambda, [],
-        environmentVariables, auth?.useCognitoAuthorizer,
-        resources,
-        auth?.useApiKey,
-        auth?.lambdaAuthorizer,
-        mergeOptions(options, context.api?.lambdaOptions)
-    );
-}
 
 export function mergeOptions(lambdaOptions: LambdaOptions | undefined, globalOptions: LambdaOptions | undefined): LambdaOptions {
     return {
