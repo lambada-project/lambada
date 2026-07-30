@@ -22,7 +22,7 @@ import { LambdaOptions } from "./lambdas";
 
 export * from './context'
 // A pre-built bundle to deploy in place of a serialized closure; see `useBundle` on an endpoint.
-export type { LambdaFolder as FolderLambda } from './lambdas'
+export type { LambdaFolder } from './lambdas'
 export * from './api/index'
 export * from './extra'
 export * from './test_utils'
