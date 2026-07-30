@@ -1,7 +1,7 @@
 import * as aws from "@pulumi/aws";
 import { QueueResultItem } from "."
 import { LambadaResources, EmbroideryEnvironmentVariables, mergeOptions } from ".."
-import { createLambda, FolderLambda, LambdaOptions, LambdaResource } from '../lambdas'
+import { createLambda, LambdaFolder, LambdaOptions, LambdaResource } from '../lambdas'
 
 import { Callback } from '@pulumi/aws/lambda';
 import { QueueEvent, QueueEventSubscription, QueueEventSubscriptionArgs } from "@pulumi/aws/sqs";
@@ -13,7 +13,7 @@ export type LambdaQueueHandler = {
     name: string
     queue: QueueResultItem
     /** A `FolderLambda` deploys a pre-built bundle instead of a serialized closure. */
-    callback: QueueHandlerCallback | FolderLambda
+    callback: QueueHandlerCallback | LambdaFolder
     policyStatements?: aws.iam.PolicyStatement[]
     environmentVariables?: EmbroideryEnvironmentVariables,
     resources: LambdaResource[]

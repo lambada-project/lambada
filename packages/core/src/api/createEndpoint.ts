@@ -1,6 +1,6 @@
 import { Request, Response, Route } from '@pulumi/awsx/classic/apigateway/api'
 import * as aws from "@pulumi/aws";
-import { createLambda, FolderLambda, LambdaOptions, LambdaResource } from '../lambdas';
+import { createLambda, LambdaFolder, LambdaOptions, LambdaResource } from '../lambdas';
 import { LambadaResources } from '../context';
 import { Callback } from '@pulumi/aws/lambda';
 import { AuthExecutionContext, toWrapperEnvVars } from '@lambada/utils';
@@ -38,7 +38,7 @@ export type LambadaEndpointArgs = {
      * Building is the service's job (its own build step), not Pulumi's: an artifact on disk keeps
      * `pulumi preview` pure and the upload reproducible.
      */
-    useBundle?: FolderLambda,
+    useBundle?: LambdaFolder,
     callbackDefinition: EmbroideryCallback,
     resources?: LambdaResource[],
     extraHeaders?: {},
@@ -179,7 +179,7 @@ export const createEndpoint = <E, R>(
     lambadaContext: LambadaResources,
     path: string,
     method: HTTP_METHODS,
-    callbackDefinition: Callback<E, R> | FolderLambda,
+    callbackDefinition: Callback<E, R> | LambdaFolder,
     policyStatements: aws.iam.PolicyStatement[],
     environmentVariables: EmbroideryEnvironmentVariables = undefined,
     enableAuth = true,

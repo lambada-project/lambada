@@ -1,5 +1,5 @@
 import * as aws from "@pulumi/aws";
-import { createLambda, FolderLambda, LambdaOptions, LambdaResource } from '../lambdas'
+import { createLambda, LambdaFolder, LambdaOptions, LambdaResource } from '../lambdas'
 import { MessagingContext, MessagingResultItem } from ".";
 import { Callback } from '@pulumi/aws/lambda';
 import { TopicEvent, TopicEventSubscription, TopicEventSubscriptionArgs } from "@pulumi/aws/sns";
@@ -11,7 +11,7 @@ export type SubscriptionCallback = Callback<SubscriptionEvent, void>
 export type LambdaSubscription = {
     name: string
     /** A `FolderLambda` deploys a pre-built bundle instead of a serialized closure. */
-    callback: SubscriptionCallback | FolderLambda
+    callback: SubscriptionCallback | LambdaFolder
     policyStatements: aws.iam.PolicyStatement[]
     environmentVariables: EmbroideryEnvironmentVariables,
     resources: LambdaResource[]
@@ -20,7 +20,7 @@ export type LambdaSubscription = {
 
 export type LambdaSubscriptionSimple = {
     name: string
-    callback: SubscriptionCallback | FolderLambda
+    callback: SubscriptionCallback | LambdaFolder
     resources: LambdaResource[]
 }
 
