@@ -23,7 +23,7 @@
 		"build": "tsc"
 	},
 	"peerDependencies": {
-		"@asteasolutions/zod-to-openapi": "^8.5.0",
+		"@asteasolutions/zod-to-openapi": "^9.0.0",
 		"@aws-sdk/client-sqs": "~3.981.0",
 		"@aws-sdk/util-dynamodb": "~3.981.0",
 		"@lambada/utils": "^2.0.0",
@@ -33,7 +33,7 @@
 		"zod": "^4.4.3"
 	},
 	"devDependencies": {
-		"@asteasolutions/zod-to-openapi": "^8.5.0",
+		"@asteasolutions/zod-to-openapi": "^9.0.0",
 		"@aws-sdk/client-dynamodb": "~3.981.0",
 		"@aws-sdk/client-kms": "~3.981.0",
 		"@aws-sdk/client-pinpoint": "~3.981.0",
