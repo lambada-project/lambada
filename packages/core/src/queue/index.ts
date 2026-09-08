@@ -6,9 +6,10 @@ import { LambadaResources } from "..";
 
 import { DatabaseResult } from "../database";
 import { SecurityResult } from "../security";
-import { LambdaQueueHandler } from "./createQueueHandler";
+import { createQueueHandler, LambdaQueueHandler } from "./createQueueHandler";
+import { asCreator, LambadaDefinition } from "../resources/creators";
 
-//export * from './createSubscription'
+export * from './createQueueHandler'
 
 export type QueueDefinition = {
     name: string
@@ -20,6 +21,14 @@ export type LambadaQueues = { [id: string]: QueueDefinition }
 
 export type LambadaQueueHandleSubscription = QueueEventSubscription
 export type LambadaQueueSubscriptionCreator = (context: LambadaResources) => LambdaQueueHandler
+
+export type LambadaQueueHandlerDefinition = LambadaDefinition<LambdaQueueHandler<any>>
+
+export const createQueueHandlers = (
+    context: LambadaResources,
+    definitions?: LambadaQueueHandlerDefinition[]
+): QueueEventSubscription[] =>
+    (definitions ?? []).map(definition => createQueueHandler(context, asCreator<LambdaQueueHandler<any>>(definition)(context)))
 
 
 export const createQueues = (

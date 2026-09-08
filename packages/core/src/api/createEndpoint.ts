@@ -2,6 +2,7 @@ import { Request, Response, Route } from '@pulumi/awsx/classic/apigateway/api'
 import * as aws from "@pulumi/aws";
 import { createLambda, LambdaFolder, LambdaOptions, LambdaResource } from '../lambdas';
 import { LambadaResources } from '../context';
+import { LambadaResourceRequest, LambadaGrantsShape, resolveEnvironment, resolveGrants } from '../resources/grants';
 import { Callback } from '@pulumi/aws/lambda';
 import { AuthExecutionContext, toWrapperEnvVars } from '@lambada/utils';
 import { EmbroideryEnvironmentVariables } from '..';
@@ -24,7 +25,7 @@ export type EmbroideryRequest = {
 export type DistributiveOmit<T, K extends keyof T> = T extends any ? Omit<T, K> : never
 export type EmbroideryCallback = (event: EmbroideryRequest) => Promise<object>
 export type EmbroideryEventHandlerRoute = Route
-export type LambadaEndpointArgs = {
+export type LambadaEndpointArgs<TNames extends LambadaGrantsShape = LambadaGrantsShape> = {
     /** Custom name for your lambda, if empty it will take a name based on the path-verb */
     name?: string,
     path: string,
@@ -40,7 +41,7 @@ export type LambadaEndpointArgs = {
      */
     useBundle?: LambdaFolder,
     callbackDefinition: EmbroideryCallback,
-    resources?: LambdaResource[],
+    resources?: LambadaResourceRequest<TNames>,
     extraHeaders?: {},
     cache?: {
         control?: string
@@ -98,7 +99,7 @@ export const createEndpointSimple = (
     path: string,
     method: "GET" | "POST" | "DELETE",
     callbackDefinition: EmbroideryCallback,
-    resources?: LambdaResource[],
+    resources?: LambadaResourceRequest<any>,
     extraHeaders?: {},
     /** This overrides at endpoint level any default set */
     auth?: {
@@ -119,7 +120,7 @@ export const createEndpointSimple = (
     options
 }, context)
 
-export const createEndpointSimpleCompat = (args: LambadaEndpointArgs, context: LambadaResources): EmbroideryEventHandlerRoute => {
+export const createEndpointSimpleCompat = (args: LambadaEndpointArgs<any>, context: LambadaResources): EmbroideryEventHandlerRoute => {
     args.name = args.name ?? getNameFromPath(`${context.projectName}-${args.path}-${args.method.toLowerCase()}`)
 
     const {
@@ -183,21 +184,21 @@ export const createEndpoint = <E, R>(
     policyStatements: aws.iam.PolicyStatement[],
     environmentVariables: EmbroideryEnvironmentVariables = undefined,
     enableAuth = true,
-    resources?: LambdaResource[],
+    resources?: LambadaResourceRequest<any>,
     apiKeyRequired?: boolean,
     lambdaAuthorizer?: LambdaAuthorizer,
     options?: LambdaOptions
 ): LambadaEndpointResult<E, R> => {
 
     var environment = lambadaContext.environment
-    resources = resources || []
+    const grants = resolveGrants(lambadaContext, { name, resources })
 
     if (!policyStatements) {
         policyStatements = []
     }
 
     if (lambadaContext.kmsKeys && lambadaContext.kmsKeys.dynamodb) {
-        resources.push(
+        grants.push(
             {
                 kmsKey: lambadaContext.kmsKeys.dynamodb,
                 access: [
@@ -210,7 +211,7 @@ export const createEndpoint = <E, R>(
             })
     }
 
-    const envVars = { ...(lambadaContext.environmentVariables || {}), ...(environmentVariables || {}) }
+    const envVars = resolveEnvironment(lambadaContext, { name, resources, environmentVariables })
 
     const callback = createLambda<E, R>(
         name,
@@ -218,7 +219,7 @@ export const createEndpoint = <E, R>(
         callbackDefinition,
         policyStatements,
         envVars,
-        resources,
+        grants,
         undefined,
         mergeOptions(options, lambadaContext.api?.lambdaOptions),
         `${lambadaContext.projectName} ${method} ${path}`,

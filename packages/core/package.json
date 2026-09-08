@@ -1,6 +1,6 @@
 {
 	"name": "@lambada/core",
-	"version": "1.26.2",
+	"version": "1.27.0-declarative.4",
 	"description": "A VERY opinionated infrastructure as code framework.",
 	"main": "dist/index.js",
 	"module": "dist/index.js",
@@ -20,7 +20,8 @@
 	"author": "Juan C. Andreu",
 	"scripts": {
 		"prebuild": "rm -rf dist/*",
-		"build": "tsc"
+		"build": "tsc",
+		"test": "tsc -p tsconfig.test.json && bun test"
 	},
 	"peerDependencies": {
 		"@asteasolutions/zod-to-openapi": "^9.0.0",

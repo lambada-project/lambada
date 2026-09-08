@@ -7,6 +7,7 @@
   "scripts": {
     "clean": "lerna clean",
     "build": "lerna run build",
+		"test": "lerna run test --no-bail --no-sort",
     "update": "npm run lb && lerna run update-packages",
     "lerna:publish": "npm run build && lerna publish from-package"
   },

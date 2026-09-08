@@ -8,12 +8,13 @@ import { createCallback } from "./callbackWrapper";
 import * as SQS from '@aws-sdk/client-sqs'
 import { QueueHandlerEvent } from "../queue/createQueueHandler";
 import { getBody } from "@lambada/utils";
+import { resolveEnvironment, resolveGrants } from '../resources/grants';
 
 
 export type LambadaWebhookCallback = (event: EmbroideryRequest, queueRecord: aws.sqs.QueueRecord) => Promise<object>
 
 export function createWebhook(
-    endpointParams: (LambadaEndpointArgs & {
+    endpointParams: (LambadaEndpointArgs<any> & {
         callbackDefinition: LambadaWebhookCallback,
     }),
     context: LambadaResources
@@ -46,7 +47,7 @@ export function createWebhook(
     })
 
 
-    const handlerResources: LambdaResource[] = endpointParams.resources ?? []
+    const handlerResources: LambdaResource[] = resolveGrants(context, { name: endpointParams.name, resources: endpointParams.resources })
     if (context.kmsKeys && context.kmsKeys.dynamodb) {
         handlerResources.push(
             {
@@ -76,7 +77,11 @@ export function createWebhook(
         ]
     })
 
-    const handlerEnvVars = { ...(context.environmentVariables || {}), ...(endpointParams.environmentVariables || {}) }
+    const handlerEnvVars = resolveEnvironment(context, {
+        name: endpointParams.name,
+        resources: endpointParams.resources,
+        environmentVariables: endpointParams.environmentVariables,
+    })
     const handlerCallback = async (e: QueueHandlerEvent) => {
         return Promise.all(e.Records.map(x => {
             const request = JSON.parse(x.body)

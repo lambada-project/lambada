@@ -12,6 +12,7 @@ import { NotificationResult } from '../notifications';
 import { EmbroideryEnvironmentVariables } from '..';
 import { enums } from '@pulumi/aws/types';
 import { QueueResultItem } from '../queue';
+import { PoolResultItem } from '../auth/pools';
 //import { NotificationResult, NotificationResultItem } from '../notifications';
 
 export const lambdaAssumeRole: PolicyDocument = {
@@ -248,6 +249,17 @@ export const createLambda = <E, R>(
             //         ]
             //     })
         }
+        else if (access.pool) {
+            //Cognito calls need the pool id to address the pool
+            envVarsFromResources[access.pool.envKeyName] = access.pool.ref.id
+            policyStatements.push(
+                {
+                    Action: access.access,
+                    Resource: access.pool.ref.arn,
+                    Effect: 'Allow'
+                }
+            )
+        }
         else if (access.arn) {
             policyStatements.push(
                 {
@@ -397,15 +409,22 @@ export const createLambdaRoleAndPolicies = (name: string, environment: string, p
 
 export type LambdaResourceAccessItem = string
 
+export type DynamoDbAccess = `dynamodb:${string}`
+export type SNSAccess = `sns:${string}`
+export type SQSAccess = `sqs:${string}`
+export type SecretAccess = `secretsmanager:${string}` | `kms:${string}`
+export type KmsAccess = `kms:${string}`
+export type CognitoAccess = `cognito-idp:${string}`
+
 export class LambdaResourceAccess {
-    public static DynamoDbGetItem: LambdaResourceAccessItem = "dynamodb:GetItem"
-    public static DynamoDbGetAsterisk: LambdaResourceAccessItem = "dynamodb:Get*"
-    public static DynamoDbScan: LambdaResourceAccessItem = "dynamodb:Scan"
-    public static DynamoDbQuery: LambdaResourceAccessItem = "dynamodb:Query"
-    public static DynamoDbUpdateItem: LambdaResourceAccessItem = "dynamodb:UpdateItem"
-    public static DynamoDbDeleteItem: LambdaResourceAccessItem = "dynamodb:DeleteItem"
-    public static DynamoDbPutItem: LambdaResourceAccessItem = "dynamodb:PutItem"
-    public static SNSPublish: LambdaResourceAccessItem = "sns:Publish"
+    public static DynamoDbGetItem = "dynamodb:GetItem" as const
+    public static DynamoDbGetAsterisk = "dynamodb:Get*" as const
+    public static DynamoDbScan = "dynamodb:Scan" as const
+    public static DynamoDbQuery = "dynamodb:Query" as const
+    public static DynamoDbUpdateItem = "dynamodb:UpdateItem" as const
+    public static DynamoDbDeleteItem = "dynamodb:DeleteItem" as const
+    public static DynamoDbPutItem = "dynamodb:PutItem" as const
+    public static SNSPublish = "sns:Publish" as const
 }
 
 export type LambdaDynamoDbResource = {
@@ -415,6 +434,7 @@ export type LambdaDynamoDbResource = {
     notification?: NotificationResult
     kmsKey?: SecurityResultItem
     secret?: SecretResultItem
+    pool?: PoolResultItem
     arn?: Input<string> | Input<Input<string>[]>
     access: LambdaResourceAccessItem[]
 }

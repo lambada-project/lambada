@@ -4,24 +4,28 @@ import { MessagingContext, MessagingResultItem } from ".";
 import { Callback } from '@pulumi/aws/lambda';
 import { TopicEvent, TopicEventSubscription, TopicEventSubscriptionArgs } from "@pulumi/aws/sns";
 import { LambadaResources, EmbroideryEnvironmentVariables, mergeOptions } from "..";
+import { LambadaResourceRequest, LambadaGrantsShape, ResourceRef, resolveEnvironment, resolveGrants, resolveRef } from "../resources/grants";
 
 export type SubscriptionEvent = TopicEvent
 export type SubscriptionCallback = Callback<SubscriptionEvent, void>
 
-export type LambdaSubscription = {
+export type LambdaSubscription<TNames extends LambadaGrantsShape = LambadaGrantsShape> = {
     name: string
     /** A `FolderLambda` deploys a pre-built bundle instead of a serialized closure. */
     callback: SubscriptionCallback | LambdaFolder
-    policyStatements: aws.iam.PolicyStatement[]
-    environmentVariables: EmbroideryEnvironmentVariables,
-    resources: LambdaResource[]
+    policyStatements?: aws.iam.PolicyStatement[]
+    environmentVariables?: EmbroideryEnvironmentVariables
+    resources: LambadaResourceRequest<TNames>
     subscriptionArgs?: TopicEventSubscriptionArgs
 }
+
+export type LambadaSubscriptionHandler<TNames extends LambadaGrantsShape = LambadaGrantsShape> =
+    LambdaSubscription<TNames> & { topic: ResourceRef<MessagingResultItem> }
 
 export type LambdaSubscriptionSimple = {
     name: string
     callback: SubscriptionCallback | LambdaFolder
-    resources: LambdaResource[]
+    resources: LambadaResourceRequest
 }
 
 // const context: MessagingContext = {
@@ -30,14 +34,23 @@ export type LambdaSubscriptionSimple = {
 //     kmsKeys
 // }
 
+/** A subscription that carries its own topic name or item. */
+export const createSubscription = (
+    context: LambadaResources,
+    subscription: LambadaSubscriptionHandler<any>,
+    options?: LambdaOptions,
+    overrideRole?: aws.iam.Role
+): TopicEventSubscription => subscribeToTopic(context, subscription.topic, subscription, options, overrideRole)
+
 export const subscribeToTopic = (
     context: LambadaResources,
-    topic: MessagingResultItem,
-    subscription: LambdaSubscription,
+    topicRef: ResourceRef<MessagingResultItem>,
+    subscription: LambdaSubscription<any>,
     options?: LambdaOptions,
     overrideRole?: aws.iam.Role
 ): TopicEventSubscription => {
     const environment = context.environment
+    const topic = resolveRef(context.messaging, { name: subscription.name, kind: 'topic', ref: topicRef })
     const topicName = topic.definition.name
     // policyStatements.push({
     //     Action: [
@@ -47,8 +60,10 @@ export const subscribeToTopic = (
     //     Resource: apiContext.cognitoUserPool.arn,
     //     Effect: "Allow"
     // })
+    const grants = resolveGrants(context, { name: subscription.name, resources: subscription.resources })
+
     if (context.kmsKeys && context.kmsKeys.dynamodb) {
-        subscription.resources.push(
+        grants.push(
             {
                 kmsKey: context.kmsKeys.dynamodb,
                 access: [
@@ -61,15 +76,19 @@ export const subscribeToTopic = (
             })
     }
 
-    const envVars = { ...(context.environmentVariables || {}), ...(subscription.environmentVariables || {}) }
+    const envVars = resolveEnvironment(context, {
+        name: subscription.name,
+        resources: subscription.resources,
+        environmentVariables: subscription.environmentVariables,
+    })
 
     const callback = createLambda<TopicEvent, void>(
         subscription.name,
         environment,
         subscription.callback,
-        subscription.policyStatements,
+        subscription.policyStatements ?? [],
         envVars,
-        subscription.resources,
+        grants,
         overrideRole,
         mergeOptions(options, context.api?.lambdaOptions),
         `Handler for ${topic.definition.name} in ${environment} with subscription ${subscription.name}`,

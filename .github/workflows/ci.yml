@@ -31,12 +31,7 @@ jobs:
         run: npm run build
 
       - name: Run tests
-        run: |
-          if npm run test --if-present; then
-            echo "Tests completed successfully"
-          else
-            echo "No tests found or tests failed"
-          fi
+        run: npm test
 
       - name: Check package integrity
         run: |

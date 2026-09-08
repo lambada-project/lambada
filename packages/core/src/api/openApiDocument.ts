@@ -15,7 +15,7 @@ export type OpenAPIObjectConfigV31 = Omit<OpenAPIObject, 'paths' | 'components' 
 export const createOpenApiDocumentEndpoint = (args: {
     projectName: string,
     openApiSpec: OpenAPIObjectConfigV31,
-    endpoints: LambadaEndpointArgs[],
+    endpoints: LambadaEndpointArgs<any>[],
     auth?: {
         name?: string
         openapi?: {
@@ -87,7 +87,7 @@ export const createOpenApiDocumentEndpoint = (args: {
 
 
 
-    return (context: LambadaResources): LambadaEndpointArgs => ({
+    return (context: LambadaResources): LambadaEndpointArgs<any> => ({
         name: `${args.projectName}_get_openapi`,
         path: '/openapi',
         method: 'GET',
