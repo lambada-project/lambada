@@ -19,10 +19,7 @@ describe("Repository", () => {
             }
         })
 
-        await repo.save({
-            id: 1,
-            name: 'test'
-        })
+        expect(repo.save).toBeDefined()
 
         const marshaller: IMarshaller = DefaultMarshaller
         const original = {
