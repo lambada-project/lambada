@@ -22,6 +22,7 @@ import { createDiagnostics } from "./resources/diagnostics";
 import { preflight } from "./resources/preflight";
 
 export * from './context'
+export * from './inputs'
 // A pre-built bundle to deploy in place of a serialized closure; see `useBundle` on an endpoint.
 export type { LambdaFolder } from './lambdas'
 export * from './api/index'

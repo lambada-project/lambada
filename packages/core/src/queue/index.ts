@@ -8,6 +8,7 @@ import { DatabaseResult } from "../database";
 import { SecurityResult } from "../security";
 import { createQueueHandler, LambdaQueueHandler } from "./createQueueHandler";
 import { asCreator, LambadaDefinition } from "../resources/creators";
+import { lift } from "../inputs";
 
 export * from './createQueueHandler'
 
@@ -80,7 +81,7 @@ export const createQueues = (
                 result[key] = queueRef
             }
             else {
-                const queue = findQueue(queueRef.name, environment, liftOut(queueRef.options?.fifoQueue, x => x ?? false))
+                const queue = findQueue(queueRef.name, environment, queueRef.options?.fifoQueue)
 
                 result[key] = {
                     awsQueue: aws.sqs.Queue.get(`${queueRef.name}-${environment}`, queue.id),
@@ -97,9 +98,11 @@ export const createQueues = (
 }
 
 
-function findQueue(name: string, environment: string, fifoQueue: pulumi.Input<boolean>): pulumi.Output<QueueReference> {
-    const topicName = `${name}-${environment}${fifoQueue ? '.fifo' : ''}`
-
+function findQueue(
+    name: string,
+    environment: string,
+    fifoQueue: pulumi.Input<boolean | undefined>
+): pulumi.Output<QueueReference> {
     const getQueue = async (name: string) => {
         try {
             const topic = await aws.sqs.getQueue({
@@ -113,7 +116,9 @@ function findQueue(name: string, environment: string, fifoQueue: pulumi.Input<bo
 
     }
 
-    return pulumi.output(getQueue(topicName));
+    // `fifoQueue` may not have resolved yet, so the name is built where its value is known. Testing
+    // the Input directly made every referenced queue a .fifo one, an object being truthy.
+    return lift(fifoQueue, isFifo => getQueue(`${name}-${environment}${isFifo ? '.fifo' : ''}`));
 }
 
 type QueueReference = {
@@ -137,8 +142,4 @@ export type QueuesContext = {
     environment: string
     databases?: DatabaseResult
     kmsKeys?: SecurityResult
-}
-
-function liftOut<T, U>(out: pulumi.Input<T>, fn: (x:T)=>U) {
-    return pulumi.Output.isInstance(out) ? out.apply(fn) : out instanceof Promise ? out.then(fn) : fn(out)
 }
