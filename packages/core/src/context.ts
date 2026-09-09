@@ -6,6 +6,7 @@ import { NotificationResult } from "./notifications";
 import { EmbroideryEnvironmentVariables } from ".";
 import { QueuesResult } from "./queue";
 import { FunctionVpcConfig, LambdaOptions } from "./lambdas";
+import { BundleSource } from "./lambdas/bundles";
 import { Input } from '@pulumi/pulumi'
 import { PoolsResult } from "./auth/pools";
 import { LambadaDiagnostics } from "./resources/diagnostics";
@@ -40,5 +41,6 @@ export type LambadaResources = {
     diagnostics?: LambadaDiagnostics
     secrets?: SecretsResult
     pools?: PoolsResult
+    bundles?: BundleSource
     globalTags?: Input<{ [key: string]: Input<string> }>
 }

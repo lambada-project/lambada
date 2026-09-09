@@ -54,7 +54,7 @@ const missingBindings = (
 export const preflight = (
     context: LambadaResources,
     diagnostics: LambadaDiagnostics,
-    definitions: (unknown[] | undefined)[]
+    definitions: readonly (readonly unknown[] | undefined)[]
 ): void => {
     for (const group of definitions) {
         for (const definition of group ?? []) {

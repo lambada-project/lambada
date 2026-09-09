@@ -41,7 +41,7 @@ export const visibilityTimeoutFor = (
     lift2(visibilityTimeoutSeconds, timeout, requireVisibilityCoversTimeout)
 
 export function createWebhook(
-    endpointParams: (LambadaEndpointArgs<any> & {
+    endpointParams: (LambadaEndpointArgs<any, any> & {
         callbackDefinition: LambadaWebhookCallback,
     }),
     context: LambadaResources

@@ -5,6 +5,7 @@ import { Callback } from '@pulumi/aws/lambda';
 import { TopicEvent, TopicEventSubscription, TopicEventSubscriptionArgs } from "@pulumi/aws/sns";
 import { LambadaResources, EmbroideryEnvironmentVariables, mergeOptions } from "..";
 import { LambadaResourceRequest, LambadaGrantsShape, ResourceRef, resolveEnvironment, resolveGrants, resolveRef } from "../resources/grants";
+import { bundleOf, isLambdaFolder } from "../lambdas/bundles";
 
 export type SubscriptionEvent = TopicEvent
 export type SubscriptionCallback = Callback<SubscriptionEvent, void>
@@ -82,10 +83,14 @@ export const subscribeToTopic = (
         environmentVariables: subscription.environmentVariables,
     })
 
+    const artifact = isLambdaFolder(subscription.callback)
+        ? subscription.callback
+        : bundleOf(context.bundles, subscription.name)
+
     const callback = createLambda<TopicEvent, void>(
         subscription.name,
         environment,
-        subscription.callback,
+        artifact ?? subscription.callback,
         subscription.policyStatements ?? [],
         envVars,
         grants,

@@ -27,7 +27,7 @@ export type LambadaQueueHandlerDefinition = LambadaDefinition<LambdaQueueHandler
 
 export const createQueueHandlers = (
     context: LambadaResources,
-    definitions?: LambadaQueueHandlerDefinition[]
+    definitions?: readonly LambadaQueueHandlerDefinition[]
 ): QueueEventSubscription[] =>
     (definitions ?? []).map(definition => createQueueHandler(context, asCreator<LambdaQueueHandler<any>>(definition)(context)))
 

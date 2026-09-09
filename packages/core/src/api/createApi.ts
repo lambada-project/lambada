@@ -6,15 +6,16 @@ import { Route, StaticRoute } from "@pulumi/awsx/classic/apigateway/api";
 import { createCorsEndpoints } from "./createCorsEndpoints";
 import { LambadaResources } from "../context";
 import { createStaticEndpoint, EmbroideryApiEndpointCreator, LambadaCreatorTypes, LambadaEndpointCreator, LambadaProxyCreator, ProxyIntegrationArgs } from ".";
-import { createEndpointSimpleCompat, LambadaEndpointArgs } from "./createEndpoint";
+import { createEndpointSimpleCompat, LambadaEndpointArgs, OpenApiFactory, OpenApiFactoryLike } from "./createEndpoint";
 import { asCreator } from "../resources/creators";
 import { createProxyIntegrationCompat } from "./createProxyIntegration";
 import { createOpenApiDocumentEndpoint } from "./openApiDocument";
 import { OpenAPIObjectConfigV31 } from "@asteasolutions/zod-to-openapi/dist/v3.1/openapi-generator";
 
 export type LambadaCreator = EmbroideryApiEndpointCreator | LambadaEndpointCreator | LambadaProxyCreator
-export type LambadaEndpoint = LambadaEndpointArgs<any> | LambadaCreator
-type LambadaCreatorReturn = Route | LambadaEndpointArgs<any> | ProxyIntegrationArgs
+export type LambadaEndpoint<TOpenApi extends OpenApiFactoryLike | undefined = OpenApiFactory> =
+    LambadaEndpointArgs<any, TOpenApi> | LambadaCreator
+type LambadaCreatorReturn = Route | LambadaEndpointArgs<any, any> | ProxyIntegrationArgs
 
 
 type CreateApiArgs = {
@@ -24,7 +25,7 @@ type CreateApiArgs = {
         path: string,
         type?: `EDGE` | `REGIONAL` | `PRIVATE`
         vpcEndpointIds?: pulumi.Input<pulumi.Input<string>[]> | undefined,
-        apiEndpoints: (LambadaEndpoint)[],
+        apiEndpoints: readonly LambadaEndpoint<any>[],
         policy?: pulumi.Input<string> | undefined,
         cors?: {
             origins: string[]
@@ -54,8 +55,8 @@ type CreateApiArgs = {
     }
 }
 
-export const IsEndpointsArgs = (route: LambadaCreatorReturn): route is LambadaEndpointArgs<any> => {
-    return typeof (route as LambadaEndpointArgs<any>).callbackDefinition !== 'undefined'
+export const IsEndpointsArgs = (route: LambadaCreatorReturn): route is LambadaEndpointArgs<any, any> => {
+    return typeof (route as LambadaEndpointArgs<any, any>).callbackDefinition !== 'undefined'
 }
 export const IsProxy = (route: LambadaCreatorReturn): route is ProxyIntegrationArgs => {
     return typeof (route as ProxyIntegrationArgs).targetUri !== 'undefined'

@@ -6,6 +6,7 @@ import { createLambda, LambdaFolder, LambdaOptions, LambdaResource } from '../la
 import { Callback } from '@pulumi/aws/lambda';
 import { QueueEvent, QueueEventSubscription, QueueEventSubscriptionArgs } from "@pulumi/aws/sqs";
 import { LambadaResourceRequest, LambadaGrantsShape, ResourceRef, resolveEnvironment, resolveGrants, resolveRef } from "../resources/grants";
+import { bundleOf, isLambdaFolder } from "../lambdas/bundles";
 
 export type QueueHandlerEvent = QueueEvent
 export type QueueHandlerCallback = Callback<QueueHandlerEvent, void>
@@ -62,10 +63,14 @@ export const createQueueHandler = (
         environmentVariables: queueHandler.environmentVariables,
     })
 
+    const artifact = isLambdaFolder(queueHandler.callback)
+        ? queueHandler.callback
+        : bundleOf(context.bundles, queueHandler.name)
+
     const callback = createLambda<QueueHandlerEvent, void>(
         queueHandler.name,
         environment,
-        queueHandler.callback,
+        artifact ?? queueHandler.callback,
         queueHandler.policyStatements ?? [],
         envVars,
         grants,

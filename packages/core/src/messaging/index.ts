@@ -72,7 +72,7 @@ export type LambadaSubscriptionDefinition = LambadaSubscriptionCreator | Lambada
 
 export const createSubscriptions = (
     context: LambadaResources,
-    definitions?: LambadaSubscriptionDefinition[]
+    definitions?: readonly LambadaSubscriptionDefinition[]
 ): LambadaTopicEventSubscription[] =>
     (definitions ?? []).map(definition => asBuilder(definition, createSubscription)(context))
 

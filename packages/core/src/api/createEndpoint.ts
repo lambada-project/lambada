@@ -1,6 +1,7 @@
 import { Request, Response, Route } from '@pulumi/awsx/classic/apigateway/api'
 import * as aws from "@pulumi/aws";
 import { createLambda, LambdaFolder, LambdaOptions, LambdaResource } from '../lambdas';
+import { bundleOf } from '../lambdas/bundles';
 import { LambadaResources } from '../context';
 import { LambadaResourceRequest, LambadaGrantsShape, resolveEnvironment, resolveGrants } from '../resources/grants';
 import { Callback } from '@pulumi/aws/lambda';
@@ -23,9 +24,17 @@ export type EmbroideryRequest = {
 }
 
 export type DistributiveOmit<T, K extends keyof T> = T extends any ? Omit<T, K> : never
+
+export type OpenApiFactory = (registry: OpenAPIRegistry) => DistributiveOmit<RouteConfig, 'path' | 'method'>
+
+/** Constrains the shape, not the vocabulary, so a declaration can bring its own spec types. */
+export type OpenApiFactoryLike = (...args: never[]) => unknown
 export type EmbroideryCallback = (event: EmbroideryRequest) => Promise<object>
 export type EmbroideryEventHandlerRoute = Route
-export type LambadaEndpointArgs<TNames extends LambadaGrantsShape = LambadaGrantsShape> = {
+export type LambadaEndpointArgs<
+    TNames extends LambadaGrantsShape = LambadaGrantsShape,
+    TOpenApi extends OpenApiFactoryLike | undefined = OpenApiFactoryLike
+> = {
     /** Custom name for your lambda, if empty it will take a name based on the path-verb */
     name?: string,
     path: string,
@@ -47,7 +56,8 @@ export type LambadaEndpointArgs<TNames extends LambadaGrantsShape = LambadaGrant
         control?: string
     },
     environmentVariables?: EmbroideryEnvironmentVariables,
-    openapi?: (registry: OpenAPIRegistry) => DistributiveOmit<RouteConfig, 'path' | 'method'>
+    /** Read only by the document endpoint, which narrows it back. */
+    openapi?: TOpenApi
     webhook?: {
         wrapInQueue: boolean,
         options?: QueueArgs,
@@ -120,7 +130,7 @@ export const createEndpointSimple = (
     options
 }, context)
 
-export const createEndpointSimpleCompat = (args: LambadaEndpointArgs<any>, context: LambadaResources): EmbroideryEventHandlerRoute => {
+export const createEndpointSimpleCompat = (args: LambadaEndpointArgs<any, any>, context: LambadaResources): EmbroideryEventHandlerRoute => {
     args.name = args.name ?? getNameFromPath(`${context.projectName}-${args.path}-${args.method.toLowerCase()}`)
 
     const {
@@ -135,14 +145,18 @@ export const createEndpointSimpleCompat = (args: LambadaEndpointArgs<any>, conte
         options,
         webhook,
     } = args
+    const useBundle = args.useBundle ?? bundleOf(context.bundles, name)
+
     if (webhook?.wrapInQueue) {
+        // No bundle: the lambda behind the queue is lambada's glue, not this callback, so an
+        // artifact built from the declaration would receive the raw SQS event.
         return createWebhook(args, context)
     }
-    else if (args.useBundle) {
+    else if (useBundle) {
         // The bundle cannot capture a Pulumi closure, so the wrapper config travels as env vars.
         return createEndpoint<Request, Response>(
             name, context,
-            path, method, args.useBundle, [],
+            path, method, useBundle, [],
             {
                 ...(environmentVariables ?? {}),
                 ...toWrapperEnvVars(toWrapperConfig({ context, extraHeaders, options, cacheControl: args.cache?.control }))

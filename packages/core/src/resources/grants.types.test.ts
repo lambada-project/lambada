@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { run } from '..'
+import { LambadaRunArguments } from '..'
 import { LambadaEndpointArgs } from '../api/createEndpoint'
 import { LambadaSubscriptionHandler } from '../messaging/createSubscription'
 import { LambdaQueueHandler } from '../queue/createQueueHandler'
@@ -25,8 +25,15 @@ type Names = {
     envVar: keyof typeof environmentVariables
 }
 
+/** A declaring library's factory shape, copied rather than imported: lambada must not depend on it. */
+const openapi = (_registry: { register: <T>(id: string, schema: T) => T }) => ({
+    operationId: 'getPet',
+    responses: { 200: { description: 'ok' } },
+})
+
 const endpoint = {
     name: 'getPet',
+    openapi,
     path: '/pets/{id}',
     method: 'GET',
     resources: {
@@ -36,7 +43,7 @@ const endpoint = {
     },
     auth: { useCognitoAuthorizer: true },
     callbackDefinition: async () => ({ statusCode: 200, body: '{}' }),
-} satisfies LambadaEndpointArgs<Names>
+} satisfies LambadaEndpointArgs<Names, typeof openapi>
 
 const subscription = {
     name: 'onStatusChanged',
@@ -66,12 +73,13 @@ const runArguments = {
     messages: topics,
     queues,
     poolsRef: pools,
+    bundles: { getPet: { functionFolder: 'dist/bundles/getPet', handler: 'index.handler' } },
     environmentVariables,
     globalEnvironmentVariables: { LAMBADA_SHOW_ALL_ERRORS: 'true' },
     api: { endpointDefinitions: [endpoint, looseEndpoint] },
     messageHandlerDefinitions: [subscription],
     queueHandlerDefinitions: [queueHandler],
-} satisfies Parameters<typeof run>[2]
+} satisfies LambadaRunArguments
 
 /**
  * Each of these is a compile error, which is the point of `Names`:

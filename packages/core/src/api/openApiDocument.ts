@@ -1,5 +1,5 @@
 import { LambadaResources, IsEndpointsArgs } from '..'
-import { HTTP_METHODS, LambadaEndpointArgs } from './createEndpoint'
+import { DistributiveOmit, HTTP_METHODS, LambadaEndpointArgs } from './createEndpoint'
 import {
     OpenAPIRegistry,
     RouteConfig,
@@ -15,7 +15,7 @@ export type OpenAPIObjectConfigV31 = Omit<OpenAPIObject, 'paths' | 'components' 
 export const createOpenApiDocumentEndpoint = (args: {
     projectName: string,
     openApiSpec: OpenAPIObjectConfigV31,
-    endpoints: LambadaEndpointArgs<any>[],
+    endpoints: LambadaEndpointArgs<any, any>[],
     auth?: {
         name?: string
         openapi?: {
@@ -37,8 +37,10 @@ export const createOpenApiDocumentEndpoint = (args: {
     args.endpoints
         .filter(x => IsEndpointsArgs(x))
         .forEach(x => {
-            if (!x.openapi) return
-            const config = x.openapi(registry)
+            // The one reader, and the one place still requiring the classic factory.
+            if (typeof x.openapi !== 'function') return
+            const factory = x.openapi as (registry: OpenAPIRegistry) => DistributiveOmit<RouteConfig, 'path' | 'method'>
+            const config = factory(registry)
 
             const toLowerCase = <T extends string>(s: T): Lowercase<T> => {
                 return s.toLowerCase() as any;
@@ -87,7 +89,7 @@ export const createOpenApiDocumentEndpoint = (args: {
 
 
 
-    return (context: LambadaResources): LambadaEndpointArgs<any> => ({
+    return (context: LambadaResources): LambadaEndpointArgs<any, any> => ({
         name: `${args.projectName}_get_openapi`,
         path: '/openapi',
         method: 'GET',

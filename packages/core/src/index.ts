@@ -3,6 +3,7 @@ import * as awsx from "@pulumi/awsx/classic";
 import * as aws from "@pulumi/aws";
 
 import createApi, { LambadaEndpoint } from './api/createApi'
+import { OpenApiFactoryLike } from './api/createEndpoint'
 import { createCloudFront } from './cdn/index'
 import { LambadaResources } from './context'
 
@@ -17,6 +18,7 @@ import { LambdaAuthorizer } from "@pulumi/awsx/classic/apigateway";
 import { createQueueHandlers, createQueues, LambadaQueueHandlerDefinition, LambadaQueues, QueuesResult } from "./queue";
 import { OpenAPIObjectConfigV31 } from "@asteasolutions/zod-to-openapi/dist/v3.1/openapi-generator";
 import { LambdaOptions } from "./lambdas";
+import { BundleSource } from "./lambdas/bundles";
 import { cognitoPoolDefinitions, cognitoPoolKey, createPools, LambadaPools, LambadaPoolsRef, poolAuthorizers, PoolsResult } from "./auth/pools";
 import { createDiagnostics } from "./resources/diagnostics";
 import { preflight } from "./resources/preflight";
@@ -25,6 +27,7 @@ export * from './context'
 export * from './inputs'
 // A pre-built bundle to deploy in place of a serialized closure; see `useBundle` on an endpoint.
 export type { LambdaFolder } from './lambdas'
+export * from './lambdas/bundles'
 export * from './api/index'
 export * from './extra'
 export * from './test_utils'
@@ -34,9 +37,11 @@ export * from './auth/pools'
 export * from './resources'
 export * from './security'
 
-type LambadaRunArguments = {
+export type LambadaRunArguments = {
     api?: {
-        endpointDefinitions?: LambadaEndpoint[],
+        // Constrained per element, not inferred for the list: one type would bind to the first
+        // endpoint and demand the rest match, which specs differing per operation never do.
+        endpointDefinitions?: readonly LambadaEndpoint<OpenApiFactoryLike | undefined>[],
         gatewayType?: 'EDGE' | 'REGIONAL' | 'PRIVATE'
         vpcEndpointIds?: pulumi.Input<pulumi.Input<string>[]> | undefined,
 
@@ -76,11 +81,18 @@ type LambadaRunArguments = {
     messages?: LambadaMessages,
     /** Referenced topics, does not create anything */
     messagesRef?: LambadaMessages | MessagingResult
-    messageHandlerDefinitions?: LambadaSubscriptionDefinition[],
+    messageHandlerDefinitions?: readonly LambadaSubscriptionDefinition[],
 
     queues?: LambadaQueues,
     queuesRef?: LambadaQueues | QueuesResult,
-    queueHandlerDefinitions?: LambadaQueueHandlerDefinition[]
+    queueHandlerDefinitions?: readonly LambadaQueueHandlerDefinition[]
+
+    /**
+     * Pre-built artifacts by function name, for a definition carrying no `useBundle` of its own.
+     * Endpoints, subscriptions and queue handlers; not webhooks, whose queue lambda is lambada's
+     * glue rather than the declaration's callback.
+     */
+    bundles?: BundleSource
 
     /**
      * Values a function receives only by declaring them under `resources.envVar`. A function sees
@@ -218,7 +230,8 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
         diagnostics: diagnostics,
         secrets: secrets,
         pools: pools,
-        globalTags: globalTags
+        globalTags: globalTags,
+        bundles: args.bundles
     }
 
     // Every name a plain declaration uses is checked before anything is built, so a stack with
