@@ -11,6 +11,8 @@ export type CognitoPoolOptions = {
 
 /** A cognito user pool this stack creates, keyed like every other definition record. */
 export type PoolDefinition = {
+    /** What the pool is called, as `${name}-${environment}`. Renaming one replaces it. */
+    name: string
     /** Published to every function granted this pool, carrying the pool id. */
     envKeyName: string
     options?: CognitoPoolOptions
@@ -57,22 +59,75 @@ const isResultItem = (obj: PoolReferenceDefinition | PoolResultItem): obj is Poo
     !!(obj as PoolResultItem).ref
 
 /**
- * The pools this stack creates and the ones it only references, in that order, the way
- * `createQueues` and `createMessaging` take theirs.
+ * Every pool this stack declares, and the key of the one `auth.createCognito` asked for.
+ *
+ * The two sources are merged rather than either-or, so declaring a second pool never drops the
+ * first. They may not both claim one key: letting `pools` win there is silent, and the winner
+ * brings its own `name` — a different one renames the pool, and a renamed pool is replaced.
+ */
+const poolDefinitions = (
+    projectName: string,
+    auth?: CognitoAuth,
+    pools?: LambadaPools
+): { definitions?: LambadaPools, cognitoKey?: string } => {
+    if (!auth?.createCognito) return { definitions: pools }
+
+    const cognitoKey = auth.cognitoOptions?.key ?? DEFAULT_POOL_KEY
+
+    if (pools?.[cognitoKey]) {
+        throw new Error(
+            `auth.createCognito already declares the pool '${cognitoKey}'. Rename the pools entry, ` +
+            `give auth.cognitoOptions.key another name, or drop createCognito — overriding it here ` +
+            `would rename the pool, and a renamed pool is replaced.`
+        )
+    }
+
+    return {
+        cognitoKey,
+        definitions: {
+            [cognitoKey]: {
+                // The name auth.createCognito has always produced. Deriving it from the key would
+                // rename the pool, and a renamed pool is replaced, taking its users with it.
+                name: projectName,
+                envKeyName: auth.cognitoOptions?.envKeyName ?? DEFAULT_POOL_ENV_KEY_NAME,
+                options: auth.cognitoOptions,
+                authorizer: true
+            },
+            ...pools
+        }
+    }
+}
+
+/**
+ * The pools this stack creates and the ones it only references, the way `createQueues` and
+ * `createMessaging` take theirs, plus what `auth.createCognito` asks for.
+ *
+ * `auth` carries the single-pool outputs `run()` has always returned, which mean the pool that
+ * switch created and no other. A stack declaring `pools` itself reads them off the result.
  */
 export const createPools = (
     projectName: string,
     environment: string,
     kmsKeys: SecurityResult,
-    pools?: LambadaPools,
+    auth?: CognitoAuth,
+    declaredPools?: LambadaPools,
     poolsRef?: LambadaPoolsRef | PoolsResult
-): PoolsResult => {
+): { pools: PoolsResult, auth: { cognitoARN?: pulumi.Output<string>, cognitoPoolId?: pulumi.Output<string> } } => {
+    const { definitions: pools, cognitoKey } = poolDefinitions(projectName, auth, declaredPools)
     const result: PoolsResult = {}
 
+    const names = new Set<string>()
     for (const key in pools) {
         if (Object.prototype.hasOwnProperty.call(pools, key)) {
+            // Two pools of one name are one resource declared twice, which the engine refuses far
+            // from here.
+            if (names.has(pools[key].name)) {
+                throw new Error(`Cannot create two pools named ${pools[key].name}: ${key} repeats it.`)
+            }
+            names.add(pools[key].name)
+
             const definition = pools[key]
-            const awsPool = createUserPool(projectName, environment, kmsKeys, {
+            const awsPool = createUserPool(definition.name, environment, kmsKeys, {
                 useEmailAsUsername: definition.options?.useEmailAsUsername,
                 protect: definition.options?.preventResourceDeletion
             })
@@ -102,7 +157,9 @@ export const createPools = (
         }
     }
 
-    return result
+    const cognitoPool = cognitoKey ? result[cognitoKey]?.awsPool : undefined
+
+    return { pools: result, auth: { cognitoARN: cognitoPool?.arn, cognitoPoolId: cognitoPool?.id } }
 }
 
 /**
@@ -122,21 +179,3 @@ type CognitoAuth = {
     createCognito?: boolean
     cognitoOptions?: CognitoPoolOptions & { key?: string, envKeyName?: string }
 }
-
-/**
- * The name the pool `auth.createCognito` asks for goes under, or nothing when it asks for none.
- * `run()`'s `cognitoARN` and `cognitoPoolId` mean that pool and only that one, so they are read
- * from here rather than from a tag on the definitions.
- */
-export const cognitoPoolKey = (auth?: CognitoAuth): string | undefined =>
-    auth?.createCognito ? auth.cognitoOptions?.key ?? DEFAULT_POOL_KEY : undefined
-
-export const cognitoPoolDefinitions = (auth?: CognitoAuth): LambadaPools | undefined => auth?.createCognito
-    ? {
-        [cognitoPoolKey(auth)!]: {
-            envKeyName: auth.cognitoOptions?.envKeyName ?? DEFAULT_POOL_ENV_KEY_NAME,
-            options: auth.cognitoOptions,
-            authorizer: true
-        }
-    }
-    : undefined

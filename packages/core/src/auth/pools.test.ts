@@ -1,34 +1,45 @@
 import { describe, expect, test } from 'bun:test'
 import * as pulumi from '@pulumi/pulumi'
 import {
-    cognitoPoolDefinitions,
-    cognitoPoolKey,
-    poolAuthorizers,
     createPools,
     DEFAULT_POOL_ENV_KEY_NAME,
     DEFAULT_POOL_KEY,
+    poolAuthorizers,
     PoolsResult,
 } from './pools'
 
+/** What the engine was asked to build, so a name collision is visible here and not at deploy. */
+const built: string[] = []
+
 pulumi.runtime.setMocks({
-    newResource: (args: pulumi.runtime.MockResourceArgs) => ({
-        id: `${args.name}-id`,
-        state: { ...args.inputs, arn: `arn:${args.name}` },
-    }),
+    newResource: (args: pulumi.runtime.MockResourceArgs) => {
+        built.push(args.name)
+        return { id: `${args.name}-id`, state: { ...args.inputs, arn: `arn:${args.name}` } }
+    },
     call: () => ({}),
 })
 
-/**
- * Creating a pool builds a pulumi resource, which `setMocks` above stands in for. `createPools` has
- * the same shape as `createQueues`: what it creates first, what it only references second.
- */
+const settled = <T>(o: pulumi.Output<T>): Promise<T> => (o as unknown as { promise(): Promise<T> }).promise()
+const namesBuiltBy = async (pools: PoolsResult) => {
+    built.length = 0
+    await Promise.all(Object.values(pools).map(p => settled(pulumi.output(p.ref.id))))
+    return built.slice()
+}
+
 const reference = (envKeyName: string) => ({ id: `${envKeyName}-id`, arn: `arn:${envKeyName}`, envKeyName })
+const create = (
+    auth?: Parameters<typeof createPools>[3],
+    pools?: Parameters<typeof createPools>[4],
+    poolsRef?: Parameters<typeof createPools>[5],
+) => createPools('proj', 'test', {}, auth, pools, poolsRef)
 
 describe('createPools', () => {
-    test('normalises a referenced pool into the shape a grant resolves against', () => {
-        const pools = createPools('p', 'test', {}, undefined, { admin: reference('ADMIN_POOL_ID') })
+    test('is empty when the stack neither creates nor references one', () => {
+        expect(create().pools).toEqual({})
+    })
 
-        expect(pools.admin).toEqual({
+    test('normalises a referenced pool into the shape a grant resolves against', () => {
+        expect(create(undefined, undefined, { admin: reference('ADMIN_POOL_ID') }).pools.admin).toEqual({
             envKeyName: 'ADMIN_POOL_ID',
             ref: { id: 'ADMIN_POOL_ID-id', arn: 'arn:ADMIN_POOL_ID' },
             definition: reference('ADMIN_POOL_ID'),
@@ -40,47 +51,113 @@ describe('createPools', () => {
             admin: { envKeyName: 'A', ref: { id: 'i', arn: 'a' }, definition: reference('A') },
         }
 
-        expect(createPools('p', 'test', {}, undefined, existing).admin).toBe(existing.admin)
-    })
-
-    test('is empty when the stack neither creates nor references one', () => {
-        expect(createPools('p', 'test', {})).toEqual({})
-    })
-
-    test('authorizes with nothing when no pool is tagged for it', () => {
-        expect(poolAuthorizers(createPools('p', 'test', {}, undefined, { admin: reference('A') }))).toEqual([])
+        expect(create(undefined, undefined, existing).pools.admin).toBe(existing.admin)
     })
 
     test('creates a declared pool and publishes the env key it was given', () => {
-        const pools = createPools('p', 'test', {}, { userPool: { envKeyName: 'COGNITO_USER_POOL_ID' } })
+        const { pools } = create(undefined, { userPool: { name: 'userPool', envKeyName: 'COGNITO_USER_POOL_ID' } })
 
-        expect(Object.keys(pools)).toEqual(['userPool'])
         expect(pools.userPool.awsPool).toBeDefined()
         expect(pools.userPool.envKeyName).toBe('COGNITO_USER_POOL_ID')
     })
 
     test('refuses to reference a pool under the name of one it created', () => {
-        expect(() => createPools('p', 'test', {},
-            { userPool: { envKeyName: 'A' } },
-            { userPool: reference('B') },
-        )).toThrow(/Cannot create a ref pool with the same name of an existing pool: userPool/)
+        expect(() => create(undefined, { userPool: { name: 'userPool', envKeyName: 'A' } }, { userPool: reference('B') }))
+            .toThrow(/Cannot create a ref pool with the same name of an existing pool: userPool/)
     })
+})
 
-    test('creates every declared pool, so declaring one never drops another', () => {
-        const pools = createPools('p', 'test', {}, {
-            userPool: { envKeyName: 'COGNITO_USER_POOL_ID' },
-            members: { envKeyName: 'MEMBERS_POOL_ID' },
+describe('what each created pool is called', () => {
+    test('two pools are two resources, not one declared twice', async () => {
+        // createUserPool used to name every pool `${projectName}-${environment}`, so a second
+        // declaration was the same resource again and the engine refused the stack.
+        const { pools } = create(undefined, {
+            admins: { name: 'admins', envKeyName: 'A' },
+            members: { name: 'members', envKeyName: 'M' },
         })
 
-        expect(Object.values(pools).filter(x => x.awsPool)).toHaveLength(2)
+        expect(await namesBuiltBy(pools)).toEqual(['admins-test', 'members-test'])
+    })
+
+    test('the pool auth.createCognito builds keeps the name it always had', async () => {
+        // A renamed pool is a replaced pool, and a replaced user pool takes its users with it.
+        const { pools } = create({ createCognito: true })
+
+        expect(await namesBuiltBy(pools)).toEqual(['proj-test'])
+    })
+
+    test('refuses two pools of one name rather than leaving it to the engine', () => {
+        expect(() => create(undefined, {
+            admins: { name: 'shared', envKeyName: 'A' },
+            members: { name: 'shared', envKeyName: 'M' },
+        })).toThrow(/Cannot create two pools named shared: members repeats it/)
+    })
+})
+
+describe('the pool auth.createCognito asks for', () => {
+    test('goes under the default key, tagged to authorize', () => {
+        const { pools } = create({ createCognito: true })
+
+        expect(pools[DEFAULT_POOL_KEY].envKeyName).toBe(DEFAULT_POOL_ENV_KEY_NAME)
+        expect(pools[DEFAULT_POOL_KEY].definition.authorizer).toBe(true)
+    })
+
+    test('takes the key and env var the stack chose for it', () => {
+        const { pools, auth } = create({
+            createCognito: true,
+            cognitoOptions: { key: 'members', envKeyName: 'MEMBERS_POOL_ID', useEmailAsUsername: true },
+        })
+
+        expect(Object.keys(pools)).toEqual(['members'])
+        expect(pools.members.envKeyName).toBe('MEMBERS_POOL_ID')
+        expect(auth.cognitoARN).toBeDefined()
+    })
+
+    test('sits alongside a pool the stack declares itself', () => {
+        const { pools } = create({ createCognito: true }, { members: { name: 'members', envKeyName: 'M' } })
+
+        expect(Object.keys(pools).sort()).toEqual([DEFAULT_POOL_KEY, 'members'].sort())
+    })
+
+    test('an empty pools record does not drop it', () => {
+        expect(Object.keys(create({ createCognito: true }, {}).pools)).toEqual([DEFAULT_POOL_KEY])
+    })
+
+    test('refuses a pools entry claiming the key it already uses', () => {
+        // Letting it win is silent, and the winner brings its own name: a different one renames the
+        // pool, and a renamed pool is replaced.
+        expect(() => create({ createCognito: true }, { [DEFAULT_POOL_KEY]: { name: 'logins', envKeyName: 'L' } }))
+            .toThrow(/auth.createCognito already declares the pool 'userPool'/)
+    })
+
+    test('the same clash under a renamed key is refused too', () => {
+        expect(() => create(
+            { createCognito: true, cognitoOptions: { key: 'logins' } },
+            { logins: { name: 'logins', envKeyName: 'L' } },
+        )).toThrow(/already declares the pool 'logins'/)
+    })
+})
+
+describe('the single-pool outputs', () => {
+    test('name the pool auth.createCognito made', async () => {
+        const { pools, auth } = create({ createCognito: true })
+
+        expect(await settled(auth.cognitoARN!)).toBe(await settled(pools[DEFAULT_POOL_KEY].awsPool!.arn))
+    })
+
+    test('are undefined for a stack that only declares pools itself', () => {
+        const { auth } = create(undefined, { members: { name: 'members', envKeyName: 'M' } })
+
+        expect(auth.cognitoARN).toBeUndefined()
+        expect(auth.cognitoPoolId).toBeUndefined()
     })
 })
 
 describe('poolAuthorizers', () => {
     test('carries every tagged pool, since the authorizer takes several provider ARNs', () => {
-        const pools = createPools('p', 'test', {}, {
-            admins: { envKeyName: 'ADMINS_POOL_ID', authorizer: true },
-            customers: { envKeyName: 'CUSTOMERS_POOL_ID', authorizer: true },
+        const { pools } = create(undefined, {
+            admins: { name: 'admins', envKeyName: 'A', authorizer: true },
+            customers: { name: 'customers', envKeyName: 'C', authorizer: true },
         })
 
         expect(poolAuthorizers(pools)).toEqual([pools.admins.awsPool!, pools.customers.awsPool!])
@@ -88,82 +165,23 @@ describe('poolAuthorizers', () => {
 
     test('leaves out a pool created only to be granted to functions', () => {
         // Creating a pool is not the same decision as exposing the API to it.
-        const pools = createPools('p', 'test', {}, {
-            logins: { envKeyName: 'LOGINS_POOL_ID', authorizer: true },
-            partners: { envKeyName: 'PARTNERS_POOL_ID' },
+        const { pools } = create(undefined, {
+            logins: { name: 'logins', envKeyName: 'L', authorizer: true },
+            partners: { name: 'partners', envKeyName: 'P' },
         })
 
         expect(poolAuthorizers(pools)).toEqual([pools.logins.awsPool!])
     })
 
     test('lets a referenced pool authorize, by its arn', () => {
-        const pools = createPools('p', 'test', {}, undefined, {
+        const { pools } = create(undefined, undefined, {
             admin: { ...reference('ADMIN_POOL_ID'), authorizer: true },
         })
 
         expect(poolAuthorizers(pools)).toEqual(['arn:ADMIN_POOL_ID'])
     })
-})
 
-describe('cognitoPoolKey', () => {
-    test('names the pool auth.createCognito asks for, which is what the old outputs mean', () => {
-        expect(cognitoPoolKey({ createCognito: true })).toBe(DEFAULT_POOL_KEY)
-        expect(cognitoPoolKey({ createCognito: true, cognitoOptions: { key: 'members' } })).toBe('members')
-    })
-
-    test('names nothing when the stack does not ask for one, so the old outputs stay undefined', () => {
-        expect(cognitoPoolKey({ createCognito: false })).toBeUndefined()
-        expect(cognitoPoolKey(undefined)).toBeUndefined()
-    })
-
-    test('agrees with the key the definitions are built under', () => {
-        // The one place the default lives: run() reads the old outputs from the same name.
-        const auth = { createCognito: true, cognitoOptions: { key: 'members', envKeyName: 'M' } }
-
-        expect(Object.keys(cognitoPoolDefinitions(auth) ?? {})).toEqual([cognitoPoolKey(auth)!])
-    })
-
-    test('resolves to a created pool, so the old outputs still point at it', () => {
-        const auth = { createCognito: true }
-        const pools = createPools('p', 'test', {}, cognitoPoolDefinitions(auth))
-
-        expect(pools[cognitoPoolKey(auth)!].awsPool).toBeDefined()
-    })
-})
-
-describe('cognitoPoolDefinitions', () => {
-    test('maps the older switch onto a definition tagged to authorize', () => {
-        expect(cognitoPoolDefinitions({ createCognito: true })).toEqual({
-            [DEFAULT_POOL_KEY]: { envKeyName: DEFAULT_POOL_ENV_KEY_NAME, options: undefined, authorizer: true },
-        })
-    })
-
-    test('takes the name and env var the stack chose for it', () => {
-        const definitions = cognitoPoolDefinitions({
-            createCognito: true,
-            cognitoOptions: { key: 'members', envKeyName: 'MEMBERS_POOL_ID', useEmailAsUsername: true },
-        })
-
-        expect(Object.keys(definitions ?? {})).toEqual(['members'])
-        expect(definitions?.members.envKeyName).toBe('MEMBERS_POOL_ID')
-        expect(definitions?.members.options?.useEmailAsUsername).toBe(true)
-    })
-
-    test('defines nothing when the stack does not ask for a pool', () => {
-        expect(cognitoPoolDefinitions({ createCognito: false })).toBeUndefined()
-        expect(cognitoPoolDefinitions(undefined)).toBeUndefined()
-    })
-
-    test('merges with a declared pools record rather than being replaced by it', () => {
-        // What run() does. `??` here would drop the cognito pool and delete it on the next deploy.
-        const merged = { ...cognitoPoolDefinitions({ createCognito: true }), ...{ members: { envKeyName: 'M' } } }
-
-        expect(Object.keys(merged).sort()).toEqual([DEFAULT_POOL_KEY, 'members'].sort())
-    })
-
-    test('an empty pools record does not drop it either, being merged and not nullish-checked', () => {
-        const merged = { ...cognitoPoolDefinitions({ createCognito: true }), ...{} }
-
-        expect(Object.keys(merged)).toEqual([DEFAULT_POOL_KEY])
+    test('authorizes with nothing when no pool is tagged for it', () => {
+        expect(poolAuthorizers(create(undefined, undefined, { admin: reference('A') }).pools)).toEqual([])
     })
 })

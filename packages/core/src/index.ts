@@ -19,7 +19,7 @@ import { createQueueHandlers, createQueues, LambadaQueueHandlerDefinition, Lamba
 import { OpenAPIObjectConfigV31 } from "@asteasolutions/zod-to-openapi/dist/v3.1/openapi-generator";
 import { LambdaOptions } from "./lambdas";
 import { BundleSource } from "./lambdas/bundles";
-import { cognitoPoolDefinitions, cognitoPoolKey, createPools, LambadaPools, LambadaPoolsRef, poolAuthorizers, PoolsResult } from "./auth/pools";
+import { createPools, LambadaPools, LambadaPoolsRef, poolAuthorizers, PoolsResult } from "./auth/pools";
 import { createDiagnostics } from "./resources/diagnostics";
 import { preflight } from "./resources/preflight";
 
@@ -163,18 +163,9 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
     const secrets = createSecrets(projectName, environment, args.secrets, args.secretsRef)
     const databases = createDynamoDbTables(environment, args.tables, args.tablePrefix, encryptionKeys, args.tablesRef, globalTags)
 
-    const pools = createPools(
-        projectName,
-        environment,
-        encryptionKeys,
-        { ...cognitoPoolDefinitions(args.auth), ...args.pools },
-        args.poolsRef
+    const { pools, auth: cognito } = createPools(
+        projectName, environment, encryptionKeys, args.auth, args.pools, args.poolsRef
     )
-
-    const cognitoKey = cognitoPoolKey(args.auth)
-    const cognitoPool = cognitoKey ? pools[cognitoKey]?.awsPool : undefined
-    const cognitoARN = cognitoPool?.arn
-    const cognitoPoolId = cognitoPool?.id
 
     const messaging = createMessaging(environment, args.messages, args.messagesRef, globalTags)
     const queues = createQueues(environment, args.queues, args.queuesRef)
@@ -328,10 +319,7 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
     return {
         api: api,
         cdn: cdn,
-        auth: {
-            cognitoARN: cognitoARN,
-            cognitoPoolId: cognitoPoolId
-        },
+        auth: cognito,
         messaging: messaging,
         queues: queues,
         pools: pools,

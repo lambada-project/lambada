@@ -10,9 +10,9 @@ const context = {
     messaging: { statusChanged: item('statusChanged') },
     queues: { provisioning: item('provisioning') },
     kmsKeys: { signing: item('signing') },
-    pools: createPools('p', 'test', {}, undefined, {
+    pools: createPools('p', 'test', {}, undefined, undefined, {
         userPool: { id: 'pool-id', arn: 'arn:pool', envKeyName: 'USER_POOL_ID' },
-    }),
+    }).pools,
 } as unknown as GrantContext
 
 describe('toLambdaResources', () => {
