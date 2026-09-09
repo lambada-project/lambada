@@ -43,7 +43,12 @@ export const createQueues = (
     for (const key in queues) {
         if (queues.hasOwnProperty(key)) {
             const queueDef = queues[key];
-            const name = `${queueDef.name}-${environment}${queueDef.options?.fifoQueue ? '.fifo' : ''}`
+            // Same reason as findQueue: the suffix depends on a value that may not have resolved,
+            // and SQS requires it exactly when the queue is fifo.
+            const name = lift(
+                queueDef.options?.fifoQueue,
+                isFifo => `${queueDef.name}-${environment}${isFifo ? '.fifo' : ''}`
+            )
             const queue = new aws.sqs.Queue(queueDef.name, {
                 ...(queueDef.options ?? {}),
                 name: name,
