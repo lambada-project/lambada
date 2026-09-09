@@ -9,6 +9,6 @@ import { LambadaEndpointArgs, EmbroideryEventHandlerRoute } from './createEndpoi
 import { ProxyIntegrationArgs } from './createProxyIntegration'
 
 export type EmbroideryApiEndpointCreator = (apiContext: LambadaResources) => EmbroideryEventHandlerRoute
-export type LambadaEndpointCreator = (resources: LambadaResources) => LambadaEndpointArgs<any, any> | undefined
+export type LambadaEndpointCreator = (resources: LambadaResources) => LambadaEndpointArgs<any> | undefined
 export type LambadaProxyCreator = (resources: LambadaResources) => ProxyIntegrationArgs | undefined
-export type LambadaCreatorTypes = ProxyIntegrationArgs | LambadaEndpointArgs<any, any> | EmbroideryEventHandlerRoute
+export type LambadaCreatorTypes = ProxyIntegrationArgs | LambadaEndpointArgs<any> | EmbroideryEventHandlerRoute

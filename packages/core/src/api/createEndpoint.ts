@@ -33,7 +33,7 @@ export type EmbroideryCallback = (event: EmbroideryRequest) => Promise<object>
 export type EmbroideryEventHandlerRoute = Route
 export type LambadaEndpointArgs<
     TNames extends LambadaGrantsShape = LambadaGrantsShape,
-    TOpenApi extends OpenApiFactoryLike | undefined = OpenApiFactoryLike
+    TOpenApi extends OpenApiFactoryLike | undefined = OpenApiFactory
 > = {
     /** Custom name for your lambda, if empty it will take a name based on the path-verb */
     name?: string,
@@ -56,7 +56,10 @@ export type LambadaEndpointArgs<
         control?: string
     },
     environmentVariables?: EmbroideryEnvironmentVariables,
-    /** Read only by the document endpoint, which narrows it back. */
+    /**
+     * Read only by the document endpoint, which narrows it back. Defaults to the classic factory so
+     * an un-annotated `registry` is still typed; name a factory type to bring another vocabulary.
+     */
     openapi?: TOpenApi
     webhook?: {
         wrapInQueue: boolean,
