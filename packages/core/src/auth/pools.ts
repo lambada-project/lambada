@@ -107,7 +107,8 @@ export const createPools = (
     pools: PoolsResult
     /** Provider ARNs for the API's cognito authorizer. */
     authorizers: (aws.cognito.UserPool | pulumi.Input<string>)[]
-    auth: { cognitoARN?: pulumi.Output<string>, cognitoPoolId?: pulumi.Output<string> }
+    /** Keys always present, as `run()` has always returned them; the values may be undefined. */
+    auth: { cognitoARN: pulumi.Output<string> | undefined, cognitoPoolId: pulumi.Output<string> | undefined }
 } => {
     const { definitions: pools, cognitoKey } = poolDefinitions(projectName, auth, declaredPools)
     const result: PoolsResult = {}
