@@ -201,11 +201,11 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
     const lambdaAuthorizers = [...(args.auth?.lambdaAuthorizers ?? []), ...extra.filter(isLambdaAuthorizer)]
     const allUserPools = [...poolProviders, ...extra.filter(isCognitoProvider)]
 
-    const cognitoAuthorizer = awsx.apigateway.getCognitoAuthorizer({
+    const cognitoAuthorizer = allUserPools.length > 0 ?  awsx.apigateway.getCognitoAuthorizer({
         providerARNs: allUserPools,
-    })
+    }) : undefined
 
-    const authorizers = [...(allUserPools.length > 0 ? [cognitoAuthorizer] : []), ...lambdaAuthorizers]
+    const authorizers = [...(cognitoAuthorizer ? [cognitoAuthorizer] : []), ...lambdaAuthorizers]
 
 
 
