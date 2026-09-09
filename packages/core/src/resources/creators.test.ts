@@ -29,3 +29,20 @@ describe('asBuilder', () => {
             .toBe('already built in test')
     })
 })
+
+describe('asCreator and asBuilder agree', () => {
+    test('asCreator is asBuilder with a build step that returns its arguments', () => {
+        const args = { name: 'onThing' }
+        const identity = (_c: LambadaResources, value: typeof args) => value
+
+        expect(asCreator(args)(context)).toBe(asBuilder(args, identity)(context))
+    })
+
+    test('the test for a creator lives in one place', () => {
+        // asCreator delegates, so there is a single `typeof definition === 'function'` in the source.
+        const creator = (c: LambadaResources) => c.projectName
+
+        expect(asCreator(creator)(context)).toBe('test')
+        expect(asBuilder(creator, () => 'unused')(context)).toBe('test')
+    })
+})
