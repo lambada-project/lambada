@@ -9,6 +9,7 @@ import { SecurityResult } from "../security";
 
 export * from './createSubscription'
 import { createSubscription, LambadaSubscriptionHandler } from './createSubscription'
+import { asBuilder } from '../resources/creators'
 
 export type MessageDefinition = {
     name: string
@@ -73,9 +74,7 @@ export const createSubscriptions = (
     context: LambadaResources,
     definitions?: LambadaSubscriptionDefinition[]
 ): LambadaTopicEventSubscription[] =>
-    (definitions ?? []).map(definition => typeof definition === 'function'
-        ? definition(context)
-        : createSubscription(context, definition))
+    (definitions ?? []).map(definition => asBuilder(definition, createSubscription)(context))
 
 const tryParse = (value: any) => {
     if (!value) return undefined
