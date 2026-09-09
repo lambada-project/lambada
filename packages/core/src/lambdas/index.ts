@@ -118,9 +118,13 @@ export type LambdaOptions = {
     layers?: pulumi.Input<pulumi.Input<string>[]> | undefined
 
     /**
-     * Enables XRay access from this lambda
+     * Enables XRay access from this lambda.
+     *
+     * Not an `Input`: it decides whether a policy statement is written, which happens while the
+     * stack is being built. An `Input` here would be an object in that test, and `false` would read
+     * as true.
      */
-    enableXRay?: pulumi.Input<boolean>
+    enableXRay?: boolean
 }
 
 export const createLambda = <E, R>(

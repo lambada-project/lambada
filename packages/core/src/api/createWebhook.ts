@@ -9,9 +9,36 @@ import * as SQS from '@aws-sdk/client-sqs'
 import { QueueHandlerEvent } from "../queue/createQueueHandler";
 import { getBody } from "@lambada/utils";
 import { resolveEnvironment, resolveGrants } from '../resources/grants';
+import { lift2 } from '../inputs';
 
 
 export type LambadaWebhookCallback = (event: EmbroideryRequest, queueRecord: aws.sqs.QueueRecord) => Promise<object>
+
+/**
+ * The queue's visibility timeout, refused when it is shorter than the handler it hides messages
+ * from: a message that reappears before the handler finishes is processed twice.
+ */
+export const requireVisibilityCoversTimeout = (visibility = 30, handler = 30): number => {
+    if (visibility < handler) {
+        throw new Error(
+            `Queue visibilityTimeoutSeconds (${visibility}) must be greater or equal than the ` +
+            `endpoint's timeout (${handler}).`
+        )
+    }
+
+    return visibility
+}
+
+/**
+ * The same rule, applied where the values are known. Both may be Inputs, and comparing an Input as
+ * a number is always false, so the check cannot be made here. The checked value is returned rather
+ * than merely validated: an `apply` nothing consumes may never run, so the queue is built from this.
+ */
+export const visibilityTimeoutFor = (
+    visibilityTimeoutSeconds: pulumi.Input<number | undefined>,
+    timeout: pulumi.Input<number | undefined>
+): pulumi.Output<number> =>
+    lift2(visibilityTimeoutSeconds, timeout, requireVisibilityCoversTimeout)
 
 export function createWebhook(
     endpointParams: (LambadaEndpointArgs<any> & {
@@ -27,11 +54,10 @@ export function createWebhook(
     const endpointOptions = endpointParams.options ?? {}
 
     endpointOptions.timeout = endpointOptions.timeout ?? 30
-    queueOptions.visibilityTimeoutSeconds = queueOptions.visibilityTimeoutSeconds ?? 30
-
-    if (queueOptions.visibilityTimeoutSeconds < endpointOptions.timeout) {
-        throw new Error("Queue visibilityTimeoutSeconds must be greater or equal than the endpoint's timeout")
-    }
+    queueOptions.visibilityTimeoutSeconds = visibilityTimeoutFor(
+        queueOptions.visibilityTimeoutSeconds,
+        endpointOptions.timeout
+    )
 
     /****** QUEUE***** */
 
