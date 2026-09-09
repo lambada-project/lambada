@@ -12,6 +12,7 @@ import { NotificationResult } from '../notifications';
 import { EmbroideryEnvironmentVariables } from '..';
 import { enums } from '@pulumi/aws/types';
 import { QueueResultItem } from '../queue';
+import { lift } from '../inputs';
 import { PoolResultItem } from '../auth/pools';
 //import { NotificationResult, NotificationResultItem } from '../notifications';
 
@@ -118,13 +119,9 @@ export type LambdaOptions = {
     layers?: pulumi.Input<pulumi.Input<string>[]> | undefined
 
     /**
-     * Enables XRay access from this lambda.
-     *
-     * Not an `Input`: it decides whether a policy statement is written, which happens while the
-     * stack is being built. An `Input` here would be an object in that test, and `false` would read
-     * as true.
+     * Enables XRay access from this lambda
      */
-    enableXRay?: boolean
+    enableXRay?: pulumi.Input<boolean>
 }
 
 export const createLambda = <E, R>(
@@ -282,12 +279,13 @@ export const createLambda = <E, R>(
         policyStatements.push(VPCAccessExecutionStatement)
     }
 
-    if (options?.enableXRay) {
-        policyStatements.push(AWSXRayDaemonWriteAccess)
-    }
+    // enableXRay may be an Input, and an Input tested directly is an object: `false` would read as
+    // true. The statement is added where the value is known, so the document becomes an Output.
+    const statements = lift(options?.enableXRay ?? false, enabled =>
+        enabled ? [...policyStatements, AWSXRayDaemonWriteAccess] : policyStatements)
 
     if (createRole) {
-        lambdaRole = createLambdaRoleAndPolicies(name, environment, policyStatements)
+        lambdaRole = createLambdaRoleAndPolicies(name, environment, statements)
     }
 
     const variables = {
@@ -371,14 +369,16 @@ export const createLambda = <E, R>(
     }
 }
 
-export const createLambdaRoleAndPolicies = (name: string, environment: string, policyStatements: aws.iam.PolicyStatement[]) => {
+export const createLambdaRoleAndPolicies = (
+    name: string,
+    environment: string,
+    policyStatements: pulumi.Input<aws.iam.PolicyStatement[]>
+) => {
     let dashedNamed = name.replace(/[A-Z]/g, m => "-" + m.toLowerCase());
     if (dashedNamed.startsWith('-')) {
         dashedNamed = dashedNamed.substr(1);
     }
     dashedNamed = `${dashedNamed}-${environment}`
-
-    if (!policyStatements) policyStatements = []
 
     const role = new aws.iam.Role(`${dashedNamed}-role`, {
         name: `${dashedNamed}-role`,
@@ -388,13 +388,13 @@ export const createLambdaRoleAndPolicies = (name: string, environment: string, p
     const policy = new aws.iam.Policy(`${dashedNamed}-policy`, {
         name: `${dashedNamed}-policy`,
         path: "/",
-        policy: {
+        policy: lift(policyStatements ?? [], (statements): PolicyDocument => ({
             Version: "2012-10-17",
             Statement: [
                 logsStatement,
-                ...policyStatements
+                ...statements
             ]
-        }
+        }))
     })
 
     new aws.iam.RolePolicyAttachment(`${dashedNamed}-policy-attachment`, {
