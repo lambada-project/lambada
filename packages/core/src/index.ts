@@ -19,7 +19,7 @@ import { createQueueHandlers, createQueues, LambadaQueueHandlerDefinition, Lamba
 import { OpenAPIObjectConfigV31 } from "@asteasolutions/zod-to-openapi/dist/v3.1/openapi-generator";
 import { LambdaOptions } from "./lambdas";
 import { BundleSource } from "./lambdas/bundles";
-import { createPools, LambadaPools, LambadaPoolsRef, poolAuthorizers, PoolsResult } from "./auth/pools";
+import { createPools, LambadaPools, LambadaPoolsRef, PoolsResult } from "./auth/pools";
 import { createDiagnostics } from "./resources/diagnostics";
 import { preflight } from "./resources/preflight";
 
@@ -116,7 +116,18 @@ export type LambadaRunArguments = {
     },
     auth?: {
         createCognito?: boolean
-        extraAuthorizers: (pulumi.Input<string> | UserPool | LambdaAuthorizer)[],
+        /** Lambda authorizers for the API. Cognito pools are picked by `authorizerPools`. */
+        lambdaAuthorizers?: LambdaAuthorizer[],
+        /**
+         * Which pools the API accepts tokens from, by the name each is declared under in `pools` or
+         * `poolsRef`. The one `createCognito` builds is always included.
+         */
+        authorizerPools?: readonly string[],
+        /**
+         * @deprecated Two unrelated kinds in one list. Declare a lambda authorizer under
+         * `lambdaAuthorizers`, and a cognito pool by naming it in `authorizerPools`.
+         */
+        extraAuthorizers?: (pulumi.Input<string> | UserPool | LambdaAuthorizer)[],
         cognitoOptions?: {
             useEmailAsUsername?: boolean
             preventResourceDeletion: boolean
@@ -163,7 +174,7 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
     const secrets = createSecrets(projectName, environment, args.secrets, args.secretsRef)
     const databases = createDynamoDbTables(environment, args.tables, args.tablePrefix, encryptionKeys, args.tablesRef, globalTags)
 
-    const { pools, auth: cognito } = createPools(
+    const { pools, authorizers: poolProviders, auth: cognito } = createPools(
         projectName, environment, encryptionKeys, args.auth, args.pools, args.poolsRef
     )
 
@@ -176,22 +187,23 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
     const apiPath = args.naming?.apiPath ?? '/api'
 
 
-    // normalize authorizers
-    function isCognitoAuthorizer(x: any): x is UserPool {
-        return !isLambdaAuthorizer(x)
-        //return typeof x === 'object' && 'usernameAttributes' in x && 'passwordPolicy' in x
-    }
-    const userPools = args.auth?.extraAuthorizers?.filter(x => isCognitoAuthorizer(x)) ?? []
-    const allUserPools = [...poolAuthorizers(pools), ...userPools]
+    type ExtraAuthorizer = pulumi.Input<string> | UserPool | LambdaAuthorizer
+
+    const isLambdaAuthorizer = (x: ExtraAuthorizer): x is LambdaAuthorizer =>
+        typeof x === 'object' && x !== null && 'parameterLocation' in x && 'handler' in x
+
+    // The deprecated list holds one kind or the other, so what is not a lambda authorizer is what a
+    // cognito authorizer takes. The predicate says that, rather than claiming every one is a pool.
+    const isCognitoProvider = (x: ExtraAuthorizer): x is pulumi.Input<string> | UserPool =>
+        !isLambdaAuthorizer(x)
+
+    const extra: ExtraAuthorizer[] = args.auth?.extraAuthorizers ?? []
+    const lambdaAuthorizers = [...(args.auth?.lambdaAuthorizers ?? []), ...extra.filter(isLambdaAuthorizer)]
+    const allUserPools = [...poolProviders, ...extra.filter(isCognitoProvider)]
+
     const cognitoAuthorizer = awsx.apigateway.getCognitoAuthorizer({
         providerARNs: allUserPools,
-        //methodsToAuthorize: ["https://yourdomain.com/user.read"]
     })
-
-    function isLambdaAuthorizer(x: any): x is LambdaAuthorizer {
-        return typeof x === 'object' && 'parameterLocation' in x && 'handler' in x
-    }
-    const lambdaAuthorizers = args.auth?.extraAuthorizers?.filter(x => isLambdaAuthorizer(x)) ?? []
 
     const authorizers = [...(allUserPools.length > 0 ? [cognitoAuthorizer] : []), ...lambdaAuthorizers]
 

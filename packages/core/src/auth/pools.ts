@@ -16,12 +16,6 @@ export type PoolDefinition = {
     /** Published to every function granted this pool, carrying the pool id. */
     envKeyName: string
     options?: CognitoPoolOptions
-    /**
-     * Whether the API accepts tokens from this pool. Creating a pool and exposing the API to it are
-     * separate decisions: a pool made only to be granted to functions through `resources.pool`
-     * should not authorize anything.
-     */
-    authorizer?: boolean
 }
 
 /** A pool that already exists, named so functions can be granted it the same way. */
@@ -29,8 +23,6 @@ export type PoolReferenceDefinition = {
     id: pulumi.Input<string>
     arn: pulumi.Input<string>
     envKeyName: string
-    /** A referenced pool can authorize the API too — the authorizer takes ARNs, not just resources. */
-    authorizer?: boolean
 }
 
 export type LambadaPools = { [id: string]: PoolDefinition }
@@ -90,8 +82,7 @@ const poolDefinitions = (
                 // rename the pool, and a renamed pool is replaced, taking its users with it.
                 name: projectName,
                 envKeyName: auth.cognitoOptions?.envKeyName ?? DEFAULT_POOL_ENV_KEY_NAME,
-                options: auth.cognitoOptions,
-                authorizer: true
+                options: auth.cognitoOptions
             },
             ...pools
         }
@@ -112,7 +103,12 @@ export const createPools = (
     auth?: CognitoAuth,
     declaredPools?: LambadaPools,
     poolsRef?: LambadaPoolsRef | PoolsResult
-): { pools: PoolsResult, auth: { cognitoARN?: pulumi.Output<string>, cognitoPoolId?: pulumi.Output<string> } } => {
+): {
+    pools: PoolsResult
+    /** Provider ARNs for the API's cognito authorizer. */
+    authorizers: (aws.cognito.UserPool | pulumi.Input<string>)[]
+    auth: { cognitoARN?: pulumi.Output<string>, cognitoPoolId?: pulumi.Output<string> }
+} => {
     const { definitions: pools, cognitoKey } = poolDefinitions(projectName, auth, declaredPools)
     const result: PoolsResult = {}
 
@@ -159,16 +155,39 @@ export const createPools = (
 
     const cognitoPool = cognitoKey ? result[cognitoKey]?.awsPool : undefined
 
-    return { pools: result, auth: { cognitoARN: cognitoPool?.arn, cognitoPoolId: cognitoPool?.id } }
+    // The pool createCognito builds has always authorized, so it joins the pick rather than needing
+    // to be named in it.
+    const picked = [...(auth?.authorizerPools ?? [])]
+    if (cognitoKey && !picked.includes(cognitoKey)) picked.push(cognitoKey)
+
+    return {
+        pools: result,
+        authorizers: poolAuthorizers(result, picked),
+        auth: { cognitoARN: cognitoPool?.arn, cognitoPoolId: cognitoPool?.id }
+    }
 }
 
 /**
- * The pools the API accepts tokens from: the ones tagged for it, never inferred from how many there
- * are, what they are called, or whether this stack created them. The resource for a created pool and
- * the ARN for a referenced one, which is what `getCognitoAuthorizer` takes either of.
+ * The picked pools as provider ARNs: the resource for one this stack created, the arn for one it
+ * only references, which is what `getCognitoAuthorizer` takes either of. A name that no pool answers
+ * to is refused here rather than producing an API that trusts nothing.
  */
-export const poolAuthorizers = (pools: PoolsResult): (aws.cognito.UserPool | pulumi.Input<string>)[] =>
-    Object.values(pools).filter(x => x.definition.authorizer).map(x => x.awsPool ?? x.ref.arn)
+const poolAuthorizers = (
+    pools: PoolsResult,
+    picked: readonly string[]
+): (aws.cognito.UserPool | pulumi.Input<string>)[] => picked.map(key => {
+    const pool = pools[key]
+
+    if (!pool) {
+        const available = Object.keys(pools)
+        throw new Error(
+            `Cannot authorize with pool '${key}': no pool is declared under that name. ` +
+            `The stack has: ${available.length ? available.join(', ') : 'none'}.`
+        )
+    }
+
+    return pool.awsPool ?? pool.ref.arn
+})
 
 /**
  * `auth.createCognito` as the definition it always meant, so the older switch and the `pools`
@@ -178,4 +197,12 @@ export const poolAuthorizers = (pools: PoolsResult): (aws.cognito.UserPool | pul
 type CognitoAuth = {
     createCognito?: boolean
     cognitoOptions?: CognitoPoolOptions & { key?: string, envKeyName?: string }
+    /**
+     * Which pools the API accepts tokens from, by the name each is declared under — created or
+     * referenced alike. Whether a pool exists and whether the API trusts it are separate decisions,
+     * so this is a pick over them rather than a mark on each.
+     *
+     * The pool `createCognito` builds is always among them, as it has always been.
+     */
+    authorizerPools?: readonly string[]
 }

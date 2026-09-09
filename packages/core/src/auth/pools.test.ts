@@ -4,7 +4,6 @@ import {
     createPools,
     DEFAULT_POOL_ENV_KEY_NAME,
     DEFAULT_POOL_KEY,
-    poolAuthorizers,
     PoolsResult,
 } from './pools'
 
@@ -95,11 +94,10 @@ describe('what each created pool is called', () => {
 })
 
 describe('the pool auth.createCognito asks for', () => {
-    test('goes under the default key, tagged to authorize', () => {
+    test('goes under the default key', () => {
         const { pools } = create({ createCognito: true })
 
         expect(pools[DEFAULT_POOL_KEY].envKeyName).toBe(DEFAULT_POOL_ENV_KEY_NAME)
-        expect(pools[DEFAULT_POOL_KEY].definition.authorizer).toBe(true)
     })
 
     test('takes the key and env var the stack chose for it', () => {
@@ -153,35 +151,51 @@ describe('the single-pool outputs', () => {
     })
 })
 
-describe('poolAuthorizers', () => {
-    test('carries every tagged pool, since the authorizer takes several provider ARNs', () => {
-        const { pools } = create(undefined, {
-            admins: { name: 'admins', envKeyName: 'A', authorizer: true },
-            customers: { name: 'customers', envKeyName: 'C', authorizer: true },
-        })
+describe('which pools the API accepts tokens from', () => {
+    test('is the pick, over created and referenced pools alike', () => {
+        const { authorizers, pools } = create(
+            undefined,
+            { admins: { name: 'admins', envKeyName: 'A' } },
+            { partners: { ...reference('PARTNERS_POOL_ID') } },
+        )
 
-        expect(poolAuthorizers(pools)).toEqual([pools.admins.awsPool!, pools.customers.awsPool!])
+        expect(authorizers).toEqual([])
+
+        const picked = create(
+            { authorizerPools: ['admins', 'partners'] },
+            { admins: { name: 'admins', envKeyName: 'A' } },
+            { partners: { ...reference('PARTNERS_POOL_ID') } },
+        )
+
+        // The resource for one this stack created, the arn for one it only references.
+        expect(picked.authorizers).toEqual([picked.pools.admins.awsPool!, 'arn:PARTNERS_POOL_ID'])
+        expect(pools.admins.awsPool).toBeDefined()
     })
 
-    test('leaves out a pool created only to be granted to functions', () => {
-        // Creating a pool is not the same decision as exposing the API to it.
-        const { pools } = create(undefined, {
-            logins: { name: 'logins', envKeyName: 'L', authorizer: true },
+    test('leaves out a pool declared only to be granted to functions', () => {
+        // Declaring a pool and trusting it are separate decisions.
+        const { authorizers, pools } = create({ authorizerPools: ['logins'] }, {
+            logins: { name: 'logins', envKeyName: 'L' },
             partners: { name: 'partners', envKeyName: 'P' },
         })
 
-        expect(poolAuthorizers(pools)).toEqual([pools.logins.awsPool!])
+        expect(authorizers).toEqual([pools.logins.awsPool!])
     })
 
-    test('lets a referenced pool authorize, by its arn', () => {
-        const { pools } = create(undefined, undefined, {
-            admin: { ...reference('ADMIN_POOL_ID'), authorizer: true },
-        })
+    test('includes the pool createCognito builds without it being named', () => {
+        const { authorizers, pools } = create({ createCognito: true })
 
-        expect(poolAuthorizers(pools)).toEqual(['arn:ADMIN_POOL_ID'])
+        expect(authorizers).toEqual([pools[DEFAULT_POOL_KEY].awsPool!])
     })
 
-    test('authorizes with nothing when no pool is tagged for it', () => {
-        expect(poolAuthorizers(create(undefined, undefined, { admin: reference('A') }).pools)).toEqual([])
+    test('does not include it twice when the pick names it too', () => {
+        const { authorizers } = create({ createCognito: true, authorizerPools: [DEFAULT_POOL_KEY] })
+
+        expect(authorizers).toHaveLength(1)
+    })
+
+    test('refuses a name no pool answers to', () => {
+        expect(() => create({ authorizerPools: ['ghosts'] }, { admins: { name: 'admins', envKeyName: 'A' } }))
+            .toThrow(/Cannot authorize with pool 'ghosts'.*The stack has: admins/s)
     })
 })
