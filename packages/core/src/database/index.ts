@@ -27,7 +27,7 @@ function createTable(
     environment: string,
     primaryKeyName: string,
     rangeKeyName?: string,
-    kmsKeyArn?: pulumi.Input<string>,
+    kmsKey?: aws.kms.Key,
     attributes?: TableAttribute[],
     secondaryIndexes?: TableIndexDefinition[],
     ttl?: { attributeName: string, enabled: boolean },
@@ -63,8 +63,8 @@ function createTable(
         globalSecondaryIndexes: secondaryIndexes,
         //writeCapacity: 20,
         serverSideEncryption: {
-            enabled: kmsKeyArn ? true : false,
-            kmsKeyArn: kmsKeyArn
+            enabled: kmsKey ? true : false,
+            kmsKeyArn: kmsKey ? kmsKey.arn : undefined
         },
         pointInTimeRecovery: options?.pointInTimeRecoveryEnabled ? {
             enabled: options?.pointInTimeRecoveryEnabled ?? false
@@ -117,7 +117,7 @@ export const createDynamoDbTables = (
             const tableName = prefix && prefix.length > 0 ? `${prefix}-${table.name}` : table.name
             const awsTable = createTable(
                 tableName, environment, table.primaryKey, table.rangeKey,
-                kmsKeys?.dynamodb?.ref.arn,
+                kmsKeys?.dynamodb?.awsKmsKey,
                 table.attributes, table.indexes, table.ttl,
                 {
                     ...globalOptions,

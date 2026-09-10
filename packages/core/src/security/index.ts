@@ -5,14 +5,9 @@ export * from './secrets'
 
 type KeyParams = Omit<KeyArgs, "tags" | 'description'>
 
-/** What every reader needs, whichever way the key was given. */
-export type KeyReference = {
+/** A key outside the naming convention, addressed by id: the fetched key carries everything else. */
+export type KeyReferenceDefinition = {
     id: pulumi.Input<string>
-    arn: pulumi.Input<string>
-}
-
-/** A key outside the naming convention, addressed by value the way a referenced pool is. */
-export type KeyReferenceDefinition = KeyReference & {
     envKeyName: string
 }
 
@@ -43,7 +38,6 @@ export function CreateKey(item: SecurityKeyItem, name: string, environment: stri
 
     return {
         awsKmsKey: key,
-        ref: { id: key.keyId, arn: key.arn },
         definition: item
     }
 }
@@ -61,7 +55,7 @@ export type SecurityKeys = {
 
 /**
  * Keys this stack only references: by the same definition a stack creating one writes, resolved
- * through the alias, or by value for a key outside the convention.
+ * through the alias, or by id for a key outside the convention.
  */
 export type SecurityKeysRef = {
     /** A definition's `name` is the full physical name here, project prefix and all. */
@@ -69,16 +63,19 @@ export type SecurityKeysRef = {
 }
 
 const isKeyReferenceDefinition = (item: SecurityKeyItem | KeyReferenceDefinition): item is KeyReferenceDefinition =>
-    !!item && 'arn' in item
+    !!item && 'id' in item
 
 const isResultItem = (item: SecurityResultItem | SecurityKeyItem | KeyReferenceDefinition): item is SecurityResultItem =>
-    !!item && 'ref' in item
+    !!item && 'awsKmsKey' in item
 
-/** The key the alias points at, not the alias itself. */
-function findKey(name: string, environment: string): KeyReference {
-    const found = pulumi.output(aws.kms.getAlias({ name: keyAlias(name, environment) }, { async: true }))
+/**
+ * The key an alias points at, as the resource itself. Fetched rather than reduced to an arn so a
+ * referenced key and an owned one are the same thing to every reader, as `findSecret` does.
+ */
+function findKey(name: string, environment: string): aws.kms.Key {
+    const alias = pulumi.output(aws.kms.getAlias({ name: keyAlias(name, environment) }, { async: true }))
 
-    return { id: found.targetKeyId, arn: found.targetKeyArn }
+    return aws.kms.Key.get(`${name}-${environment}`, alias.targetKeyId)
 }
 
 export function createKMSKeys(projectName: string, environment: string, keys: SecurityKeys | undefined, keysRef: SecurityKeysRef | SecurityResult | undefined): SecurityResult {
@@ -106,12 +103,12 @@ export function createKMSKeys(projectName: string, environment: string, keys: Se
                 result[key] = keyItem
             } else if (isKeyReferenceDefinition(keyItem)) {
                 result[key] = {
-                    ref: { id: keyItem.id, arn: keyItem.arn },
-                    definition: keyItem
+                    awsKmsKey: aws.kms.Key.get(`${key}-${environment}`, keyItem.id),
+                    definition: { name: key, envKeyName: keyItem.envKeyName }
                 }
             } else if (keyItem) {
                 result[key] = {
-                    ref: findKey(keyItem.name, environment),
+                    awsKmsKey: findKey(keyItem.name, environment),
                     definition: keyItem
                 }
             } else {
@@ -124,10 +121,8 @@ export function createKMSKeys(projectName: string, environment: string, keys: Se
 }
 
 export type SecurityResultItem = {
-    /** The key itself, when this stack created it rather than referencing one. */
-    awsKmsKey?: aws.kms.Key
-    ref: KeyReference
-    definition: SecurityKeyItem | KeyReferenceDefinition
+    awsKmsKey: aws.kms.Key
+    definition: SecurityKeyItem
 } | undefined
 
 export type SecurityResult = {

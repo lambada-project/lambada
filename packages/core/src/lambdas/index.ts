@@ -225,11 +225,11 @@ export const createLambda = <E, R>(
         }
         else if (access.kmsKey) {
             if (access.kmsKey.definition)
-                envVarsFromResources[access.kmsKey.definition.envKeyName] = access.kmsKey.ref.arn
+                envVarsFromResources[access.kmsKey.definition.envKeyName] = access.kmsKey.awsKmsKey.arn
             policyStatements.push(
                 {
                     Action: access.access,
-                    Resource: access.kmsKey.ref.arn,
+                    Resource: access.kmsKey.awsKmsKey.arn,
                     Effect: 'Allow'
                 }
             )

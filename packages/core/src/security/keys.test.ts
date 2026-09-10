@@ -11,7 +11,10 @@ const built: { name: string, type: string, inputs: any }[] = []
 pulumi.runtime.setMocks({
     newResource: (args: pulumi.runtime.MockResourceArgs) => {
         built.push({ name: args.name, type: args.type, inputs: args.inputs })
-        return { id: `${args.name}-id`, state: { ...args.inputs, arn: `arn:${args.name}`, keyId: `${args.name}-keyId` } }
+        // A `.get` arrives here with the fetched id on `args.id`, which is what names the arn.
+        const id = args.id || `${args.name}-id`
+
+        return { id, state: { ...args.inputs, arn: `arn:${id}`, keyId: id } }
     },
     call: (args: pulumi.runtime.MockCallArgs) => {
         if (args.token === 'aws:kms/getAlias:getAlias') {
@@ -33,40 +36,38 @@ const create = (keys?: Parameters<typeof createKMSKeys>[2], keysRef?: Parameters
     createKMSKeys('proj', 'test', keys, keysRef)
 
 const definition = (name: string, envKeyName: string) => ({ name, envKeyName })
-const byValue = (envKeyName: string) => ({ id: `${envKeyName}-id`, arn: `arn:${envKeyName}`, envKeyName })
+const byValue = (envKeyName: string) => ({ id: `${envKeyName}-id`, envKeyName })
 
 describe('createKMSKeys', () => {
     test('is empty when the stack neither creates nor references one', () => {
         expect(create()).toEqual({})
     })
 
-    test('gives a created key the same ref shape a referenced one has', async () => {
+    test('gives a created key a real resource', async () => {
         const keys = create({ data: definition('data', 'DATA_KEY_ARN') })
 
-        expect(keys.data!.awsKmsKey).toBeDefined()
-        expect(await settled(keys.data!.ref.arn)).toBe('arn:proj-data-test')
-        expect(await settled(keys.data!.ref.id)).toBe('proj-data-test-keyId')
+        expect(await settled(keys.data!.awsKmsKey.arn)).toBe('arn:proj-data-test-id')
     })
 
     test('builds a created key under the project-prefixed physical name', async () => {
         const keys = create({ data: definition('data', 'DATA_KEY_ARN') })
 
-        expect(await settled(keys.data!.ref.arn)).toBe('arn:proj-data-test')
+        expect(await settled(keys.data!.awsKmsKey.urn)).toContain('proj-data-test')
     })
 
-    test('resolves a ref given by name through the alias', async () => {
+    test('resolves a ref given by name to the key the alias points at', async () => {
         const keys = create(undefined, { shared: definition('shared', 'SHARED_KEY_ARN') })
 
-        expect(keys.shared!.awsKmsKey).toBeUndefined()
-        expect(await settled(keys.shared!.ref.arn)).toBe(`arn:target:${keyAlias('shared', 'test')}`)
-        expect(await settled(keys.shared!.ref.id)).toBe(`${keyAlias('shared', 'test')}-target-id`)
+        // A real resource, fetched: the same thing an owned key gives every reader.
+        expect(await settled(keys.shared!.awsKmsKey.keyId)).toBe(`${keyAlias('shared', 'test')}-target-id`)
+        expect(await settled(keys.shared!.awsKmsKey.arn)).toBe(`arn:${keyAlias('shared', 'test')}-target-id`)
     })
 
-    test('takes a ref given by value for a key outside the convention', async () => {
+    test('fetches a ref given by id for a key outside the convention', async () => {
         const keys = create(undefined, { outside: byValue('OUTSIDE_KEY_ARN') })
 
-        expect(keys.outside!.awsKmsKey).toBeUndefined()
-        expect(await settled(keys.outside!.ref.arn)).toBe('arn:OUTSIDE_KEY_ARN')
+        expect(await settled(keys.outside!.awsKmsKey.keyId)).toBe('OUTSIDE_KEY_ARN-id')
+        expect(keys.outside!.definition).toEqual({ name: 'outside', envKeyName: 'OUTSIDE_KEY_ARN' })
     })
 
     test('both ref forms sit in one record', async () => {
@@ -76,21 +77,19 @@ describe('createKMSKeys', () => {
         })
 
         expect(Object.keys(keys).sort()).toEqual(['outside', 'shared'])
-        expect(await settled(keys.shared!.ref.arn)).toBe(`arn:target:${keyAlias('shared', 'test')}`)
-        expect(await settled(keys.outside!.ref.arn)).toBe('arn:OUTSIDE_KEY_ARN')
+        expect(await settled(keys.shared!.awsKmsKey.keyId)).toBe(`${keyAlias('shared', 'test')}-target-id`)
+        expect(await settled(keys.outside!.awsKmsKey.keyId)).toBe('OUTSIDE_KEY_ARN-id')
     })
 
     test('spells the owner project in the name, not the consumer one', async () => {
         // The consumer is 'proj'; the key belongs to 'eldorado'. Nothing of 'proj' may appear.
         const keys = create(undefined, { shared: definition('eldorado-data', 'DATA_KEY_ARN') })
 
-        expect(await settled(keys.shared!.ref.arn)).toBe(`arn:target:${keyAlias('eldorado-data', 'test')}`)
+        expect(await settled(keys.shared!.awsKmsKey.keyId)).toBe(`${keyAlias('eldorado-data', 'test')}-target-id`)
     })
 
     test('passes an already-resolved result item straight through', () => {
-        const existing: SecurityResult = {
-            shared: { ref: { id: 'i', arn: 'a' }, definition: definition('shared', 'S') },
-        }
+        const existing: SecurityResult = create({ shared: definition('shared', 'S') })
 
         expect(create(undefined, existing).shared).toBe(existing.shared)
     })
@@ -108,7 +107,7 @@ describe('a granted key', () => {
     test('resolves a referenced key to the same arn a created one gives', async () => {
         const [grant] = grantFor(create(undefined, { shared: definition('shared', 'SHARED_KEY_ARN') }))
 
-        expect(await settled(grant.kmsKey!.ref.arn)).toBe(`arn:target:${keyAlias('shared', 'test')}`)
+        expect(await settled(grant.kmsKey!.awsKmsKey.arn)).toBe(`arn:${keyAlias('shared', 'test')}-target-id`)
         expect(grant.kmsKey!.definition!.envKeyName).toBe('SHARED_KEY_ARN')
     })
 
@@ -134,7 +133,7 @@ describe('a table encrypted with a referenced key', () => {
 
         expect(table.inputs.serverSideEncryption.enabled).toBe(true)
         expect(await settled(table!.inputs.serverSideEncryption.kmsKeyArn)).toBe(
-            `arn:target:${keyAlias('dynamodb', 'test')}`,
+            `arn:${keyAlias('dynamodb', 'test')}-target-id`,
         )
     })
 
@@ -159,7 +158,7 @@ describe('what run() accepts as keysRef', () => {
         const args: LambadaRunArguments = {
             keysRef: {
                 shared: { name: 'shared', envKeyName: 'SHARED_KEY_ARN' },
-                outside: { id: 'k', arn: 'arn:k', envKeyName: 'OUTSIDE_KEY_ARN' },
+                outside: { id: 'k', envKeyName: 'OUTSIDE_KEY_ARN' },
             },
         }
 
@@ -171,11 +170,11 @@ describe('the owner and ref conventions meet', () => {
     test('a ref spelling `${ownerProject}-${key}` finds the alias the owner published', async () => {
         // The owner's key resource carries its physical base name, which is what it aliases.
         const owned = createKMSKeys('eldorado', 'test', { data: definition('data', 'DATA_KEY_ARN') }, undefined)
-        expect(await settled(owned.data!.ref.arn)).toBe('arn:eldorado-data-test')
+        expect(await settled(owned.data!.awsKmsKey.urn)).toContain('eldorado-data-test')
 
         looked.length = 0
         const referenced = create(undefined, { data: definition('eldorado-data', 'DATA_KEY_ARN') })
-        await settled(referenced.data!.ref.arn)
+        await settled(referenced.data!.awsKmsKey.arn)
 
         expect(looked).toEqual([keyAlias('eldorado-data', 'test')])
         expect(looked[0]).toBe('alias/eldorado-data-test')
@@ -184,7 +183,7 @@ describe('the owner and ref conventions meet', () => {
     test('a ref never spells the consumer project', async () => {
         looked.length = 0
         const referenced = create(undefined, { data: definition('eldorado-data', 'DATA_KEY_ARN') })
-        await settled(referenced.data!.ref.arn)
+        await settled(referenced.data!.awsKmsKey.arn)
 
         expect(looked.some(alias => alias.includes('proj'))).toBe(false)
     })
