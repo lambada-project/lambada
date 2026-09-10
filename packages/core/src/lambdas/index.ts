@@ -12,6 +12,8 @@ import { NotificationResult } from '../notifications';
 import { EmbroideryEnvironmentVariables } from '..';
 import { enums } from '@pulumi/aws/types';
 import { QueueResultItem } from '../queue';
+import { lift } from '../inputs';
+import { PoolResultItem } from '../auth/pools';
 //import { NotificationResult, NotificationResultItem } from '../notifications';
 
 export const lambdaAssumeRole: PolicyDocument = {
@@ -248,6 +250,17 @@ export const createLambda = <E, R>(
             //         ]
             //     })
         }
+        else if (access.pool) {
+            //Cognito calls need the pool id to address the pool
+            envVarsFromResources[access.pool.envKeyName] = access.pool.ref.id
+            policyStatements.push(
+                {
+                    Action: access.access,
+                    Resource: access.pool.ref.arn,
+                    Effect: 'Allow'
+                }
+            )
+        }
         else if (access.arn) {
             policyStatements.push(
                 {
@@ -266,12 +279,13 @@ export const createLambda = <E, R>(
         policyStatements.push(VPCAccessExecutionStatement)
     }
 
-    if (options?.enableXRay) {
-        policyStatements.push(AWSXRayDaemonWriteAccess)
-    }
+    // enableXRay may be an Input, and an Input tested directly is an object: `false` would read as
+    // true. The statement is added where the value is known, so the document becomes an Output.
+    const statements = lift(options?.enableXRay ?? false, enabled =>
+        enabled ? [...policyStatements, AWSXRayDaemonWriteAccess] : policyStatements)
 
     if (createRole) {
-        lambdaRole = createLambdaRoleAndPolicies(name, environment, policyStatements)
+        lambdaRole = createLambdaRoleAndPolicies(name, environment, statements)
     }
 
     const variables = {
@@ -355,14 +369,16 @@ export const createLambda = <E, R>(
     }
 }
 
-export const createLambdaRoleAndPolicies = (name: string, environment: string, policyStatements: aws.iam.PolicyStatement[]) => {
+export const createLambdaRoleAndPolicies = (
+    name: string,
+    environment: string,
+    policyStatements: pulumi.Input<aws.iam.PolicyStatement[]>
+) => {
     let dashedNamed = name.replace(/[A-Z]/g, m => "-" + m.toLowerCase());
     if (dashedNamed.startsWith('-')) {
         dashedNamed = dashedNamed.substr(1);
     }
     dashedNamed = `${dashedNamed}-${environment}`
-
-    if (!policyStatements) policyStatements = []
 
     const role = new aws.iam.Role(`${dashedNamed}-role`, {
         name: `${dashedNamed}-role`,
@@ -372,13 +388,13 @@ export const createLambdaRoleAndPolicies = (name: string, environment: string, p
     const policy = new aws.iam.Policy(`${dashedNamed}-policy`, {
         name: `${dashedNamed}-policy`,
         path: "/",
-        policy: {
+        policy: lift(policyStatements ?? [], (statements): PolicyDocument => ({
             Version: "2012-10-17",
             Statement: [
                 logsStatement,
-                ...policyStatements
+                ...statements
             ]
-        }
+        }))
     })
 
     new aws.iam.RolePolicyAttachment(`${dashedNamed}-policy-attachment`, {
@@ -397,15 +413,22 @@ export const createLambdaRoleAndPolicies = (name: string, environment: string, p
 
 export type LambdaResourceAccessItem = string
 
+export type DynamoDbAccess = `dynamodb:${string}`
+export type SNSAccess = `sns:${string}`
+export type SQSAccess = `sqs:${string}`
+export type SecretAccess = `secretsmanager:${string}` | `kms:${string}`
+export type KmsAccess = `kms:${string}`
+export type CognitoAccess = `cognito-idp:${string}`
+
 export class LambdaResourceAccess {
-    public static DynamoDbGetItem: LambdaResourceAccessItem = "dynamodb:GetItem"
-    public static DynamoDbGetAsterisk: LambdaResourceAccessItem = "dynamodb:Get*"
-    public static DynamoDbScan: LambdaResourceAccessItem = "dynamodb:Scan"
-    public static DynamoDbQuery: LambdaResourceAccessItem = "dynamodb:Query"
-    public static DynamoDbUpdateItem: LambdaResourceAccessItem = "dynamodb:UpdateItem"
-    public static DynamoDbDeleteItem: LambdaResourceAccessItem = "dynamodb:DeleteItem"
-    public static DynamoDbPutItem: LambdaResourceAccessItem = "dynamodb:PutItem"
-    public static SNSPublish: LambdaResourceAccessItem = "sns:Publish"
+    public static DynamoDbGetItem = "dynamodb:GetItem" as const
+    public static DynamoDbGetAsterisk = "dynamodb:Get*" as const
+    public static DynamoDbScan = "dynamodb:Scan" as const
+    public static DynamoDbQuery = "dynamodb:Query" as const
+    public static DynamoDbUpdateItem = "dynamodb:UpdateItem" as const
+    public static DynamoDbDeleteItem = "dynamodb:DeleteItem" as const
+    public static DynamoDbPutItem = "dynamodb:PutItem" as const
+    public static SNSPublish = "sns:Publish" as const
 }
 
 export type LambdaDynamoDbResource = {
@@ -415,6 +438,7 @@ export type LambdaDynamoDbResource = {
     notification?: NotificationResult
     kmsKey?: SecurityResultItem
     secret?: SecretResultItem
+    pool?: PoolResultItem
     arn?: Input<string> | Input<Input<string>[]>
     access: LambdaResourceAccessItem[]
 }

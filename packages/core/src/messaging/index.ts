@@ -8,6 +8,8 @@ import { DatabaseResult } from "../database";
 import { SecurityResult } from "../security";
 
 export * from './createSubscription'
+import { createSubscription, LambadaSubscriptionHandler } from './createSubscription'
+import { asBuilder } from '../resources/creators'
 
 export type MessageDefinition = {
     name: string
@@ -65,6 +67,14 @@ export type LambadaMessages = { [id: string]: MessageDefinition }
 
 export type LambadaTopicEventSubscription = TopicEventSubscription
 export type LambadaSubscriptionCreator = (context: LambadaResources) => LambadaTopicEventSubscription
+
+export type LambadaSubscriptionDefinition = LambadaSubscriptionCreator | LambadaSubscriptionHandler<any>
+
+export const createSubscriptions = (
+    context: LambadaResources,
+    definitions?: readonly LambadaSubscriptionDefinition[]
+): LambadaTopicEventSubscription[] =>
+    (definitions ?? []).map(definition => asBuilder(definition, createSubscription)(context))
 
 const tryParse = (value: any) => {
     if (!value) return undefined

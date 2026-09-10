@@ -6,9 +6,11 @@ import { LambadaResources } from "..";
 
 import { DatabaseResult } from "../database";
 import { SecurityResult } from "../security";
-import { LambdaQueueHandler } from "./createQueueHandler";
+import { createQueueHandler, LambdaQueueHandler } from "./createQueueHandler";
+import { asCreator, LambadaDefinition } from "../resources/creators";
+import { lift } from "../inputs";
 
-//export * from './createSubscription'
+export * from './createQueueHandler'
 
 export type QueueDefinition = {
     name: string
@@ -20,6 +22,14 @@ export type LambadaQueues = { [id: string]: QueueDefinition }
 
 export type LambadaQueueHandleSubscription = QueueEventSubscription
 export type LambadaQueueSubscriptionCreator = (context: LambadaResources) => LambdaQueueHandler
+
+export type LambadaQueueHandlerDefinition = LambadaDefinition<LambdaQueueHandler<any>>
+
+export const createQueueHandlers = (
+    context: LambadaResources,
+    definitions?: readonly LambadaQueueHandlerDefinition[]
+): QueueEventSubscription[] =>
+    (definitions ?? []).map(definition => createQueueHandler(context, asCreator<LambdaQueueHandler<any>>(definition)(context)))
 
 
 export const createQueues = (
@@ -33,7 +43,12 @@ export const createQueues = (
     for (const key in queues) {
         if (queues.hasOwnProperty(key)) {
             const queueDef = queues[key];
-            const name = `${queueDef.name}-${environment}${queueDef.options?.fifoQueue ? '.fifo' : ''}`
+            // Same reason as findQueue: the suffix depends on a value that may not have resolved,
+            // and SQS requires it exactly when the queue is fifo.
+            const name = lift(
+                queueDef.options?.fifoQueue,
+                isFifo => `${queueDef.name}-${environment}${isFifo ? '.fifo' : ''}`
+            )
             const queue = new aws.sqs.Queue(queueDef.name, {
                 ...(queueDef.options ?? {}),
                 name: name,
@@ -71,7 +86,7 @@ export const createQueues = (
                 result[key] = queueRef
             }
             else {
-                const queue = findQueue(queueRef.name, environment, liftOut(queueRef.options?.fifoQueue, x => x ?? false))
+                const queue = findQueue(queueRef.name, environment, queueRef.options?.fifoQueue)
 
                 result[key] = {
                     awsQueue: aws.sqs.Queue.get(`${queueRef.name}-${environment}`, queue.id),
@@ -88,9 +103,11 @@ export const createQueues = (
 }
 
 
-function findQueue(name: string, environment: string, fifoQueue: pulumi.Input<boolean>): pulumi.Output<QueueReference> {
-    const topicName = `${name}-${environment}${fifoQueue ? '.fifo' : ''}`
-
+function findQueue(
+    name: string,
+    environment: string,
+    fifoQueue: pulumi.Input<boolean | undefined>
+): pulumi.Output<QueueReference> {
     const getQueue = async (name: string) => {
         try {
             const topic = await aws.sqs.getQueue({
@@ -104,7 +121,9 @@ function findQueue(name: string, environment: string, fifoQueue: pulumi.Input<bo
 
     }
 
-    return pulumi.output(getQueue(topicName));
+    // `fifoQueue` may not have resolved yet, so the name is built where its value is known. Testing
+    // the Input directly made every referenced queue a .fifo one, an object being truthy.
+    return lift(fifoQueue, isFifo => getQueue(`${name}-${environment}${isFifo ? '.fifo' : ''}`));
 }
 
 type QueueReference = {
@@ -128,8 +147,4 @@ export type QueuesContext = {
     environment: string
     databases?: DatabaseResult
     kmsKeys?: SecurityResult
-}
-
-function liftOut<T, U>(out: pulumi.Input<T>, fn: (x:T)=>U) {
-    return pulumi.Output.isInstance(out) ? out.apply(fn) : out instanceof Promise ? out.then(fn) : fn(out)
 }

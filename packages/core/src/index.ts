@@ -2,36 +2,46 @@ import * as pulumi from "@pulumi/pulumi";
 import * as awsx from "@pulumi/awsx/classic";
 import * as aws from "@pulumi/aws";
 
-import createApi, { LambadaCreator } from './api/createApi'
+import createApi, { LambadaEndpoint } from './api/createApi'
+import { OpenApiFactoryLike } from './api/createEndpoint'
 import { createCloudFront } from './cdn/index'
 import { LambadaResources } from './context'
 
 // import createUserPool from './auth'
 // import createApi from './api/createApi'
-import { createMessaging, LambadaMessages, LambadaSubscriptionCreator, MessagingResult } from './messaging'
+import { createMessaging, createSubscriptions, LambadaMessages, LambadaSubscriptionDefinition, MessagingResult } from './messaging'
 import createNotifications, { NotificationConfig } from './notifications'
 import { DatabaseResult, LambadaTables, TableOptions, createDynamoDbTables } from './database'
 import { createKMSKeys, createSecrets, SecurityKeys, EmbroiderySecrets, SecretsResult, SecurityResult } from "./security";
 import { UserPool } from "@pulumi/aws/cognito/userPool";
-import createUserPool from "./auth";
 import { LambdaAuthorizer } from "@pulumi/awsx/classic/apigateway";
-import { createQueues, LambadaQueues, LambadaQueueSubscriptionCreator, QueuesResult } from "./queue";
-import { createQueueHandler } from "./queue/createQueueHandler";
+import { createQueueHandlers, createQueues, LambadaQueueHandlerDefinition, LambadaQueues, QueuesResult } from "./queue";
 import { OpenAPIObjectConfigV31 } from "@asteasolutions/zod-to-openapi/dist/v3.1/openapi-generator";
 import { LambdaOptions } from "./lambdas";
+import { BundleSource } from "./lambdas/bundles";
+import { createPools, LambadaPools, LambadaPoolsRef, PoolsResult } from "./auth/pools";
+import { createDiagnostics } from "./resources/diagnostics";
+import { preflight } from "./resources/preflight";
 
 export * from './context'
+export * from './inputs'
 // A pre-built bundle to deploy in place of a serialized closure; see `useBundle` on an endpoint.
 export type { LambdaFolder } from './lambdas'
+export * from './lambdas/bundles'
 export * from './api/index'
 export * from './extra'
 export * from './test_utils'
 export * from './messaging'
+export * from './queue'
+export * from './auth/pools'
+export * from './resources'
 export * from './security'
 
-type LambadaRunArguments = {
+export type LambadaRunArguments = {
     api?: {
-        endpointDefinitions?: LambadaCreator[],
+        // Constrained per element, not inferred for the list: one type would bind to the first
+        // endpoint and demand the rest match, which specs differing per operation never do.
+        endpointDefinitions?: readonly LambadaEndpoint<OpenApiFactoryLike | undefined>[],
         gatewayType?: 'EDGE' | 'REGIONAL' | 'PRIVATE'
         vpcEndpointIds?: pulumi.Input<pulumi.Input<string>[]> | undefined,
 
@@ -71,13 +81,29 @@ type LambadaRunArguments = {
     messages?: LambadaMessages,
     /** Referenced topics, does not create anything */
     messagesRef?: LambadaMessages | MessagingResult
-    messageHandlerDefinitions?: LambadaSubscriptionCreator[],
+    messageHandlerDefinitions?: readonly LambadaSubscriptionDefinition[],
 
     queues?: LambadaQueues,
     queuesRef?: LambadaQueues | QueuesResult,
-    queueHandlerDefinitions?: LambadaQueueSubscriptionCreator[]
+    queueHandlerDefinitions?: readonly LambadaQueueHandlerDefinition[]
 
+    /**
+     * Pre-built artifacts by function name, for a definition carrying no `useBundle` of its own.
+     * Endpoints, subscriptions and queue handlers; not webhooks, whose queue lambda is lambada's
+     * glue rather than the declaration's callback.
+     */
+    bundles?: BundleSource
+
+    /**
+     * Values a function receives only by declaring them under `resources.envVar`. A function sees
+     * what it asks for and nothing else in here.
+     */
     environmentVariables?: EmbroideryEnvironmentVariables,
+    globalEnvironmentVariables?: EmbroideryEnvironmentVariables,
+    /** Cognito pools this stack creates */
+    pools?: LambadaPools,
+    /** Referenced cognito pools, does not create anything */
+    poolsRef?: LambadaPoolsRef | PoolsResult
     secrets?: EmbroiderySecrets
     /** Referenced secrets, does not create anything */
     secretsRef?: SecretsResult | EmbroiderySecrets
@@ -91,10 +117,25 @@ type LambadaRunArguments = {
     },
     auth?: {
         createCognito?: boolean
-        extraAuthorizers: (pulumi.Input<string> | UserPool | LambdaAuthorizer)[],
+        /** Lambda authorizers for the API. Cognito pools are picked by `authorizerPools`. */
+        lambdaAuthorizers?: LambdaAuthorizer[],
+        /**
+         * Which pools the API accepts tokens from, by the name each is declared under in `pools` or
+         * `poolsRef`. The one `createCognito` builds is always included.
+         */
+        authorizerPools?: readonly string[],
+        /**
+         * @deprecated Two unrelated kinds in one list. Declare a lambda authorizer under
+         * `lambdaAuthorizers`, and a cognito pool by naming it in `authorizerPools`.
+         */
+        extraAuthorizers?: (pulumi.Input<string> | UserPool | LambdaAuthorizer)[],
         cognitoOptions?: {
             useEmailAsUsername?: boolean
             preventResourceDeletion: boolean
+            /** What `resources.pool` grants the created pool by. Defaults to `userPool`. */
+            key?: string
+            /** Published to every function granted it. Defaults to `COGNITO_USER_POOL_ID`. */
+            envKeyName?: string
         },
         useApiKey?: {
             name?: string
@@ -128,23 +169,15 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
         "Lambada:Environment": environment
     }
 
+    const diagnostics = createDiagnostics()
+
     const encryptionKeys = createKMSKeys(projectName, environment, args.keys, args.keysRef)
     const secrets = createSecrets(projectName, environment, args.secrets, args.secretsRef)
     const databases = createDynamoDbTables(environment, args.tables, args.tablePrefix, encryptionKeys, args.tablesRef, globalTags)
 
-    const pool: UserPool | undefined = args.auth && args.auth.createCognito ?
-        createUserPool(projectName, environment, encryptionKeys, {
-            useEmailAsUsername: args?.auth?.cognitoOptions?.useEmailAsUsername,
-            protect: args?.auth?.cognitoOptions?.preventResourceDeletion
-        }) : undefined
-
-    const isPool = (userPool: pulumi.Input<string> | UserPool | undefined): userPool is UserPool => {
-        return typeof userPool !== 'undefined' && (userPool as UserPool).arn !== undefined
-    }
-
-    const cognitoARN = isPool(pool) ? pool.arn : pool
-    const cognitoPoolId = isPool(pool) ? pool.id : undefined
-
+    const { pools, authorizers: poolProviders, auth: cognito } = createPools(
+        projectName, environment, encryptionKeys, args.auth, args.pools, args.poolsRef
+    )
 
     const messaging = createMessaging(environment, args.messages, args.messagesRef, globalTags)
     const queues = createQueues(environment, args.queues, args.queuesRef)
@@ -155,24 +188,25 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
     const apiPath = args.naming?.apiPath ?? '/api'
 
 
-    // normalize authorizers
-    function isCognitoAuthorizer(x: any): x is UserPool {
-        return !isLambdaAuthorizer(x)
-        //return typeof x === 'object' && 'usernameAttributes' in x && 'passwordPolicy' in x
-    }
-    const userPools = args.auth?.extraAuthorizers?.filter(x => isCognitoAuthorizer(x)) ?? []
-    const allUserPools = pool ? [pool, ...userPools] : (userPools ?? [])
-    const cognitoAuthorizer = awsx.apigateway.getCognitoAuthorizer({
+    type ExtraAuthorizer = pulumi.Input<string> | UserPool | LambdaAuthorizer
+
+    const isLambdaAuthorizer = (x: ExtraAuthorizer): x is LambdaAuthorizer =>
+        typeof x === 'object' && x !== null && 'parameterLocation' in x && 'handler' in x
+
+    // The deprecated list holds one kind or the other, so what is not a lambda authorizer is what a
+    // cognito authorizer takes. The predicate says that, rather than claiming every one is a pool.
+    const isCognitoProvider = (x: ExtraAuthorizer): x is pulumi.Input<string> | UserPool =>
+        !isLambdaAuthorizer(x)
+
+    const extra: ExtraAuthorizer[] = args.auth?.extraAuthorizers ?? []
+    const lambdaAuthorizers = [...(args.auth?.lambdaAuthorizers ?? []), ...extra.filter(isLambdaAuthorizer)]
+    const allUserPools = [...poolProviders, ...extra.filter(isCognitoProvider)]
+
+    const cognitoAuthorizer = allUserPools.length > 0 ?  awsx.apigateway.getCognitoAuthorizer({
         providerARNs: allUserPools,
-        //methodsToAuthorize: ["https://yourdomain.com/user.read"]
-    })
+    }) : undefined
 
-    function isLambdaAuthorizer(x: any): x is LambdaAuthorizer {
-        return typeof x === 'object' && 'parameterLocation' in x && 'handler' in x
-    }
-    const lambdaAuthorizers = args.auth?.extraAuthorizers?.filter(x => isLambdaAuthorizer(x)) ?? []
-
-    const authorizers = [...(allUserPools.length > 0 ? [cognitoAuthorizer] : []), ...lambdaAuthorizers]
+    const authorizers = [...(cognitoAuthorizer ? [cognitoAuthorizer] : []), ...lambdaAuthorizers]
 
 
 
@@ -184,7 +218,7 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
             cors: args.cors,
             auth: {
                 useApiKey: typeof args.auth?.useApiKey != 'undefined',
-                useAuthorizers: !!args.auth?.createCognito || !!args.auth?.extraAuthorizers?.length
+                useAuthorizers: authorizers.length > 0
             },
             lambdaOptions: args.api?.lambdaDefaultOptions
         } : undefined,
@@ -196,21 +230,24 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
         environment: environment,
         kmsKeys: encryptionKeys,
         environmentVariables: args.environmentVariables || {},
+        globalEnvironmentVariables: args.globalEnvironmentVariables || {},
+        diagnostics: diagnostics,
         secrets: secrets,
-        globalTags: globalTags
+        pools: pools,
+        globalTags: globalTags,
+        bundles: args.bundles
     }
 
-    if (args.messageHandlerDefinitions) {
-        for (const handler of args.messageHandlerDefinitions) {
-            handler(lambadaContext)
-        }
-    }
+    // Every name a plain declaration uses is checked before anything is built, so a stack with
+    // several bad names fails once naming all of them, not once per deploy.
+    preflight(lambadaContext, diagnostics, [
+        args.messageHandlerDefinitions,
+        args.queueHandlerDefinitions,
+        args.api?.endpointDefinitions,
+    ])
 
-    if (args.queueHandlerDefinitions) {
-        for (const handler of args.queueHandlerDefinitions) {
-            createQueueHandler(lambadaContext, handler(lambadaContext))
-        }
-    }
+    createSubscriptions(lambadaContext, args.messageHandlerDefinitions)
+    createQueueHandlers(lambadaContext, args.queueHandlerDefinitions)
 
     const api = createApi({
         projectName,
@@ -295,12 +332,10 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
     return {
         api: api,
         cdn: cdn,
-        auth: {
-            cognitoARN: cognitoARN,
-            cognitoPoolId: cognitoPoolId
-        },
+        auth: cognito,
         messaging: messaging,
         queues: queues,
+        pools: pools,
         databases: databases,
         apiKey: apiKey,
         secrets: secrets,

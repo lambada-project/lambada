@@ -5,33 +5,37 @@ import { createLambda, LambdaFolder, LambdaOptions, LambdaResource } from '../la
 
 import { Callback } from '@pulumi/aws/lambda';
 import { QueueEvent, QueueEventSubscription, QueueEventSubscriptionArgs } from "@pulumi/aws/sqs";
+import { LambadaResourceRequest, LambadaGrantsShape, ResourceRef, resolveEnvironment, resolveGrants, resolveRef } from "../resources/grants";
+import { bundleOf, isLambdaFolder } from "../lambdas/bundles";
 
 export type QueueHandlerEvent = QueueEvent
 export type QueueHandlerCallback = Callback<QueueHandlerEvent, void>
 
-export type LambdaQueueHandler = {
+export type LambdaQueueHandler<TNames extends LambadaGrantsShape = LambadaGrantsShape> = {
     name: string
-    queue: QueueResultItem
+    queue: ResourceRef<QueueResultItem>
     /** A `FolderLambda` deploys a pre-built bundle instead of a serialized closure. */
     callback: QueueHandlerCallback | LambdaFolder
     policyStatements?: aws.iam.PolicyStatement[]
     environmentVariables?: EmbroideryEnvironmentVariables,
-    resources: LambdaResource[]
+    resources: LambadaResourceRequest<TNames>
     lambdaOptions?: LambdaOptions,
-    subscriptionArgs: QueueEventSubscriptionArgs | undefined
+    subscriptionArgs?: QueueEventSubscriptionArgs | undefined
 }
 
 
 export const createQueueHandler = (
     context: LambadaResources,
-    queueHandler: LambdaQueueHandler,
+    queueHandler: LambdaQueueHandler<any>,
 ): QueueEventSubscription => {
     const environment = context.environment
-    const queue = queueHandler.queue
+    const queue = resolveRef(context.queues, { name: queueHandler.name, kind: 'queue', ref: queueHandler.queue })
     const topicName = queue.definition.name
 
+    const grants = resolveGrants(context, { name: queueHandler.name, resources: queueHandler.resources })
+
     if (context.kmsKeys && context.kmsKeys.dynamodb) {
-        queueHandler.resources.push(
+        grants.push(
             {
                 kmsKey: context.kmsKeys.dynamodb,
                 access: [
@@ -44,7 +48,7 @@ export const createQueueHandler = (
             })
     }
 
-    queueHandler.resources.push({
+    grants.push({
         arn: queue.awsQueue.arn,
         access: [
             "sqs:ReceiveMessage",
@@ -53,15 +57,23 @@ export const createQueueHandler = (
         ]
     })
 
-    const envVars = { ...(context.environmentVariables || {}), ...(queueHandler.environmentVariables || {}) }
+    const envVars = resolveEnvironment(context, {
+        name: queueHandler.name,
+        resources: queueHandler.resources,
+        environmentVariables: queueHandler.environmentVariables,
+    })
+
+    const artifact = isLambdaFolder(queueHandler.callback)
+        ? queueHandler.callback
+        : bundleOf(context.bundles, queueHandler.name)
 
     const callback = createLambda<QueueHandlerEvent, void>(
         queueHandler.name,
         environment,
-        queueHandler.callback,
+        artifact ?? queueHandler.callback,
         queueHandler.policyStatements ?? [],
         envVars,
-        queueHandler.resources,
+        grants,
         undefined,
         mergeOptions(queueHandler.lambdaOptions, context.api?.lambdaOptions)
     )

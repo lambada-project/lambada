@@ -9,9 +9,9 @@ type CreateUserPoolOptions = {
     protect?: boolean
 }
 
-export default function createUserPool(projectName: string, environment: string, kmsKeys: SecurityResult, options?: CreateUserPoolOptions) {
+export default function createUserPool(poolName: string, environment: string, kmsKeys: SecurityResult, options?: CreateUserPoolOptions) {
 
-    const name = `${projectName}-${environment}`
+    const name = `${poolName}-${environment}`
     //const lambdas = createAuthLambdas(environment, userAccountTable)
     const cognitoUserPool = new aws.cognito.UserPool(name, {
         name: name,

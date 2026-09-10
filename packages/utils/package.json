@@ -67,7 +67,7 @@
   "scripts": {
     "prebuild": "rimraf dist",
     "build": "tsc && tsc -p tsconfig.esm.json && node -e \"require('fs').writeFileSync('dist/esm/package.json', JSON.stringify({type:'module'},null,2))\"",
-    "test": "jest"
+    "test": "bun test"
   },
   "license": "MIT",
   "devDependencies": {
