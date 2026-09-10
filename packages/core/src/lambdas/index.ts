@@ -12,6 +12,7 @@ import { NotificationResult } from '../notifications';
 import { EmbroideryEnvironmentVariables } from '..';
 import { enums } from '@pulumi/aws/types';
 import { QueueResultItem } from '../queue';
+import { BucketResultItem } from '../buckets';
 import { lift } from '../inputs';
 import { PoolResultItem } from '../auth/pools';
 //import { NotificationResult, NotificationResultItem } from '../notifications';
@@ -173,6 +174,22 @@ export const createLambda = <E, R>(
                 )
             }
 
+        }
+        else if (access.bucket) {
+            // S3 calls address a bucket by name, and object actions are on `${arn}/*`, not the bucket.
+            envVarsFromResources[access.bucket.envKeyName] = access.bucket.awsS3Bucket.bucket
+            policyStatements.push(
+                {
+                    Action: access.access,
+                    Resource: access.bucket.awsS3Bucket.arn,
+                    Effect: 'Allow'
+                },
+                {
+                    Action: access.access,
+                    Resource: pulumi.interpolate`${access.bucket.awsS3Bucket.arn}/*`,
+                    Effect: 'Allow'
+                }
+            )
         }
         else if (access.topic) {
             //PubSub connections need the topic ARN to talk to SNS
@@ -419,6 +436,7 @@ export type SQSAccess = `sqs:${string}`
 export type SecretAccess = `secretsmanager:${string}` | `kms:${string}`
 export type KmsAccess = `kms:${string}`
 export type CognitoAccess = `cognito-idp:${string}`
+export type S3Access = `s3:${string}`
 
 export class LambdaResourceAccess {
     public static DynamoDbGetItem = "dynamodb:GetItem" as const
@@ -433,6 +451,7 @@ export class LambdaResourceAccess {
 
 export type LambdaDynamoDbResource = {
     table?: DatabaseResultItem
+    bucket?: BucketResultItem
     topic?: MessagingResultItem
     queue?: QueueResultItem
     notification?: NotificationResult

@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, test } from 'bun:test'
 import * as pulumi from '@pulumi/pulumi'
 import { createPools } from '../auth/pools'
+import { createBuckets } from '../buckets'
 import { createDynamoDbTables } from '../database'
 import { createMessaging } from '../messaging'
 import { createQueues } from '../queue'
@@ -42,6 +43,7 @@ beforeAll(async () => {
         ordered: { name: 'ordered', envKeyName: 'ORDERED_QUEUE_URL', options: { fifoQueue: true } },
     })
     createSecrets('proj', 'test', { token: { name: 'token', envKeyName: 'TOKEN' } })
+    createBuckets('test', { uploads: { name: 'uploads', envKeyName: 'UPLOADS_BUCKET' } })
     createPools('proj', 'test', keys, { createCognito: true }, { members: { name: 'members', envKeyName: 'MEMBERS' } })
 
     await drain()
@@ -66,6 +68,12 @@ describe('the physical name of a created resource', () => {
             .toEqual(['provisioning', 'provisioning-test'])
         expect([fifo.name, await settled<string>(fifo.inputs.name)])
             .toEqual(['ordered', 'ordered-test.fifo'])
+    })
+
+    test('a bucket takes no project prefix, and sits under `bucket` rather than `name`', () => {
+        const [bucket] = of('aws:s3/bucket:Bucket')
+
+        expect([bucket.name, bucket.inputs.bucket]).toEqual(['uploads-test', 'uploads-test'])
     })
 
     test('a secret carries the project that created it', () => {

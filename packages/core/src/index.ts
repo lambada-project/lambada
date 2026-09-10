@@ -23,6 +23,8 @@ import { createPools, LambadaPools, LambadaPoolsRef, PoolsResult } from "./auth/
 import { createDiagnostics } from "./resources/diagnostics";
 import { preflight } from "./resources/preflight";
 
+import { createBuckets, LambadaBuckets, LambadaBucketsRef, BucketsResult } from "./buckets";
+
 export * from './context'
 export * from './inputs'
 // A pre-built bundle to deploy in place of a serialized closure; see `useBundle` on an endpoint.
@@ -34,6 +36,7 @@ export * from './test_utils'
 export * from './messaging'
 export * from './queue'
 export * from './auth/pools'
+export * from './buckets'
 export * from './resources'
 export * from './security'
 
@@ -77,6 +80,11 @@ export type LambadaRunArguments = {
     tablesRef?: LambadaTables | DatabaseResult
     /** Global Table Options. Changes defaults of all tables */
     tableOptions?: TableOptions
+
+    /** Buckets to create. S3 names are global to every account, so one can already be taken. */
+    buckets?: LambadaBuckets
+    /** Referenced buckets, does not create anything */
+    bucketsRef?: LambadaBucketsRef | BucketsResult
 
     /** Topics to create */
     messages?: LambadaMessages,
@@ -181,6 +189,7 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
         projectName, environment, encryptionKeys, args.auth, args.pools, args.poolsRef
     )
 
+    const buckets = createBuckets(environment, args.buckets, args.bucketsRef, globalTags)
     const messaging = createMessaging(environment, args.messages, args.messagesRef, globalTags, encryptionKeys, diagnostics)
     const queues = createQueues(environment, args.queues, args.queuesRef)
     const notifications = createNotifications(projectName, environment, args?.notifications)
@@ -229,6 +238,7 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
         queues: queues,
         notifications: notifications,
         databases: databases,
+        buckets: buckets,
         environment: environment,
         kmsKeys: encryptionKeys,
         environmentVariables: args.environmentVariables || {},
@@ -339,6 +349,7 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
         queues: queues,
         pools: pools,
         databases: databases,
+        buckets: buckets,
         apiKey: apiKey,
         secrets: secrets,
         security: encryptionKeys
