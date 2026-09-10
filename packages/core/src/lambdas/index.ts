@@ -230,7 +230,7 @@ export const createLambda = <E, R>(
             }
         }
         else if (access.secret) {
-            //PubSub connections need the topic ARN to talk to SNS
+            // A secretsmanager call addresses a secret by name; the policy needs its ARN.
             envVarsFromResources[access.secret.definition.envKeyName] = access.secret.awsSecret.name
             policyStatements.push(
                 {
@@ -433,7 +433,7 @@ export type LambdaResourceAccessItem = string
 export type DynamoDbAccess = `dynamodb:${string}`
 export type SNSAccess = `sns:${string}`
 export type SQSAccess = `sqs:${string}`
-export type SecretAccess = `secretsmanager:${string}` | `kms:${string}`
+export type SecretAccess = `secretsmanager:${string}`
 export type KmsAccess = `kms:${string}`
 export type CognitoAccess = `cognito-idp:${string}`
 export type S3Access = `s3:${string}`
