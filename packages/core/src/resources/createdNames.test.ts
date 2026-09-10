@@ -90,3 +90,18 @@ describe('the physical name of a created resource', () => {
         ])
     })
 })
+
+describe('the dynamodb key special case', () => {
+    test('creates two keys, and the result carries the loop one', async () => {
+        built.length = 0
+        const keys = createKMSKeys('proj', 'test', { dynamodb: { name: 'dynamodb', envKeyName: 'DYNAMO' } }, undefined)
+        await settled(keys.dynamodb!.awsKmsKey.arn)
+        await drain()
+
+        expect(of('aws:kms/key:Key').map(r => r.name).sort())
+            .toEqual(['proj-dynamodb-data-encryption-test', 'proj-dynamodb-test'])
+
+        // The loop runs second and wins the record, so this is the key tables encrypt with.
+        expect(await settled(keys.dynamodb!.awsKmsKey.urn)).toContain('proj-dynamodb-test')
+    })
+})

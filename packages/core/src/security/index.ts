@@ -1,6 +1,7 @@
 import * as pulumi from "@pulumi/pulumi"
 import * as aws from "@pulumi/aws"
 import { KeyArgs } from '@pulumi/aws/kms/key.d'
+import { LambadaDiagnostics } from '../resources/diagnostics'
 export * from './secrets'
 
 type KeyParams = Omit<KeyArgs, "tags" | 'description'>
@@ -81,6 +82,8 @@ function findKey(name: string, environment: string): aws.kms.Key {
 export function createKMSKeys(projectName: string, environment: string, keys: SecurityKeys | undefined, keysRef: SecurityKeysRef | SecurityResult | undefined): SecurityResult {
     const result: SecurityResult = {}
 
+    // Also created by the loop below, under `${projectName}-${name}`, which wins the result. Dropping
+    // this branch schedules the key it made for deletion, so it is a per-stack decision.
     if (keys && keys.dynamodb) {
         result['dynamodb'] = CreateKey(keys.dynamodb, `${projectName}-dynamodb-data-encryption`, environment, {})
     }
@@ -128,4 +131,43 @@ export type SecurityResultItem = {
 export type SecurityResult = {
     [id: string]: SecurityResultItem
     dynamodb?: SecurityResultItem
+}
+
+/**
+ * The key a table or topic encrypts with, named by its key in the merged result the way a secret's
+ * `encryptionKeyName` already is.
+ *
+ * A missing name joins the other diagnostics so a stack reports all of them at once, and throws only
+ * for a caller that passes none, as `requireItem` does.
+ */
+export const encryptionKeyFor = (
+    kmsKeys: SecurityResult | undefined,
+    ask: { kind: string, owner: string, encryptionKeyName?: string, legacyDynamodbFallback?: boolean },
+    diagnostics?: LambadaDiagnostics
+): aws.kms.Key | undefined => {
+    if (ask.encryptionKeyName === undefined) {
+        return ask.legacyDynamodbFallback ? kmsKeys?.dynamodb?.awsKmsKey : undefined
+    }
+
+    const item = kmsKeys?.[ask.encryptionKeyName]
+
+    if (item) return item.awsKmsKey
+
+    const missing = {
+        functionName: `${ask.kind} '${ask.owner}'`,
+        kind: 'kmsKey',
+        name: ask.encryptionKeyName,
+        available: Object.keys(kmsKeys ?? {}),
+    }
+
+    if (!diagnostics) {
+        throw new Error(
+            `Resource not found: ${missing.functionName} encrypts with kmsKey '${missing.name}', which is ` +
+            `absent from the stack. The stack has: ${missing.available.join(', ') || 'none'}.`
+        )
+    }
+
+    diagnostics.missingResource(missing)
+
+    return undefined
 }

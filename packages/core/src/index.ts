@@ -175,13 +175,13 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
 
     const encryptionKeys = createKMSKeys(projectName, environment, args.keys, args.keysRef)
     const secrets = createSecrets(projectName, environment, args.secrets, args.secretsRef)
-    const databases = createDynamoDbTables(environment, args.tables, args.tablePrefix, encryptionKeys, args.tablesRef, globalTags)
+    const databases = createDynamoDbTables(environment, args.tables, args.tablePrefix, encryptionKeys, args.tablesRef, globalTags, undefined, diagnostics)
 
     const { pools, authorizers: poolProviders, auth: cognito } = createPools(
         projectName, environment, encryptionKeys, args.auth, args.pools, args.poolsRef
     )
 
-    const messaging = createMessaging(environment, args.messages, args.messagesRef, globalTags)
+    const messaging = createMessaging(environment, args.messages, args.messagesRef, globalTags, encryptionKeys, diagnostics)
     const queues = createQueues(environment, args.queues, args.queuesRef)
     const notifications = createNotifications(projectName, environment, args?.notifications)
 

@@ -2,7 +2,8 @@ import * as pulumi from "@pulumi/pulumi";
 import * as aws from "@pulumi/aws";
 import { dynamodb } from '@pulumi/aws/types/input'
 import { seedData } from './seedData'
-import { SecurityResult } from "../security";
+import { encryptionKeyFor, SecurityResult } from "../security";
+import { LambadaDiagnostics } from "../resources/diagnostics";
 
 export type TableAttribute = dynamodb.TableAttribute
 export type TableOptions = {
@@ -90,6 +91,8 @@ export type TableDefinition = {
     primaryKey: string
     rangeKey?: string
     envKeyName: string
+    /** The key to encrypt with, by its name in `keys`/`keysRef`. Absent falls back to `dynamodb`, which is legacy. */
+    encryptionKeyName?: string
     /** Seed data */
     data?: (string | object)[]
     indexes?: TableIndexDefinition[]
@@ -107,7 +110,8 @@ export const createDynamoDbTables = (
     kmsKeys?: SecurityResult,
     tableRefs?: LambadaTables | DatabaseResult,
     tags?: pulumi.Input<{ [key: string]: pulumi.Input<string> }>,
-    globalOptions?: TableOptions
+    globalOptions?: TableOptions,
+    diagnostics?: LambadaDiagnostics
 ): DatabaseResult => {
 
     const result: DatabaseResult = {}
@@ -115,9 +119,15 @@ export const createDynamoDbTables = (
         if (Object.prototype.hasOwnProperty.call(tables, key)) {
             const table = tables[key];
             const tableName = prefix && prefix.length > 0 ? `${prefix}-${table.name}` : table.name
+            const kmsKey = encryptionKeyFor(
+                kmsKeys,
+                { kind: 'table', owner: key, encryptionKeyName: table.encryptionKeyName, legacyDynamodbFallback: true },
+                diagnostics
+            )
+
             const awsTable = createTable(
                 tableName, environment, table.primaryKey, table.rangeKey,
-                kmsKeys?.dynamodb?.awsKmsKey,
+                kmsKey,
                 table.attributes, table.indexes, table.ttl,
                 {
                     ...globalOptions,
@@ -135,7 +145,7 @@ export const createDynamoDbTables = (
                 }),
                 awsTable: awsTable,
                 definition: table,
-                kmsKey: kmsKeys?.dynamodb?.awsKmsKey
+                kmsKey: kmsKey
             } satisfies DatabaseResultItem
         }
     }
