@@ -16,11 +16,11 @@ export type KeyReferenceDefinition = KeyReference & {
     envKeyName: string
 }
 
-export const keyName = (projectName: string, name: string, environment: string) => `${projectName}-${name}-${environment}`
-
-/** The alias `CreateKey` gives every key it makes, and the only handle a name-based ref can use. */
-export const keyAlias = (projectName: string, name: string, environment: string) =>
-    `alias/${keyName(projectName, name, environment)}`
+/**
+ * The alias `CreateKey` gives every key it makes, and the only handle a name-based ref can use.
+ * `name` is the full physical name: an owner passes `${projectName}-${key.name}`, a ref spells it.
+ */
+export const keyAlias = (name: string, environment: string) => `alias/${name}-${environment}`
 
 export function CreateKey(item: SecurityKeyItem, name: string, environment: string, args: KeyParams): SecurityResultItem {
     const keyname = `${name}-${environment}`
@@ -37,7 +37,7 @@ export function CreateKey(item: SecurityKeyItem, name: string, environment: stri
 
     // A key has no name in AWS, so without this a consumer has nothing to reference it by.
     new aws.kms.Alias(`alias/${keyname}`, {
-        name: `alias/${keyname}`,
+        name: keyAlias(name, environment),
         targetKeyId: key.keyId
     })
 
@@ -64,6 +64,7 @@ export type SecurityKeys = {
  * through the alias, or by value for a key outside the convention.
  */
 export type SecurityKeysRef = {
+    /** A definition's `name` is the full physical name here, project prefix and all. */
     [id: string]: SecurityKeyItem | KeyReferenceDefinition
 }
 
@@ -74,9 +75,8 @@ const isResultItem = (item: SecurityResultItem | SecurityKeyItem | KeyReferenceD
     !!item && 'ref' in item
 
 /** The key the alias points at, not the alias itself. */
-function findKey(projectName: string, name: string, environment: string): KeyReference {
-    const alias = keyAlias(projectName, name, environment)
-    const found = pulumi.output(aws.kms.getAlias({ name: alias }, { async: true }))
+function findKey(name: string, environment: string): KeyReference {
+    const found = pulumi.output(aws.kms.getAlias({ name: keyAlias(name, environment) }, { async: true }))
 
     return { id: found.targetKeyId, arn: found.targetKeyArn }
 }
@@ -111,7 +111,7 @@ export function createKMSKeys(projectName: string, environment: string, keys: Se
                 }
             } else if (keyItem) {
                 result[key] = {
-                    ref: findKey(projectName, keyItem.name, environment),
+                    ref: findKey(keyItem.name, environment),
                     definition: keyItem
                 }
             } else {

@@ -69,6 +69,7 @@ export type LambadaRunArguments = {
     },
     staticSiteLocalPath?: string
 
+    /** Prefixes every table this stack creates. A ref elsewhere spells it: `${prefix}-${name}`. */
     tablePrefix?: string
     /** Tables to create */
     tables?: LambadaTables

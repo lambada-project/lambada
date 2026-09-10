@@ -55,7 +55,7 @@ export function createSecrets(projectName: string, environment: string, secrets:
             if (isRef(secretRef)) {
                 result[key] = secretRef
             } else {
-                const secret = findSecret(projectName, environment, secretRef, keys)
+                const secret = findSecret(environment, secretRef)
 
                 result[key] = {
                     awsSecret: aws.secretsmanager.Secret.get(`${secretRef.name}-${environment}`, secret.id),
@@ -68,14 +68,13 @@ export function createSecrets(projectName: string, environment: string, secrets:
     return result;
 }
 
-function findSecret(projectName: string, environment: string, secret: SecretDefinition, keys?: SecurityKeys): pulumi.Output< {
+/** `secret.name` is the full physical name here: a ref spells the owner's prefix, if it has one. */
+function findSecret(environment: string, secret: SecretDefinition): pulumi.Output< {
     name: string;
     id: string;
     arn: string;
 }> {
-    const secretName = secret.name
-    const name = `${projectName}-${secretName}-${environment}`
-    const kmsKeyId = secret.encryptionKeyName && keys ? keys[secret.encryptionKeyName]?.name : undefined
+    const name = `${secret.name}-${environment}`
 
     const getSecret = async (name: string) => {
         try {
