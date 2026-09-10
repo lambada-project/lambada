@@ -56,7 +56,8 @@ const statementsFor = async (databases: DatabaseResult, access: readonly string[
     }
 }
 
-const owned = (definition: TableDefinition) => createDynamoDbTables('test', { pets: definition }, undefined)
+const owned = (definition: TableDefinition, globalOptions?: TableDefinition['options']) =>
+    createDynamoDbTables('test', { pets: definition }, undefined, undefined, undefined, undefined, globalOptions)
 const referenced = (definition: TableDefinition) =>
     createDynamoDbTables('test', undefined, undefined, undefined, { pets: definition })
 
@@ -108,6 +109,20 @@ describe('a table grant', () => {
         const { statements } = await statementsFor(referenced(pets({ streamEnabled: true })), ['dynamodb:GetRecords'])
 
         expect(statements[1]).toEqual({ Resource: 'arn:pets-test/stream/now', Action: ['dynamodb:GetRecords'] })
+    })
+
+    test('streams enabled only by the global tableOptions still grant', async () => {
+        const { statements } = await statementsFor(owned(pets(), { streamEnabled: true }), ['dynamodb:GetRecords'])
+
+        expect(statements[1]).toEqual({ Resource: 'arn:pets-test/stream/now', Action: ['dynamodb:GetRecords'] })
+    })
+
+    test("a table's own options win over the global", async () => {
+        const { statements } = await statementsFor(owned(pets({ streamEnabled: false }), { streamEnabled: true }), [
+            'dynamodb:GetRecords',
+        ])
+
+        expect(statements).toHaveLength(1)
     })
 
     test('ListStreams is not put on the stream, which IAM scopes to *', async () => {

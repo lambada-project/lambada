@@ -1,24 +1,24 @@
 import * as pulumi from "@pulumi/pulumi"
 import * as aws from "@pulumi/aws"
 import * as awsx from "@pulumi/awsx/classic"
-import { SecurityKeys } from "."
+import { SecurityResult } from "."
 
 
 export type SecretDefinition = {
     name: string
     envKeyName: string
+    /** The key to encrypt with, by its name in `keys`/`keysRef`. Absent uses the AWS-managed key. */
     encryptionKeyName?: string
 }
 export type EmbroiderySecrets = { [id: string]: SecretDefinition }
 
-export function createSecret(projectName: string, environment: string, secret: SecretDefinition, keys?: SecurityKeys) {
+export function createSecret(projectName: string, environment: string, secret: SecretDefinition, keys?: SecurityResult) {
     const secretName = secret.name
     const name = `${projectName}-${secretName}-${environment}`
-    const kmsKeyId = secret.encryptionKeyName && keys ? keys[secret.encryptionKeyName]?.name : undefined
 
     return new aws.secretsmanager.Secret(name, {
         name: name,
-        kmsKeyId: kmsKeyId,
+        kmsKeyId: encryptionKeyOf(secret, keys)?.arn,
         tags: {
             Environment: environment,
             'Created by': 'Embroidery'
@@ -26,18 +26,20 @@ export function createSecret(projectName: string, environment: string, secret: S
     })
 }
 
-export function createSecrets(projectName: string, environment: string, secrets: EmbroiderySecrets | undefined = {}, secretsRef?: SecretsResult | EmbroiderySecrets, keys?: SecurityKeys): SecretsResult {
+/** The key a secret encrypts with. Secretsmanager takes an ARN here, never a definition's name. */
+const encryptionKeyOf = (secret: SecretDefinition, keys?: SecurityResult) =>
+    secret.encryptionKeyName ? keys?.[secret.encryptionKeyName]?.awsKmsKey : undefined
+
+export function createSecrets(projectName: string, environment: string, secrets: EmbroiderySecrets | undefined = {}, secretsRef?: SecretsResult | EmbroiderySecrets, keys?: SecurityResult): SecretsResult {
     const result: SecretsResult = {}
     for (const key in secrets) {
         if (secrets.hasOwnProperty(key)) {
             const secret = secrets[key];
-            //const kmsKey = table.name == 'userAccounts' ? kmsKeys.dynamodb : undefined
-
             result[key] = {
                 awsSecret: createSecret(projectName, environment, secret, keys),
-                definition: secret
-                //kmsKey: kmsKey?.awsKmsKey
-            } as SecretResultItem
+                definition: secret,
+                kmsKey: encryptionKeyOf(secret, keys)
+            } satisfies SecretResultItem
         }
     }
 
@@ -95,6 +97,7 @@ function findSecret(environment: string, secret: SecretDefinition): pulumi.Outpu
 export type SecretResultItem = {
     awsSecret: aws.secretsmanager.Secret
     definition: SecretDefinition
-    //kmsKey: aws.kms.Key
+    /** The key it was encrypted with, when one was named. */
+    kmsKey?: aws.kms.Key
 }
 export type SecretsResult = { [id: string]: SecretResultItem }

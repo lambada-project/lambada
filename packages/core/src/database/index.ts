@@ -119,6 +119,7 @@ export const createDynamoDbTables = (
         if (Object.prototype.hasOwnProperty.call(tables, key)) {
             const table = tables[key];
             const tableName = prefix && prefix.length > 0 ? `${prefix}-${table.name}` : table.name
+            const options = { ...globalOptions, ...table.options }
             const kmsKey = encryptionKeyFor(
                 kmsKeys,
                 { kind: 'table', owner: key, encryptionKeyName: table.encryptionKeyName, legacyDynamodbFallback: true },
@@ -129,10 +130,7 @@ export const createDynamoDbTables = (
                 tableName, environment, table.primaryKey, table.rangeKey,
                 kmsKey,
                 table.attributes, table.indexes, table.ttl,
-                {
-                    ...globalOptions,
-                    ...table.options
-                },
+                options,
                 tags
             )
 
@@ -146,7 +144,8 @@ export const createDynamoDbTables = (
                 }),
                 awsTable: awsTable,
                 definition: table,
-                kmsKey: kmsKey
+                kmsKey: kmsKey,
+                streamEnabled: !!options.streamEnabled
             } satisfies DatabaseResultItem
         }
     }
@@ -167,7 +166,8 @@ export const createDynamoDbTables = (
                 result[key] = {
                     ref: findTable(table.name, environment),
                     definition: table,
-                    kmsKey: kmsKeys?.dynamodb?.awsKmsKey
+                    kmsKey: kmsKeys?.dynamodb?.awsKmsKey,
+                    streamEnabled: !!{ ...globalOptions, ...table.options }.streamEnabled
                 } as DatabaseResultItem
             }
         }
@@ -191,5 +191,7 @@ export type DatabaseResultItem = {
     ref: pulumi.Output<TableReference>
     definition: TableDefinition
     kmsKey?: aws.kms.Key
+    /** `tableOptions` merged over the definition, which is what decides the stream grant. */
+    streamEnabled: boolean
 }
 export type DatabaseResult = { [id: string]: DatabaseResultItem }

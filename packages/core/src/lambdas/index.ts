@@ -165,7 +165,7 @@ export const resourceStatements = (
 
         const streamAccess = access.access.filter(isStreamAction)
 
-        if (access.table.definition.options?.streamEnabled && streamAccess.length) {
+        if (access.table.streamEnabled && streamAccess.length) {
             statements.push(
                 {
                     Action: streamAccess,
