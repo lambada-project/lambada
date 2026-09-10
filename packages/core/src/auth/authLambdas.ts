@@ -84,7 +84,7 @@ export function attachPolicies(environment: string, lambdas: CreatedLambdas, use
     if (kmsKeys?.dynamodb) {
         statements.push(
             {
-                Resource: kmsKeys.dynamodb.awsKmsKey.arn,
+                Resource: kmsKeys.dynamodb.ref.arn,
                 Action: [
                     "kms:Encrypt",
                     "kms:Decrypt",

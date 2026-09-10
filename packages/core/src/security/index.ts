@@ -1,8 +1,26 @@
+import * as pulumi from "@pulumi/pulumi"
 import * as aws from "@pulumi/aws"
 import { KeyArgs } from '@pulumi/aws/kms/key.d'
 export * from './secrets'
 
 type KeyParams = Omit<KeyArgs, "tags" | 'description'>
+
+/** What every reader needs, whichever way the key was given. */
+export type KeyReference = {
+    id: pulumi.Input<string>
+    arn: pulumi.Input<string>
+}
+
+/** A key outside the naming convention, addressed by value the way a referenced pool is. */
+export type KeyReferenceDefinition = KeyReference & {
+    envKeyName: string
+}
+
+export const keyName = (projectName: string, name: string, environment: string) => `${projectName}-${name}-${environment}`
+
+/** The alias `CreateKey` gives every key it makes, and the only handle a name-based ref can use. */
+export const keyAlias = (projectName: string, name: string, environment: string) =>
+    `alias/${keyName(projectName, name, environment)}`
 
 export function CreateKey(item: SecurityKeyItem, name: string, environment: string, args: KeyParams): SecurityResultItem {
     const keyname = `${name}-${environment}`
@@ -17,8 +35,15 @@ export function CreateKey(item: SecurityKeyItem, name: string, environment: stri
         ...args
     })
 
+    // A key has no name in AWS, so without this a consumer has nothing to reference it by.
+    new aws.kms.Alias(`alias/${keyname}`, {
+        name: `alias/${keyname}`,
+        targetKeyId: key.keyId
+    })
+
     return {
         awsKmsKey: key,
+        ref: { id: key.keyId, arn: key.arn },
         definition: item
     }
 }
@@ -34,8 +59,29 @@ export type SecurityKeys = {
     dynamodb?: SecurityKeyItem
 }
 
+/**
+ * Keys this stack only references: by the same definition a stack creating one writes, resolved
+ * through the alias, or by value for a key outside the convention.
+ */
+export type SecurityKeysRef = {
+    [id: string]: SecurityKeyItem | KeyReferenceDefinition
+}
 
-export function createKMSKeys(projectName: string, environment: string, keys: SecurityKeys | undefined, keysRef: SecurityResult | undefined): SecurityResult {
+const isKeyReferenceDefinition = (item: SecurityKeyItem | KeyReferenceDefinition): item is KeyReferenceDefinition =>
+    !!item && 'arn' in item
+
+const isResultItem = (item: SecurityResultItem | SecurityKeyItem | KeyReferenceDefinition): item is SecurityResultItem =>
+    !!item && 'ref' in item
+
+/** The key the alias points at, not the alias itself. */
+function findKey(projectName: string, name: string, environment: string): KeyReference {
+    const alias = keyAlias(projectName, name, environment)
+    const found = pulumi.output(aws.kms.getAlias({ name: alias }, { async: true }))
+
+    return { id: found.targetKeyId, arn: found.targetKeyArn }
+}
+
+export function createKMSKeys(projectName: string, environment: string, keys: SecurityKeys | undefined, keysRef: SecurityKeysRef | SecurityResult | undefined): SecurityResult {
     const result: SecurityResult = {}
 
     if (keys && keys.dynamodb) {
@@ -56,13 +102,18 @@ export function createKMSKeys(projectName: string, environment: string, keys: Se
             }
             const keyItem = keysRef[key];
 
-            function isRef(obj: SecurityResultItem | SecurityKeyItem): obj is SecurityResultItem {
-                if (!obj) return false
-                return !!(obj as SecurityResultItem)?.awsKmsKey
-            }
-
-            if (isRef(keyItem)) {
+            if (isResultItem(keyItem)) {
                 result[key] = keyItem
+            } else if (isKeyReferenceDefinition(keyItem)) {
+                result[key] = {
+                    ref: { id: keyItem.id, arn: keyItem.arn },
+                    definition: keyItem
+                }
+            } else if (keyItem) {
+                result[key] = {
+                    ref: findKey(projectName, keyItem.name, environment),
+                    definition: keyItem
+                }
             } else {
                 throw new Error(`Cannot create ref key: ${key}`)
             }
@@ -73,8 +124,10 @@ export function createKMSKeys(projectName: string, environment: string, keys: Se
 }
 
 export type SecurityResultItem = {
-    awsKmsKey: aws.kms.Key
-    definition: SecurityKeyItem
+    /** The key itself, when this stack created it rather than referencing one. */
+    awsKmsKey?: aws.kms.Key
+    ref: KeyReference
+    definition: SecurityKeyItem | KeyReferenceDefinition
 } | undefined
 
 export type SecurityResult = {

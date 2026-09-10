@@ -12,7 +12,7 @@ import { LambadaResources } from './context'
 import { createMessaging, createSubscriptions, LambadaMessages, LambadaSubscriptionDefinition, MessagingResult } from './messaging'
 import createNotifications, { NotificationConfig } from './notifications'
 import { DatabaseResult, LambadaTables, TableOptions, createDynamoDbTables } from './database'
-import { createKMSKeys, createSecrets, SecurityKeys, EmbroiderySecrets, SecretsResult, SecurityResult } from "./security";
+import { createKMSKeys, createSecrets, SecurityKeys, SecurityKeysRef, EmbroiderySecrets, SecretsResult, SecurityResult } from "./security";
 import { UserPool } from "@pulumi/aws/cognito/userPool";
 import { LambdaAuthorizer } from "@pulumi/awsx/classic/apigateway";
 import { createQueueHandlers, createQueues, LambadaQueueHandlerDefinition, LambadaQueues, QueuesResult } from "./queue";
@@ -108,7 +108,8 @@ export type LambadaRunArguments = {
     /** Referenced secrets, does not create anything */
     secretsRef?: SecretsResult | EmbroiderySecrets
     keys?: SecurityKeys
-    keysRef?: SecurityResult
+    /** Referenced keys, does not create anything */
+    keysRef?: SecurityKeysRef | SecurityResult
     notifications?: NotificationConfig
     naming?: { // TODO: Should I do this? or not
         apiPath?: string
