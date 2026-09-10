@@ -27,22 +27,16 @@ export type PoolReferenceDefinition = {
 
 export type LambadaPools = { [id: string]: PoolDefinition }
 
-/**
- * Pools this stack only references: by the same definition a stack creating one writes, resolved
- * through the pool's name, or by value for a pool outside the convention.
- */
+/** A definition's `name` is the full physical name here; the explicit form gives id and arn. */
 export type LambadaPoolsRef = { [id: string]: PoolDefinition | PoolReferenceDefinition }
 
-/** What `createUserPool` calls a pool in AWS, and the only handle a name-based ref can use. */
+/** What `createUserPool` calls a pool in AWS. */
 export const poolName = (name: string, environment: string) => `${name}-${environment}`
 
 const isReferenceDefinition = (obj: PoolDefinition | PoolReferenceDefinition): obj is PoolReferenceDefinition =>
     'arn' in obj
 
-/**
- * The one pool of this name. Cognito does not require a pool name to be unique, so a stack cannot be
- * left to guess which of two it meant.
- */
+/** Cognito does not require a pool name to be unique, so two matches is an error, not a pick. */
 export const onlyPool = <T>(poolNameInAws: string, values: readonly T[]): T => {
     if (values.length !== 1) {
         throw new Error(

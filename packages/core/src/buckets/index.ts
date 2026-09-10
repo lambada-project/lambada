@@ -4,12 +4,7 @@ import { BucketArgs } from '@pulumi/aws/s3'
 
 type BucketParams = Omit<BucketArgs, "bucket" | "tags">
 
-/**
- * A bucket this stack creates, keyed like every other definition record.
- *
- * S3 names are global to every AWS account, not just this one, and the convention adds only the
- * environment, so pick a `name` distinctive enough to be unclaimed. A taken name fails the create.
- */
+/** An S3 name is global to every AWS account and the convention adds only the environment. */
 export type BucketDefinition = {
     /** What the bucket is called, as `${name}-${environment}`. Renaming one replaces it. */
     name: string
@@ -26,10 +21,6 @@ export type BucketReferenceDefinition = {
 
 export type LambadaBuckets = { [id: string]: BucketDefinition }
 
-/**
- * Buckets this stack only references: by the same definition a stack creating one writes, resolved by
- * name, or by id.
- */
 export type LambadaBucketsRef = {
     /** A definition's `name` is the full physical name here, project prefix and all. */
     [id: string]: BucketDefinition | BucketReferenceDefinition
@@ -71,7 +62,6 @@ export function createBucket(
     }
 }
 
-/** The bucket of this name, as the resource itself, the way `findSecret` and `findKey` do. */
 function findBucket(name: string, environment: string): aws.s3.Bucket {
     const bucket = bucketName(name, environment)
     const found = pulumi.output(aws.s3.getBucket({ bucket }, { async: true }))

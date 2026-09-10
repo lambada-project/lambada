@@ -23,10 +23,7 @@ let currentAWSConfig: AWSOptionTypes;
 export type LambadaEnvironmentConfig = {
     options?: {
         aws?: AWSOptionTypes,
-        /**
-         * What run() would prefix each physical name with. Absent leaves the bare definition name,
-         * which is what this runner has always created.
-         */
+        /** Absent leaves the bare definition name, which is what this runner has always created. */
         projectName?: string
         environment?: string
         tablePrefix?: string

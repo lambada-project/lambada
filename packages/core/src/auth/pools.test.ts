@@ -232,7 +232,7 @@ describe('which pools the API accepts tokens from', () => {
     })
 })
 
-/** The rule `findPool` applies, tested apart from the lookup: a rejected Output is awkward to hold. */
+/** The rule `findPool` applies, tested apart from the lookup. */
 describe('onlyPool', () => {
     test('is the single match', () => {
         expect(onlyPool('partners-test', ['arn:partners'])).toBe('arn:partners')

@@ -3,10 +3,7 @@ import { bucketName } from '../buckets'
 import { keyAlias } from '../security'
 import { physical } from './awsEnv'
 
-/**
- * The runner has to create what run() deploys, under the same name. These pin the two conventions
- * together; the resources themselves are exercised by a service's own suite against LocalStack.
- */
+/** The runner has to create what run() deploys, under the same name. */
 describe('the name the runner creates', () => {
     test('is the bucket name run() deploys', () => {
         expect(physical('uploads', 'test')).toBe(bucketName('uploads', 'test'))

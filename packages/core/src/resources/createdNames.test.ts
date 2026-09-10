@@ -7,10 +7,7 @@ import { createMessaging } from '../messaging'
 import { createQueues } from '../queue'
 import { createKMSKeys, createSecrets } from '../security'
 
-/**
- * The physical name of every resource lambada creates, pinned to a literal. A rename replaces a live
- * resource, taking its data with it, so a change to any of these must fail here first.
- */
+/** A rename replaces a live resource, taking its data with it, so it must fail here first. */
 const built: { name: string, type: string, inputs: any }[] = []
 
 pulumi.runtime.setMocks({

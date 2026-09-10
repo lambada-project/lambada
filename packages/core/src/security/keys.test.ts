@@ -58,7 +58,6 @@ describe('createKMSKeys', () => {
     test('resolves a ref given by name to the key the alias points at', async () => {
         const keys = create(undefined, { shared: definition('shared', 'SHARED_KEY_ARN') })
 
-        // A real resource, fetched: the same thing an owned key gives every reader.
         expect(await settled(keys.shared!.awsKmsKey.keyId)).toBe(`${keyAlias('shared', 'test')}-target-id`)
         expect(await settled(keys.shared!.awsKmsKey.arn)).toBe(`arn:${keyAlias('shared', 'test')}-target-id`)
     })
@@ -116,7 +115,7 @@ describe('a granted key', () => {
     })
 })
 
-/** Registration is async: the mock only sees the table once its own output has resolved. */
+/** The mock only sees the table once its own output has resolved. */
 const tableBuiltBy = async (kmsKeys: SecurityResult | undefined) => {
     built.length = 0
     const tables = createDynamoDbTables('test', { pets: { name: 'pets', primaryKey: 'id', envKeyName: 'PETS' } }, 'proj', kmsKeys)
@@ -168,7 +167,6 @@ describe('what run() accepts as keysRef', () => {
 
 describe('the owner and ref conventions meet', () => {
     test('a ref spelling `${ownerProject}-${key}` finds the alias the owner published', async () => {
-        // The owner's key resource carries its physical base name, which is what it aliases.
         const owned = createKMSKeys('eldorado', 'test', { data: definition('data', 'DATA_KEY_ARN') }, undefined)
         expect(await settled(owned.data!.awsKmsKey.urn)).toContain('eldorado-data-test')
 

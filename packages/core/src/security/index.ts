@@ -12,10 +12,7 @@ export type KeyReferenceDefinition = {
     envKeyName: string
 }
 
-/**
- * The alias `CreateKey` gives every key it makes, and the only handle a name-based ref can use.
- * `name` is the full physical name: an owner passes `${projectName}-${key.name}`, a ref spells it.
- */
+/** `name` is the full physical name: an owner passes `${projectName}-${key.name}`, a ref spells it. */
 export const keyAlias = (name: string, environment: string) => `alias/${name}-${environment}`
 
 export function CreateKey(item: SecurityKeyItem, name: string, environment: string, args: KeyParams): SecurityResultItem {
@@ -54,10 +51,6 @@ export type SecurityKeys = {
     dynamodb?: SecurityKeyItem
 }
 
-/**
- * Keys this stack only references: by the same definition a stack creating one writes, resolved
- * through the alias, or by id for a key outside the convention.
- */
 export type SecurityKeysRef = {
     /** A definition's `name` is the full physical name here, project prefix and all. */
     [id: string]: SecurityKeyItem | KeyReferenceDefinition
@@ -69,10 +62,7 @@ const isKeyReferenceDefinition = (item: SecurityKeyItem | KeyReferenceDefinition
 const isResultItem = (item: SecurityResultItem | SecurityKeyItem | KeyReferenceDefinition): item is SecurityResultItem =>
     !!item && 'awsKmsKey' in item
 
-/**
- * The key an alias points at, as the resource itself. Fetched rather than reduced to an arn so a
- * referenced key and an owned one are the same thing to every reader, as `findSecret` does.
- */
+/** The key an alias points at, as the resource itself. */
 function findKey(name: string, environment: string): aws.kms.Key {
     const alias = pulumi.output(aws.kms.getAlias({ name: keyAlias(name, environment) }, { async: true }))
 
@@ -133,13 +123,7 @@ export type SecurityResult = {
     dynamodb?: SecurityResultItem
 }
 
-/**
- * The key a table or topic encrypts with, named by its key in the merged result the way a secret's
- * `encryptionKeyName` already is.
- *
- * A missing name joins the other diagnostics so a stack reports all of them at once, and throws only
- * for a caller that passes none, as `requireItem` does.
- */
+/** A missing name joins the other diagnostics, or throws for a caller that collects none. */
 export const encryptionKeyFor = (
     kmsKeys: SecurityResult | undefined,
     ask: { kind: string, owner: string, encryptionKeyName?: string, legacyDynamodbFallback?: boolean },

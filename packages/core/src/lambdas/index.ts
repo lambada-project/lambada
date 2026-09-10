@@ -125,10 +125,7 @@ export type LambdaOptions = {
     enableXRay?: pulumi.Input<boolean>
 }
 
-/**
- * What one granted resource costs in IAM and in environment. Separate from `createLambda` so the
- * emitted statements can be asserted without building a function.
- */
+/** What one granted resource costs in IAM and in environment. */
 export const resourceStatements = (
     access: LambdaResource,
     functionName: string,
@@ -445,10 +442,7 @@ export type DynamoDbAccess = `dynamodb:${string}`
 /** Read actions, the only ones an index answers to: a write goes to the table. */
 const INDEX_ACTIONS = ['Query', 'Scan', 'GetItem', 'BatchGetItem', 'DescribeTable']
 
-/**
- * Stream actions, which are on the stream's own ARN. `ListStreams` is not among them: IAM scopes it
- * to `*`, so it cannot be granted on a stream.
- */
+/** On the stream's own ARN. `ListStreams` is excluded: IAM scopes it to `*`. */
 const STREAM_ACTIONS = ['GetRecords', 'GetShardIterator', 'DescribeStream']
 
 const isIndexAction = (action: LambdaResourceAccessItem) =>
