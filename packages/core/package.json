@@ -38,6 +38,8 @@
 		"@aws-sdk/client-dynamodb": "~3.981.0",
 		"@aws-sdk/client-kms": "~3.981.0",
 		"@aws-sdk/client-pinpoint": "~3.981.0",
+		"@aws-sdk/client-s3": "~3.981.0",
+		"@aws-sdk/client-sns": "~3.981.0",
 		"@aws-sdk/util-dynamodb": "~3.981.0",
 		"@lambada/utils": "^2.4.5",
 		"@pulumi/aws": "^7.0.0",
