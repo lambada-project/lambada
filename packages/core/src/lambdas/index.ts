@@ -125,6 +125,156 @@ export type LambdaOptions = {
     enableXRay?: pulumi.Input<boolean>
 }
 
+/**
+ * What one granted resource costs in IAM and in environment. Separate from `createLambda` so the
+ * emitted statements can be asserted without building a function.
+ */
+export const resourceStatements = (
+    access: LambdaResource,
+    functionName: string,
+    environment: string
+): { statements: aws.iam.PolicyStatement[], envVars: Record<string, pulumi.Input<string>> } => {
+    const statements: aws.iam.PolicyStatement[] = []
+    const envVars: Record<string, pulumi.Input<string>> = {}
+
+
+    if (access.access.length === 0) {
+        throw new Error(`Resource on ${functionName} has zero access request`)
+    }
+    if (access.table) {
+        envVars[access.table.definition.envKeyName] = access.table.ref.name
+        statements.push(
+            {
+                Action: access.access,
+                Resource: access.table.ref.arn,
+                Effect: 'Allow'
+            }
+        )
+
+        const indexAccess = access.access.filter(isIndexAction)
+
+        if (access.table.definition.indexes?.length && indexAccess.length) {
+            statements.push(
+                {
+                    Action: indexAccess,
+                    Resource: pulumi.interpolate`${access.table.ref.arn}/index/*`,
+                    Effect: 'Allow'
+                }
+            )
+        }
+
+        const streamAccess = access.access.filter(isStreamAction)
+
+        if (access.table.definition.options?.streamEnabled && streamAccess.length) {
+            statements.push(
+                {
+                    Action: streamAccess,
+                    Resource: access.table.ref.streamArn,
+                    Effect: 'Allow'
+                }
+            )
+        }
+    }
+    else if (access.bucket) {
+        // S3 calls address a bucket by name, and object actions are on `${arn}/*`, not the bucket.
+        envVars[access.bucket.envKeyName] = access.bucket.awsS3Bucket.bucket
+        statements.push(
+            {
+                Action: access.access,
+                Resource: access.bucket.awsS3Bucket.arn,
+                Effect: 'Allow'
+            },
+            {
+                Action: access.access,
+                Resource: pulumi.interpolate`${access.bucket.awsS3Bucket.arn}/*`,
+                Effect: 'Allow'
+            }
+        )
+    }
+    else if (access.topic) {
+        //PubSub connections need the topic ARN to talk to SNS
+        envVars[access.topic.envKeyName] = access.topic.ref.arn
+        statements.push(
+            {
+                Action: access.access,
+                Resource: access.topic.ref.arn,
+                Effect: 'Allow'
+            }
+        )
+    }
+    else if (access.queue) {
+        envVars[access.queue.envKeyName] = access.queue.ref.url ?? access.queue.awsQueue.url
+        statements.push(
+            {
+                Action: access.access,
+                Resource: access.queue.ref.arn,
+                Effect: 'Allow'
+            }
+        )
+    }
+    else if (access.notification) {
+        if (access.notification.gcm) {
+            statements.push(
+                {
+                    Action: access.access,
+                    Resource: access.notification.gcm.application.arn,
+                    Effect: 'Allow'
+                }
+            )
+        }
+        else {
+            throw new Error('other notification system than GCM is not implemented')
+        }
+    }
+    else if (access.secret) {
+        // A secretsmanager call addresses a secret by name; the policy needs its ARN.
+        envVars[access.secret.definition.envKeyName] = access.secret.awsSecret.name
+        statements.push(
+            {
+                Action: access.access,
+                Resource: access.secret.awsSecret.arn,
+                Effect: 'Allow'
+            }
+        )
+    }
+    else if (access.kmsKey) {
+        if (access.kmsKey.definition)
+            envVars[access.kmsKey.definition.envKeyName] = access.kmsKey.awsKmsKey.arn
+        statements.push(
+            {
+                Action: access.access,
+                Resource: access.kmsKey.awsKmsKey.arn,
+                Effect: 'Allow'
+            }
+        )
+    }
+    else if (access.pool) {
+        //Cognito calls need the pool id to address the pool
+        envVars[access.pool.envKeyName] = access.pool.ref.id
+        statements.push(
+            {
+                Action: access.access,
+                Resource: access.pool.ref.arn,
+                Effect: 'Allow'
+            }
+        )
+    }
+    else if (access.arn) {
+        statements.push(
+            {
+                Action: access.access,
+                Resource: access.arn,
+                Effect: 'Allow'
+            }
+        )
+    }
+    else {
+        throw functionName + '-' + environment + ': Access must have the resource, eg. topic, table, messaging, etc. ' + JSON.stringify(access);
+    }
+
+    return { statements, envVars }
+}
+
 export const createLambda = <E, R>(
     name: string,
     environment: string,
@@ -145,151 +295,11 @@ export const createLambda = <E, R>(
     if (!environmentVariables) environmentVariables = {}
 
     var envVarsFromResources: EmbroideryEnvironmentVariables = {}
-    //pulumi.log.info('resources length:' + resources.length)
     for (let i = 0; i < resources.length; i++) {
-        const access = resources[i];
+        const resolved = resourceStatements(resources[i], name, environment)
 
-        if (access.access.length === 0) {
-            throw new Error(`Resource on ${name} has zero access request`)
-        }
-        if (access.table) {
-            //pulumi.log.info('granting access to table' + access.table.definition.name)
-            //DB connections need the table name to talk to DynamoDB
-            envVarsFromResources[access.table.definition.envKeyName] = access.table.ref.name
-            policyStatements.push(
-                {
-                    Action: access.access,
-                    Resource: access.table.ref.arn,
-                    Effect: 'Allow'
-                }
-            )
-
-            if (access.table.definition.indexes?.length) {
-                policyStatements.push(
-                    {
-                        Action: access.access,
-                        Resource: pulumi.interpolate`${access.table.ref.arn}/index/*`,
-                        Effect: 'Allow'
-                    }
-                )
-            }
-
-        }
-        else if (access.bucket) {
-            // S3 calls address a bucket by name, and object actions are on `${arn}/*`, not the bucket.
-            envVarsFromResources[access.bucket.envKeyName] = access.bucket.awsS3Bucket.bucket
-            policyStatements.push(
-                {
-                    Action: access.access,
-                    Resource: access.bucket.awsS3Bucket.arn,
-                    Effect: 'Allow'
-                },
-                {
-                    Action: access.access,
-                    Resource: pulumi.interpolate`${access.bucket.awsS3Bucket.arn}/*`,
-                    Effect: 'Allow'
-                }
-            )
-        }
-        else if (access.topic) {
-            //PubSub connections need the topic ARN to talk to SNS
-            envVarsFromResources[access.topic.envKeyName] = access.topic.ref.arn
-            policyStatements.push(
-                {
-                    Action: access.access,
-                    Resource: access.topic.ref.arn,
-                    Effect: 'Allow'
-                }
-            )
-        }
-        else if (access.queue) {
-            //PubSub connections need the topic ARN to talk to SNS
-            envVarsFromResources[access.queue.envKeyName] = access.queue.ref.url ?? access.queue.awsQueue.url
-            policyStatements.push(
-                {
-                    Action: access.access,
-                    Resource: access.queue.ref.arn,
-                    Effect: 'Allow'
-                }
-            )
-        }
-        else if (access.notification) {
-            //PubSub connections need the topic ARN to send push notifications
-            //envVarsFromResources[access.notification.gcm.] = access.notification.gcm
-            if (access.notification.gcm) {
-                policyStatements.push(
-                    {
-                        Action: access.access,
-                        Resource: access.notification.gcm.application.arn,
-                        Effect: 'Allow'
-                    }
-                )
-            }
-            else {
-                throw new Error('other notification system than GCM is not implemented')
-            }
-        }
-        else if (access.secret) {
-            // A secretsmanager call addresses a secret by name; the policy needs its ARN.
-            envVarsFromResources[access.secret.definition.envKeyName] = access.secret.awsSecret.name
-            policyStatements.push(
-                {
-                    Action: access.access,
-                    Resource: access.secret.awsSecret.arn,
-                    Effect: 'Allow'
-                }
-            )
-        }
-        else if (access.kmsKey) {
-            if (access.kmsKey.definition)
-                envVarsFromResources[access.kmsKey.definition.envKeyName] = access.kmsKey.awsKmsKey.arn
-            policyStatements.push(
-                {
-                    Action: access.access,
-                    Resource: access.kmsKey.awsKmsKey.arn,
-                    Effect: 'Allow'
-                }
-            )
-            // const keyname = access.kmsKey.name
-
-            // new aws.kms.Grant(`KMS-grant-${keyname}`, {
-            //         granteePrincipal: lambdaRole.arn,
-            //         keyId: access.kmsKey.awsKmsKey.keyId,
-            //         operations: [
-            //             "Encrypt",
-            //             "Decrypt",
-            //             "GenerateDataKey",
-            //                 // "kms:Encrypt",
-            //                 // "kms:Decrypt",
-            //                 // "kms:ReEncrypt*",
-            //                 // "kms:GenerateDataKey*",
-            //                 // "kms:DescribeKey"
-            //         ]
-            //     })
-        }
-        else if (access.pool) {
-            //Cognito calls need the pool id to address the pool
-            envVarsFromResources[access.pool.envKeyName] = access.pool.ref.id
-            policyStatements.push(
-                {
-                    Action: access.access,
-                    Resource: access.pool.ref.arn,
-                    Effect: 'Allow'
-                }
-            )
-        }
-        else if (access.arn) {
-            policyStatements.push(
-                {
-                    Action: access.access,
-                    Resource: access.arn,
-                    Effect: 'Allow'
-                }
-            )
-        }
-        else {
-            throw name + '-' + environment + ': Access must have the resource, eg. topic, table, messaging, etc. ' + JSON.stringify(access);
-        }
+        policyStatements.push(...resolved.statements)
+        Object.assign(envVarsFromResources, resolved.envVars)
     }
 
     if (options?.vpcConfig) {
@@ -431,6 +441,21 @@ export const createLambdaRoleAndPolicies = (
 export type LambdaResourceAccessItem = string
 
 export type DynamoDbAccess = `dynamodb:${string}`
+
+/** Read actions, the only ones an index answers to: a write goes to the table. */
+const INDEX_ACTIONS = ['Query', 'Scan', 'GetItem', 'BatchGetItem', 'DescribeTable']
+
+/**
+ * Stream actions, which are on the stream's own ARN. `ListStreams` is not among them: IAM scopes it
+ * to `*`, so it cannot be granted on a stream.
+ */
+const STREAM_ACTIONS = ['GetRecords', 'GetShardIterator', 'DescribeStream']
+
+const isIndexAction = (action: LambdaResourceAccessItem) =>
+    INDEX_ACTIONS.some(name => action === `dynamodb:${name}`)
+
+const isStreamAction = (action: LambdaResourceAccessItem) =>
+    STREAM_ACTIONS.some(name => action === `dynamodb:${name}`)
 export type SNSAccess = `sns:${string}`
 export type SQSAccess = `sqs:${string}`
 export type SecretAccess = `secretsmanager:${string}`

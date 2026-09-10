@@ -141,7 +141,8 @@ export const createDynamoDbTables = (
                     id: awsTable.id,
                     arn: awsTable.arn,
                     name: awsTable.name,
-                    hashKey: awsTable.hashKey
+                    hashKey: awsTable.hashKey,
+                    streamArn: awsTable.streamArn
                 }),
                 awsTable: awsTable,
                 definition: table,
@@ -181,6 +182,8 @@ type TableReference = {
     id: string
     arn: string
     hashKey: string;
+    /** Empty unless the table has a stream: the stream is its own resource in IAM. */
+    streamArn: string
 }
 
 export type DatabaseResultItem = {
