@@ -93,6 +93,56 @@ describe('createBuckets', () => {
     })
 })
 
+describe('a hardened bucket', () => {
+    const built0 = (type: string) => built.filter(r => r.type === type)
+    /** The hardening resources have no output anyone awaits. */
+    const drain = async () => {
+        for (let i = 0; i < 5; i++) await new Promise(resolve => setTimeout(resolve, 0))
+    }
+
+    test('blocks public access and denies insecure transport', async () => {
+        built.length = 0
+        const buckets = create({ uploads: definition('uploads') })
+        await settled(buckets.uploads.awsS3Bucket.arn)
+        await drain()
+
+        expect(built0('aws:s3/bucketPublicAccessBlock:BucketPublicAccessBlock')).toHaveLength(1)
+        expect(built0('aws:s3/bucketPolicy:BucketPolicy')).toHaveLength(1)
+
+        const policy = JSON.parse(await settled(built0('aws:s3/bucketPolicy:BucketPolicy')[0].inputs.policy))
+        expect(policy.Statement[0]).toMatchObject({
+            Sid: 'DenyInsecureTransport',
+            Effect: 'Deny',
+            Condition: { Bool: { 'aws:SecureTransport': 'false' } },
+        })
+        expect(policy.Statement[0].Resource).toEqual(['arn:aws:s3:::uploads-test', 'arn:aws:s3:::uploads-test/*'])
+    })
+
+    test('is left alone when the definition opts out', async () => {
+        built.length = 0
+        const buckets = create({ uploads: { ...definition('uploads'), hardened: false } })
+        await settled(buckets.uploads.awsS3Bucket.arn)
+        await drain()
+
+        expect(built0('aws:s3/bucketPublicAccessBlock:BucketPublicAccessBlock')).toHaveLength(0)
+        expect(built0('aws:s3/bucketPolicy:BucketPolicy')).toHaveLength(0)
+    })
+
+    test('refuses to replace a policy the definition gave through options', () => {
+        expect(() => create({ uploads: { ...definition('uploads'), options: { policy: '{}' } } }))
+            .toThrow(/sets its own policy through options/)
+    })
+
+    test('leaves a referenced bucket alone', async () => {
+        built.length = 0
+        const buckets = create(undefined, { shared: definition('eldorado-assets') })
+        await settled(buckets.shared.awsS3Bucket.arn)
+        await drain()
+
+        expect(built0('aws:s3/bucketPublicAccessBlock:BucketPublicAccessBlock')).toHaveLength(0)
+    })
+})
+
 describe('a granted bucket', () => {
     const grantFor = (buckets: BucketsResult) =>
         toLambdaResources({ buckets } as any, {

@@ -10,6 +10,8 @@ export type BucketDefinition = {
     name: string
     /** Published to every function granted this bucket, carrying the bucket name. */
     envKeyName: string
+    /** Blocks public access and denies requests that are not over TLS. On by default. */
+    hardened?: boolean
     options?: BucketParams
 }
 
@@ -51,15 +53,54 @@ export function createBucket(
 ): BucketResultItem {
     const bucket = bucketName(definition.name, environment)
 
+    const awsS3Bucket = new aws.s3.Bucket(bucket, {
+        ...(definition.options ?? {}),
+        bucket,
+        tags
+    })
+
+    if (definition.hardened !== false) harden(bucket, awsS3Bucket, definition)
+
     return {
-        awsS3Bucket: new aws.s3.Bucket(bucket, {
-            ...(definition.options ?? {}),
-            bucket,
-            tags
-        }),
+        awsS3Bucket,
         envKeyName: definition.envKeyName,
         definition
     }
+}
+
+const harden = (bucket: string, awsS3Bucket: aws.s3.Bucket, definition: BucketDefinition) => {
+    // A BucketPolicy owns the whole document, so it would silently replace one given through options.
+    if (definition.options?.policy) {
+        throw new Error(
+            `Cannot harden the bucket '${bucket}': it sets its own policy through options, which a ` +
+            `TLS-only policy would replace. Deny insecure transport in that policy and set hardened: false.`
+        )
+    }
+
+    new aws.s3.BucketPublicAccessBlock(`${bucket}-public-access`, {
+        bucket: awsS3Bucket.id,
+        blockPublicAcls: true,
+        blockPublicPolicy: true,
+        ignorePublicAcls: true,
+        restrictPublicBuckets: true
+    })
+
+    new aws.s3.BucketPolicy(`${bucket}-tls-only`, {
+        bucket: awsS3Bucket.id,
+        policy: awsS3Bucket.arn.apply(arn => JSON.stringify({
+            Version: '2012-10-17',
+            Statement: [{
+                Sid: 'DenyInsecureTransport',
+                Effect: 'Deny',
+                Principal: '*',
+                Action: 's3:*',
+                Resource: [arn, `${arn}/*`],
+                Condition: {
+                    Bool: { 'aws:SecureTransport': 'false' }
+                }
+            }]
+        }))
+    })
 }
 
 function findBucket(name: string, environment: string): aws.s3.Bucket {
