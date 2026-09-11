@@ -5,6 +5,7 @@ import { MessagingResult } from "./messaging";
 import { NotificationResult } from "./notifications";
 import { EmbroideryEnvironmentVariables } from ".";
 import { QueuesResult } from "./queue";
+import { BucketsResult } from "./buckets";
 import { FunctionVpcConfig, LambdaOptions } from "./lambdas";
 import { BundleSource } from "./lambdas/bundles";
 import { Input } from '@pulumi/pulumi'
@@ -31,6 +32,7 @@ export type LambadaResources = {
     queues?: QueuesResult
     notifications?: NotificationResult
     databases?: DatabaseResult
+    buckets?: BucketsResult
     environment: string
     kmsKeys?: SecurityResult
     /** The pool a function picks from by declaring `resources.envVar`. */

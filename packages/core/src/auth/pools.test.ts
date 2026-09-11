@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import * as pulumi from '@pulumi/pulumi'
 import {
     createPools,
+    onlyPool,
     DEFAULT_POOL_ENV_KEY_NAME,
     DEFAULT_POOL_KEY,
     PoolsResult,
@@ -15,7 +16,19 @@ pulumi.runtime.setMocks({
         built.push(args.name)
         return { id: `${args.name}-id`, state: { ...args.inputs, arn: `arn:${args.name}` } }
     },
-    call: () => ({}),
+    call: (args: pulumi.runtime.MockCallArgs) => {
+        if (args.token === 'aws:cognito/getUserPools:getUserPools') {
+            const name = args.inputs.name as string
+            const count = name.startsWith('twins') ? 2 : name.startsWith('ghost') ? 0 : 1
+
+            return {
+                name,
+                ids: Array.from({ length: count }, (_, i) => `${name}-id-${i}`),
+                arns: Array.from({ length: count }, (_, i) => `arn:${name}-${i}`),
+            }
+        }
+        return {}
+    },
 })
 
 const settled = <T>(o: pulumi.Output<T>): Promise<T> => (o as unknown as { promise(): Promise<T> }).promise()
@@ -58,6 +71,25 @@ describe('createPools', () => {
 
         expect(pools.userPool.awsPool).toBeDefined()
         expect(pools.userPool.envKeyName).toBe('COGNITO_USER_POOL_ID')
+    })
+
+    test('resolves a ref given by name through the pool name', async () => {
+        const { pools } = create(undefined, undefined, { partners: { name: 'partners', envKeyName: 'PARTNERS_POOL_ID' } })
+
+        expect(pools.partners.awsPool).toBeUndefined()
+        expect(await settled(pulumi.output(pools.partners.ref.arn))).toBe('arn:partners-test-0')
+        expect(await settled(pulumi.output(pools.partners.ref.id))).toBe('partners-test-id-0')
+    })
+
+    test('both ref forms sit in one record', async () => {
+        const { pools } = create(undefined, undefined, {
+            partners: { name: 'partners', envKeyName: 'PARTNERS_POOL_ID' },
+            outside: reference('OUTSIDE_POOL_ID'),
+        })
+
+        expect(Object.keys(pools).sort()).toEqual(['outside', 'partners'])
+        expect(await settled(pulumi.output(pools.partners.ref.arn))).toBe('arn:partners-test-0')
+        expect(await settled(pulumi.output(pools.outside.ref.arn))).toBe('arn:OUTSIDE_POOL_ID')
     })
 
     test('refuses to reference a pool under the name of one it created', () => {
@@ -197,5 +229,21 @@ describe('which pools the API accepts tokens from', () => {
     test('refuses a name no pool answers to', () => {
         expect(() => create({ authorizerPools: ['ghosts'] }, { admins: { name: 'admins', envKeyName: 'A' } }))
             .toThrow(/Cannot authorize with pool 'ghosts'.*The stack has: admins/s)
+    })
+})
+
+/** The rule `findPool` applies, tested apart from the lookup. */
+describe('onlyPool', () => {
+    test('is the single match', () => {
+        expect(onlyPool('partners-test', ['arn:partners'])).toBe('arn:partners')
+    })
+
+    test('refuses a name the account holds two of', () => {
+        expect(() => onlyPool('twins-test', ['a', 'b']))
+            .toThrow(/Cannot reference the pool 'twins-test': the account has 2 of that name, not one/)
+    })
+
+    test('refuses a name the account holds none of', () => {
+        expect(() => onlyPool('ghost-test', [])).toThrow(/the account has 0 of that name/)
     })
 })

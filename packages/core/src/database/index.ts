@@ -2,7 +2,8 @@ import * as pulumi from "@pulumi/pulumi";
 import * as aws from "@pulumi/aws";
 import { dynamodb } from '@pulumi/aws/types/input'
 import { seedData } from './seedData'
-import { SecurityResult } from "../security";
+import { encryptionKeyFor, SecurityResult } from "../security";
+import { LambadaDiagnostics } from "../resources/diagnostics";
 
 export type TableAttribute = dynamodb.TableAttribute
 export type TableOptions = {
@@ -90,6 +91,8 @@ export type TableDefinition = {
     primaryKey: string
     rangeKey?: string
     envKeyName: string
+    /** The key to encrypt with, by its name in `keys`/`keysRef`. Absent falls back to `dynamodb`, which is legacy. */
+    encryptionKeyName?: string
     /** Seed data */
     data?: (string | object)[]
     indexes?: TableIndexDefinition[]
@@ -107,7 +110,8 @@ export const createDynamoDbTables = (
     kmsKeys?: SecurityResult,
     tableRefs?: LambadaTables | DatabaseResult,
     tags?: pulumi.Input<{ [key: string]: pulumi.Input<string> }>,
-    globalOptions?: TableOptions
+    globalOptions?: TableOptions,
+    diagnostics?: LambadaDiagnostics
 ): DatabaseResult => {
 
     const result: DatabaseResult = {}
@@ -115,14 +119,18 @@ export const createDynamoDbTables = (
         if (Object.prototype.hasOwnProperty.call(tables, key)) {
             const table = tables[key];
             const tableName = prefix && prefix.length > 0 ? `${prefix}-${table.name}` : table.name
+            const options = { ...globalOptions, ...table.options }
+            const kmsKey = encryptionKeyFor(
+                kmsKeys,
+                { kind: 'table', owner: key, encryptionKeyName: table.encryptionKeyName, legacyDynamodbFallback: true },
+                diagnostics
+            )
+
             const awsTable = createTable(
                 tableName, environment, table.primaryKey, table.rangeKey,
-                kmsKeys?.dynamodb?.awsKmsKey,
+                kmsKey,
                 table.attributes, table.indexes, table.ttl,
-                {
-                    ...globalOptions,
-                    ...table.options
-                },
+                options,
                 tags
             )
 
@@ -131,11 +139,13 @@ export const createDynamoDbTables = (
                     id: awsTable.id,
                     arn: awsTable.arn,
                     name: awsTable.name,
-                    hashKey: awsTable.hashKey
+                    hashKey: awsTable.hashKey,
+                    streamArn: awsTable.streamArn
                 }),
                 awsTable: awsTable,
                 definition: table,
-                kmsKey: kmsKeys?.dynamodb?.awsKmsKey
+                kmsKey: kmsKey,
+                streamEnabled: !!options.streamEnabled
             } satisfies DatabaseResultItem
         }
     }
@@ -156,7 +166,8 @@ export const createDynamoDbTables = (
                 result[key] = {
                     ref: findTable(table.name, environment),
                     definition: table,
-                    kmsKey: kmsKeys?.dynamodb?.awsKmsKey
+                    kmsKey: kmsKeys?.dynamodb?.awsKmsKey,
+                    streamEnabled: !!{ ...globalOptions, ...table.options }.streamEnabled
                 } as DatabaseResultItem
             }
         }
@@ -171,6 +182,8 @@ type TableReference = {
     id: string
     arn: string
     hashKey: string;
+    /** Empty unless the table has a stream: the stream is its own resource in IAM. */
+    streamArn: string
 }
 
 export type DatabaseResultItem = {
@@ -178,5 +191,7 @@ export type DatabaseResultItem = {
     ref: pulumi.Output<TableReference>
     definition: TableDefinition
     kmsKey?: aws.kms.Key
+    /** `tableOptions` merged over the definition, which is what decides the stream grant. */
+    streamEnabled: boolean
 }
 export type DatabaseResult = { [id: string]: DatabaseResultItem }

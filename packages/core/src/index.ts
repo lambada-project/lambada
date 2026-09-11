@@ -12,7 +12,7 @@ import { LambadaResources } from './context'
 import { createMessaging, createSubscriptions, LambadaMessages, LambadaSubscriptionDefinition, MessagingResult } from './messaging'
 import createNotifications, { NotificationConfig } from './notifications'
 import { DatabaseResult, LambadaTables, TableOptions, createDynamoDbTables } from './database'
-import { createKMSKeys, createSecrets, SecurityKeys, EmbroiderySecrets, SecretsResult, SecurityResult } from "./security";
+import { createKMSKeys, createSecrets, SecurityKeys, SecurityKeysRef, EmbroiderySecrets, SecretsResult, SecurityResult } from "./security";
 import { UserPool } from "@pulumi/aws/cognito/userPool";
 import { LambdaAuthorizer } from "@pulumi/awsx/classic/apigateway";
 import { createQueueHandlers, createQueues, LambadaQueueHandlerDefinition, LambadaQueues, QueuesResult } from "./queue";
@@ -22,6 +22,8 @@ import { BundleSource } from "./lambdas/bundles";
 import { createPools, LambadaPools, LambadaPoolsRef, PoolsResult } from "./auth/pools";
 import { createDiagnostics } from "./resources/diagnostics";
 import { preflight } from "./resources/preflight";
+
+import { createBuckets, LambadaBuckets, LambadaBucketsRef, BucketsResult } from "./buckets";
 
 export * from './context'
 export * from './inputs'
@@ -34,6 +36,7 @@ export * from './test_utils'
 export * from './messaging'
 export * from './queue'
 export * from './auth/pools'
+export * from './buckets'
 export * from './resources'
 export * from './security'
 
@@ -69,6 +72,7 @@ export type LambadaRunArguments = {
     },
     staticSiteLocalPath?: string
 
+    /** Prefixes every table this stack creates. A ref elsewhere spells it: `${prefix}-${name}`. */
     tablePrefix?: string
     /** Tables to create */
     tables?: LambadaTables
@@ -76,6 +80,11 @@ export type LambadaRunArguments = {
     tablesRef?: LambadaTables | DatabaseResult
     /** Global Table Options. Changes defaults of all tables */
     tableOptions?: TableOptions
+
+    /** Buckets to create. S3 names are global to every account, so one can already be taken. */
+    buckets?: LambadaBuckets
+    /** Referenced buckets, does not create anything */
+    bucketsRef?: LambadaBucketsRef | BucketsResult
 
     /** Topics to create */
     messages?: LambadaMessages,
@@ -108,7 +117,8 @@ export type LambadaRunArguments = {
     /** Referenced secrets, does not create anything */
     secretsRef?: SecretsResult | EmbroiderySecrets
     keys?: SecurityKeys
-    keysRef?: SecurityResult
+    /** Referenced keys, does not create anything */
+    keysRef?: SecurityKeysRef | SecurityResult
     notifications?: NotificationConfig
     naming?: { // TODO: Should I do this? or not
         apiPath?: string
@@ -172,14 +182,15 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
     const diagnostics = createDiagnostics()
 
     const encryptionKeys = createKMSKeys(projectName, environment, args.keys, args.keysRef)
-    const secrets = createSecrets(projectName, environment, args.secrets, args.secretsRef)
-    const databases = createDynamoDbTables(environment, args.tables, args.tablePrefix, encryptionKeys, args.tablesRef, globalTags)
+    const secrets = createSecrets(projectName, environment, args.secrets, args.secretsRef, encryptionKeys)
+    const databases = createDynamoDbTables(environment, args.tables, args.tablePrefix, encryptionKeys, args.tablesRef, globalTags, args.tableOptions, diagnostics)
 
     const { pools, authorizers: poolProviders, auth: cognito } = createPools(
         projectName, environment, encryptionKeys, args.auth, args.pools, args.poolsRef
     )
 
-    const messaging = createMessaging(environment, args.messages, args.messagesRef, globalTags)
+    const buckets = createBuckets(environment, args.buckets, args.bucketsRef, globalTags)
+    const messaging = createMessaging(environment, args.messages, args.messagesRef, globalTags, encryptionKeys, diagnostics)
     const queues = createQueues(environment, args.queues, args.queuesRef)
     const notifications = createNotifications(projectName, environment, args?.notifications)
 
@@ -227,6 +238,7 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
         queues: queues,
         notifications: notifications,
         databases: databases,
+        buckets: buckets,
         environment: environment,
         kmsKeys: encryptionKeys,
         environmentVariables: args.environmentVariables || {},
@@ -337,6 +349,7 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
         queues: queues,
         pools: pools,
         databases: databases,
+        buckets: buckets,
         apiKey: apiKey,
         secrets: secrets,
         security: encryptionKeys

@@ -26,7 +26,36 @@ export type PoolReferenceDefinition = {
 }
 
 export type LambadaPools = { [id: string]: PoolDefinition }
-export type LambadaPoolsRef = { [id: string]: PoolReferenceDefinition }
+
+/** A definition's `name` is the full physical name here; the explicit form gives id and arn. */
+export type LambadaPoolsRef = { [id: string]: PoolDefinition | PoolReferenceDefinition }
+
+/** What `createUserPool` calls a pool in AWS. */
+export const poolName = (name: string, environment: string) => `${name}-${environment}`
+
+const isReferenceDefinition = (obj: PoolDefinition | PoolReferenceDefinition): obj is PoolReferenceDefinition =>
+    'arn' in obj
+
+/** Cognito does not require a pool name to be unique, so two matches is an error, not a pick. */
+export const onlyPool = <T>(poolNameInAws: string, values: readonly T[]): T => {
+    if (values.length !== 1) {
+        throw new Error(
+            `Cannot reference the pool '${poolNameInAws}': the account has ${values.length} of that name, not one.`,
+        )
+    }
+
+    return values[0]
+}
+
+const findPool = (name: string, environment: string): PoolReference => {
+    const poolNameInAws = poolName(name, environment)
+    const found = pulumi.output(aws.cognito.getUserPools({ name: poolNameInAws }, { async: true }))
+
+    return {
+        id: found.ids.apply(ids => onlyPool(poolNameInAws, ids)),
+        arn: found.arns.apply(arns => onlyPool(poolNameInAws, arns)),
+    }
+}
 
 type PoolReference = {
     id: pulumi.Input<string>
@@ -47,7 +76,7 @@ export type PoolsResult = { [id: string]: PoolResultItem }
 export const DEFAULT_POOL_KEY = 'userPool'
 export const DEFAULT_POOL_ENV_KEY_NAME = 'COGNITO_USER_POOL_ID'
 
-const isResultItem = (obj: PoolReferenceDefinition | PoolResultItem): obj is PoolResultItem =>
+const isResultItem = (obj: PoolDefinition | PoolReferenceDefinition | PoolResultItem): obj is PoolResultItem =>
     !!(obj as PoolResultItem).ref
 
 /**
@@ -146,11 +175,15 @@ export const createPools = (
 
             const pool = poolsRef[key]
 
-            result[key] = isResultItem(pool) ? pool : {
-                envKeyName: pool.envKeyName,
-                ref: { id: pool.id, arn: pool.arn },
-                definition: pool
-            } satisfies PoolResultItem
+            if (isResultItem(pool)) {
+                result[key] = pool
+            } else {
+                result[key] = {
+                    envKeyName: pool.envKeyName,
+                    ref: isReferenceDefinition(pool) ? { id: pool.id, arn: pool.arn } : findPool(pool.name, environment),
+                    definition: pool
+                } satisfies PoolResultItem
+            }
         }
     }
 
