@@ -5,7 +5,8 @@ import * as awsx from "@pulumi/awsx/classic";
 import { LambadaResources } from "..";
 
 import { DatabaseResult } from "../database";
-import { SecurityResult } from "../security";
+import { encryptionKeyFor, SecurityResult } from "../security";
+import { LambadaDiagnostics } from "../resources/diagnostics";
 
 export * from './createSubscription'
 import { createSubscription, LambadaSubscriptionHandler } from './createSubscription'
@@ -14,6 +15,8 @@ import { asBuilder } from '../resources/creators'
 export type MessageDefinition = {
     name: string
     envKeyName: string
+    /** The key to encrypt with, by its name in `keys`/`keysRef`. Absent leaves the topic unencrypted. */
+    encryptionKeyName?: string
     options?: TopicArgs,
 
     deliveryPolicy?: {
@@ -91,7 +94,9 @@ export const createMessaging = (
     environment: string,
     messages?: LambadaMessages,
     messagesRef?: LambadaMessages | MessagingResult,
-    tags?: pulumi.Input<{ [key: string]: pulumi.Input<string> }>
+    tags?: pulumi.Input<{ [key: string]: pulumi.Input<string> }>,
+    kmsKeys?: SecurityResult,
+    diagnostics?: LambadaDiagnostics
 ): MessagingResult => {
 
     const result: MessagingResult = {}
@@ -100,8 +105,16 @@ export const createMessaging = (
         if (messages.hasOwnProperty(key)) {
             const message = messages[key];
             const name = `${message.name}-${environment}`
+            const kmsKey = encryptionKeyFor(
+                kmsKeys,
+                { kind: 'topic', owner: key, encryptionKeyName: message.encryptionKeyName },
+                diagnostics
+            )
+
             const topic = new aws.sns.Topic(message.name, {
                 ...(message.options ?? {}),
+                // Only when asked: an unset value here would clobber one given through `options`.
+                ...(kmsKey ? { kmsMasterKeyId: kmsKey.arn } : {}),
                 name: name,
                 deliveryPolicy: tryParse(message.deliveryPolicy), // DEFAULT THIS SO ITS EASY TO COMPARE
                 tags: tags

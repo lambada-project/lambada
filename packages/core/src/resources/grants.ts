@@ -9,6 +9,7 @@ import {
     KmsAccess,
     LambdaResource,
     SecretAccess,
+    S3Access,
     SNSAccess,
     SQSAccess,
 } from "../lambdas";
@@ -16,6 +17,7 @@ import {
 
 export type LambadaGrantsShape = {
     table?: string
+    bucket?: string
     topic?: string
     queue?: string
     secret?: string
@@ -28,6 +30,7 @@ type GrantMap<TName, TAccess extends string> = Partial<Record<TName & string, re
 
 export type LambadaGrants<TNames extends LambadaGrantsShape = LambadaGrantsShape> = {
     table?: GrantMap<TNames['table'], DynamoDbAccess>
+    bucket?: GrantMap<TNames['bucket'], S3Access>
     topic?: GrantMap<TNames['topic'], SNSAccess>
     queue?: GrantMap<TNames['queue'], SQSAccess>
     secret?: GrantMap<TNames['secret'], SecretAccess>
@@ -42,7 +45,7 @@ export type LambadaResourceRequest<TNames extends LambadaGrantsShape = LambadaGr
 
 export type GrantContext = Pick<
     LambadaResources,
-    'databases' | 'secrets' | 'messaging' | 'queues' | 'kmsKeys' | 'pools'
+    'databases' | 'buckets' | 'secrets' | 'messaging' | 'queues' | 'kmsKeys' | 'pools'
 >
 
 export type EnvironmentContext = Pick<LambadaResources, 'environmentVariables' | 'globalEnvironmentVariables'>
@@ -110,6 +113,8 @@ export const toLambdaResources = (
 ): LambdaResource[] => [
     ...entries(resources.table).map(([ref, access]) =>
         ({ table: requireItem(context.databases, { name, kind: 'table', ref }), access: [...access] })),
+    ...entries(resources.bucket).map(([ref, access]) =>
+        ({ bucket: requireItem(context.buckets, { name, kind: 'bucket', ref }), access: [...access] })),
     ...entries(resources.topic).map(([ref, access]) =>
         ({ topic: requireItem(context.messaging, { name, kind: 'topic', ref }), access: [...access] })),
     ...entries(resources.queue).map(([ref, access]) =>
@@ -156,6 +161,7 @@ export const resourceLookups = (
     context: GrantContext
 ): Record<ResourceKind, Record<string, unknown> | undefined> => ({
     table: context.databases,
+    bucket: context.buckets,
     topic: context.messaging,
     queue: context.queues,
     secret: context.secrets,
@@ -163,7 +169,7 @@ export const resourceLookups = (
     pool: context.pools,
 })
 
-export type ResourceKind = 'table' | 'topic' | 'queue' | 'secret' | 'kmsKey' | 'pool'
+export type ResourceKind = 'table' | 'bucket' | 'topic' | 'queue' | 'secret' | 'kmsKey' | 'pool'
 
 /**
  * Every name in a grant map the stack cannot resolve. Unlike `toLambdaResources` this reports all

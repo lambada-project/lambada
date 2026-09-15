@@ -1,6 +1,6 @@
 {
 	"name": "@lambada/core",
-	"version": "1.27.0",
+	"version": "1.30.0",
 	"description": "A VERY opinionated infrastructure as code framework.",
 	"main": "dist/index.js",
 	"module": "dist/index.js",
@@ -38,6 +38,8 @@
 		"@aws-sdk/client-dynamodb": "~3.981.0",
 		"@aws-sdk/client-kms": "~3.981.0",
 		"@aws-sdk/client-pinpoint": "~3.981.0",
+		"@aws-sdk/client-s3": "~3.981.0",
+		"@aws-sdk/client-sns": "~3.981.0",
 		"@aws-sdk/util-dynamodb": "~3.981.0",
 		"@lambada/utils": "^2.4.5",
 		"@pulumi/aws": "^7.0.0",
