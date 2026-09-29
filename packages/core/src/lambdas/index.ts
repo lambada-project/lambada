@@ -268,10 +268,10 @@ export const createLambda = <E, R>(
     tags?: pulumi.Input<{ [key: string]: pulumi.Input<string> }>
 ): aws.lambda.EventHandler<E, R> => {
 
-    let lambdaRole = overrideRole
-    const createRole = lambdaRole ? false : true
+    let roleArn: pulumi.Input<string> | undefined = overrideRole?.arn
 
     if (!policyStatements) policyStatements = []
+    const key = grantsKey(environment, policyStatements, resources, options)
     if (!environmentVariables) environmentVariables = {}
 
     var envVarsFromResources: EmbroideryEnvironmentVariables = {}
@@ -291,8 +291,18 @@ export const createLambda = <E, R>(
     const statements = lift(options?.enableXRay ?? false, enabled =>
         enabled ? [...policyStatements, AWSXRayDaemonWriteAccess] : policyStatements)
 
-    if (createRole) {
-        lambdaRole = createLambdaRoleAndPolicies(name, environment, statements)
+    if (!overrideRole) {
+        const shared = key === undefined ? undefined : sharedRoles.get(key)
+        const grants = lift(statements, s => JSON.stringify(mergeStatements(s)))
+
+        if (shared) {
+            roleArn = pulumi.all([shared.role.arn, shared.grants, grants]).apply(([arn, theirs, mine]) =>
+                sameGrants(`${name}-${environment}`, theirs, mine, arn))
+        } else {
+            const role = createLambdaRoleAndPolicies(name, environment, statements)
+            roleArn = role.arn
+            if (key !== undefined) sharedRoles.set(key, { role, grants })
+        }
     }
 
     const variables = {
@@ -326,7 +336,7 @@ export const createLambda = <E, R>(
         const callbackDefinition = definition as Callback<E, R>
         return new aws.lambda.CallbackFunction(`${name}-${environment}`, {
             callback: callbackDefinition,
-            role: lambdaRole,
+            role: roleArn,
             description: description,
             environment: functionEnvironment,
             memorySize: memorySize,
@@ -340,7 +350,7 @@ export const createLambda = <E, R>(
         })
     }
     else if ((definition as LambdaFolder).functionFolder) {
-        if (lambdaRole) {
+        if (roleArn) {
             const handlerInfo = (definition as LambdaFolder)
 
             return new aws.lambda.Function(`${name}-${environment}`, {
@@ -358,7 +368,7 @@ export const createLambda = <E, R>(
                 timeout: timeout,
                 //THE CONTENT OF DIST 1:1 
                 handler: handlerInfo.handler, //"./auth/lambdas/src/index.main",
-                role: lambdaRole.arn,
+                role: roleArn,
                 layers: layers,
                 environment: functionEnvironment, // TODO:
                 reservedConcurrentExecutions: reservedConcurrentExecutions,
@@ -439,6 +449,38 @@ export const mergeStatements = (statements: ResolvedStatement[]): ResolvedStatem
     }
 
     return merged.sort((a, b) => JSON.stringify(a) < JSON.stringify(b) ? -1 : 1)
+}
+
+const sharedRoles = new Map<string, { role: aws.iam.Role, grants: pulumi.Output<string> }>()
+const identities = new WeakMap<object, number>()
+let nextIdentity = 0
+
+const identity = (value: unknown) => {
+    if (typeof value !== 'object' || value === null) return JSON.stringify(value)
+    if (!identities.has(value)) identities.set(value, nextIdentity++)
+    return identities.get(value)
+}
+
+/** Lambdas with equal keys grant the same; undefined when that is known only at deploy. */
+const grantsKey = (
+    environment: string,
+    callerStatements: aws.iam.PolicyStatement[],
+    resources: LambdaResource[],
+    options?: LambdaOptions
+) => {
+    const xray = options?.enableXRay ?? false
+    if (callerStatements.length || typeof xray !== 'boolean') return undefined
+
+    const grants = resources.map(({ access, ...resource }) => {
+        const [kind, value] = Object.entries(resource).find(([, v]) => v !== undefined) ?? []
+        return JSON.stringify([kind, identity(value), access.map(a => a.toLowerCase()).sort()])
+    })
+    return JSON.stringify([environment, Boolean(options?.vpcConfig), xray, grants.sort()])
+}
+
+export const sameGrants = (functionName: string, theirs: string, mine: string, roleArn: string) => {
+    if (theirs !== mine) throw new Error(`${functionName} shares a role whose policy grants other than its own`)
+    return roleArn
 }
 
 export const MANAGED_POLICY_LIMIT = 6144
