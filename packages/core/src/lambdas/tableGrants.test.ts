@@ -49,7 +49,7 @@ const statementsFor = async (databases: DatabaseResult, access: readonly string[
         envVars,
         statements: await Promise.all(
             statements.map(async (s) => ({
-                Resource: await settled(s.Resource as pulumi.Input<string>),
+                Resource: await settled(s.Resource as pulumi.Input<string[]>),
                 Action: s.Action,
             })),
         ),
@@ -66,55 +66,64 @@ describe('a table grant', () => {
         const { statements, envVars } = await statementsFor(owned(pets()), ['dynamodb:GetItem'])
 
         expect(await settled(envVars.PETS)).toBe('pets-test')
-        expect(statements).toEqual([{ Resource: 'arn:pets-test', Action: ['dynamodb:GetItem'] }])
+        expect(statements).toEqual([{ Resource: ['arn:pets-test'], Action: ['dynamodb:GetItem'] }])
     })
 
-    test('puts only read actions on the index', async () => {
+    test('puts the whole action list on the index, where IAM applies only the actions an index supports', async () => {
         const { statements } = await statementsFor(owned(pets(undefined, index)), [
             'dynamodb:Query',
             'dynamodb:PutItem',
         ])
 
         expect(statements).toEqual([
-            { Resource: 'arn:pets-test', Action: ['dynamodb:Query', 'dynamodb:PutItem'] },
-            { Resource: 'arn:pets-test/index/*', Action: ['dynamodb:Query'] },
+            { Resource: ['arn:pets-test', 'arn:pets-test/index/*'], Action: ['dynamodb:Query', 'dynamodb:PutItem'] },
         ])
     })
 
-    test('emits no index statement when only writes are granted', async () => {
-        const { statements } = await statementsFor(owned(pets(undefined, index)), ['dynamodb:PutItem'])
+    test('names no index when no granted action applies to an index', async () => {
+        const { statements } = await statementsFor(owned(pets(undefined, index)), ['dynamodb:PutItem', 'dynamodb:GetItem'])
 
-        expect(statements).toHaveLength(1)
+        expect(statements).toEqual([{ Resource: ['arn:pets-test'], Action: ['dynamodb:PutItem', 'dynamodb:GetItem'] }])
     })
 
-    test('grants stream actions on the stream arn, not the table', async () => {
+    test('an action in another case, or a wildcard, reaches the index as IAM would match it', async () => {
+        for (const access of [['dynamodb:scan'], ['dynamoDb:*'], ['dynamodb:Q*']]) {
+            const { statements } = await statementsFor(owned(pets(undefined, index)), access)
+
+            expect(statements[0].Resource).toEqual(['arn:pets-test', 'arn:pets-test/index/*'])
+        }
+        const { statements } = await statementsFor(owned(pets(undefined, index)), ['dynamodb:Get*'])
+
+        expect(statements[0].Resource).toEqual(['arn:pets-test'])
+    })
+
+    test('puts the whole action list on the stream when a stream action is granted', async () => {
         const { statements } = await statementsFor(owned(pets({ streamEnabled: true })), [
             'dynamodb:GetItem',
             'dynamodb:GetRecords',
         ])
 
         expect(statements).toEqual([
-            { Resource: 'arn:pets-test', Action: ['dynamodb:GetItem', 'dynamodb:GetRecords'] },
-            { Resource: 'arn:pets-test/stream/now', Action: ['dynamodb:GetRecords'] },
+            { Resource: ['arn:pets-test', 'arn:pets-test/stream/now'], Action: ['dynamodb:GetItem', 'dynamodb:GetRecords'] },
         ])
     })
 
-    test('emits no stream statement for a table without streams', async () => {
+    test('names no stream for a table without streams', async () => {
         const { statements } = await statementsFor(owned(pets()), ['dynamodb:GetRecords'])
 
-        expect(statements).toHaveLength(1)
+        expect(statements[0].Resource).toEqual(['arn:pets-test'])
     })
 
     test('a referenced table streams from the arn the data source gave', async () => {
         const { statements } = await statementsFor(referenced(pets({ streamEnabled: true })), ['dynamodb:GetRecords'])
 
-        expect(statements[1]).toEqual({ Resource: 'arn:pets-test/stream/now', Action: ['dynamodb:GetRecords'] })
+        expect(statements[0].Resource).toEqual(['arn:pets-test', 'arn:pets-test/stream/now'])
     })
 
     test('streams enabled only by the global tableOptions still grant', async () => {
         const { statements } = await statementsFor(owned(pets(), { streamEnabled: true }), ['dynamodb:GetRecords'])
 
-        expect(statements[1]).toEqual({ Resource: 'arn:pets-test/stream/now', Action: ['dynamodb:GetRecords'] })
+        expect(statements[0].Resource).toEqual(['arn:pets-test', 'arn:pets-test/stream/now'])
     })
 
     test("a table's own options win over the global", async () => {
@@ -122,12 +131,12 @@ describe('a table grant', () => {
             'dynamodb:GetRecords',
         ])
 
-        expect(statements).toHaveLength(1)
+        expect(statements[0].Resource).toEqual(['arn:pets-test'])
     })
 
-    test('ListStreams is not put on the stream, which IAM scopes to *', async () => {
+    test('ListStreams does not name the stream, which IAM scopes to *', async () => {
         const { statements } = await statementsFor(owned(pets({ streamEnabled: true })), ['dynamodb:ListStreams'])
 
-        expect(statements).toHaveLength(1)
+        expect(statements[0].Resource).toEqual(['arn:pets-test'])
     })
 })

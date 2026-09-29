@@ -140,37 +140,20 @@ export const resourceStatements = (
     }
     if (access.table) {
         envVars[access.table.definition.envKeyName] = access.table.ref.name
+        // IAM applies each action only to the resource types it supports.
+        const arns: pulumi.Input<string>[] = [access.table.ref.arn]
+        if (access.table.definition.indexes?.length && access.access.some(onIndex))
+            arns.push(pulumi.interpolate`${access.table.ref.arn}/index/*`)
+        if (access.table.streamEnabled && access.access.some(onStream))
+            arns.push(access.table.ref.streamArn)
+
         statements.push(
             {
                 Action: access.access,
-                Resource: access.table.ref.arn,
+                Resource: arns,
                 Effect: 'Allow'
             }
         )
-
-        const indexAccess = access.access.filter(isIndexAction)
-
-        if (access.table.definition.indexes?.length && indexAccess.length) {
-            statements.push(
-                {
-                    Action: indexAccess,
-                    Resource: pulumi.interpolate`${access.table.ref.arn}/index/*`,
-                    Effect: 'Allow'
-                }
-            )
-        }
-
-        const streamAccess = access.access.filter(isStreamAction)
-
-        if (access.table.streamEnabled && streamAccess.length) {
-            statements.push(
-                {
-                    Action: streamAccess,
-                    Resource: access.table.ref.streamArn,
-                    Effect: 'Allow'
-                }
-            )
-        }
     }
     else if (access.bucket) {
         // S3 calls address a bucket by name, and object actions are on `${arn}/*`, not the bucket.
@@ -393,6 +376,83 @@ export const createLambda = <E, R>(
     }
 }
 
+type ResolvedStatement = pulumi.Unwrap<aws.iam.PolicyStatement>
+
+const canonical = <T>(value: T): T =>
+    Array.isArray(value) ? value.map(canonical).sort() as T
+        : value !== null && typeof value === 'object'
+            ? Object.fromEntries(Object.keys(value).sort().map(k => [k, canonical((value as any)[k])])) as T
+            : value
+
+/** IAM ignores case in action names. */
+const actionName = (action: string) => action.toLowerCase()
+
+const lowerActions = (s: ResolvedStatement): ResolvedStatement => ({
+    ...s,
+    ...(s.Action !== undefined && { Action: [s.Action].flat().map(actionName) }),
+    ...(s.NotAction !== undefined && { NotAction: [s.NotAction].flat().map(actionName) }),
+})
+
+const withResources = (statement: ResolvedStatement, resources: Iterable<string>): ResolvedStatement => {
+    const list = [...resources].sort()
+    return canonical(list.length === 0 ? statement : { ...statement, Resource: list.length === 1 ? list[0] : list })
+}
+
+export const mergeStatements = (statements: ResolvedStatement[]): ResolvedStatement[] => {
+    const grantsByContext = new Map<string, { context: ResolvedStatement, actionsByResource: Map<string, Set<string>> }>()
+    const unpaired = new Map<string, { statement: ResolvedStatement, resources: Set<string> }>()
+
+    for (const s of statements) {
+        const { Action, Resource, ...context } = canonical(lowerActions(s))
+
+        if (Action !== undefined && Resource !== undefined) {
+            const key = JSON.stringify(context)
+            const group = grantsByContext.get(key) ?? { context, actionsByResource: new Map() }
+            for (const resource of [Resource].flat()) {
+                const actions = group.actionsByResource.get(resource) ?? new Set()
+                for (const action of [Action].flat()) actions.add(action)
+                group.actionsByResource.set(resource, actions)
+            }
+            grantsByContext.set(key, group)
+        } else {
+            // NotAction and NotResource do not state (action, resource) pairs.
+            const statement = canonical({ ...context, ...(Action !== undefined && { Action }) })
+            const key = JSON.stringify(statement)
+            const group = unpaired.get(key) ?? { statement, resources: new Set() }
+            for (const resource of [Resource ?? []].flat()) group.resources.add(resource)
+            unpaired.set(key, group)
+        }
+    }
+
+    const merged = [...unpaired.values()].map(({ statement, resources }) => withResources(statement, resources))
+
+    for (const { context, actionsByResource } of grantsByContext.values()) {
+        const byActions = new Map<string, { Action: string[], resources: string[] }>()
+        for (const [resource, set] of actionsByResource) {
+            const Action = [...set].sort()
+            const key = JSON.stringify(Action)
+            const group = byActions.get(key) ?? { Action, resources: [] }
+            group.resources.push(resource)
+            byActions.set(key, group)
+        }
+        for (const { Action, resources } of byActions.values()) merged.push(withResources({ ...context, Action }, resources))
+    }
+
+    return merged.sort((a, b) => JSON.stringify(a) < JSON.stringify(b) ? -1 : 1)
+}
+
+export const MANAGED_POLICY_LIMIT = 6144
+
+export const policyDocument = (policyName: string, statements: ResolvedStatement[]): PolicyDocument => {
+    const document: PolicyDocument = { Version: "2012-10-17", Statement: [logsStatement, ...mergeStatements(statements)] }
+    const size = JSON.stringify(document).length
+
+    if (size > MANAGED_POLICY_LIMIT) {
+        throw new Error(`${policyName} is ${size} characters, and IAM allows ${MANAGED_POLICY_LIMIT} in a managed policy`)
+    }
+    return document
+}
+
 export const createLambdaRoleAndPolicies = (
     name: string,
     environment: string,
@@ -408,17 +468,10 @@ export const createLambdaRoleAndPolicies = (
         name: `${dashedNamed}-role`,
         assumeRolePolicy: lambdaAssumeRole,
     })
-    //aws.iam.ManagedPolicy.AWSLambdaVPCAccessExecutionRole
     const policy = new aws.iam.Policy(`${dashedNamed}-policy`, {
         name: `${dashedNamed}-policy`,
         path: "/",
-        policy: lift(policyStatements ?? [], (statements): PolicyDocument => ({
-            Version: "2012-10-17",
-            Statement: [
-                logsStatement,
-                ...statements
-            ]
-        }))
+        policy: lift(policyStatements ?? [], statements => policyDocument(`${dashedNamed}-policy`, statements))
     })
 
     new aws.iam.RolePolicyAttachment(`${dashedNamed}-policy-attachment`, {
@@ -439,17 +492,25 @@ export type LambdaResourceAccessItem = string
 
 export type DynamoDbAccess = `dynamodb:${string}`
 
-/** Read actions, the only ones an index answers to: a write goes to the table. */
-const INDEX_ACTIONS = ['Query', 'Scan', 'GetItem', 'BatchGetItem', 'DescribeTable']
+const INDEX_ACTIONS = ['Query', 'Scan', 'PartiQLSelect', 'SearchVectors', 'DescribeContributorInsights', 'UpdateContributorInsights']
 
-/** On the stream's own ARN. `ListStreams` is excluded: IAM scopes it to `*`. */
-const STREAM_ACTIONS = ['GetRecords', 'GetShardIterator', 'DescribeStream']
+/** No `ListStreams`: IAM scopes it to `*`. */
+const STREAM_ACTIONS = [
+    'DescribeStream', 'GetRecords', 'GetShardIterator', 'DeleteResourcePolicy', 'GetResourcePolicy',
+    'PutResourcePolicy', 'ListTagsOfResource', 'TagResource', 'UntagResource',
+]
 
-const isIndexAction = (action: LambdaResourceAccessItem) =>
-    INDEX_ACTIONS.some(name => action === `dynamodb:${name}`)
+const matchesAction = (pattern: string, action: string) => {
+    const glob = actionName(pattern).replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.')
+    return new RegExp(`^${glob}$`).test(actionName(action))
+}
 
-const isStreamAction = (action: LambdaResourceAccessItem) =>
-    STREAM_ACTIONS.some(name => action === `dynamodb:${name}`)
+const onIndex = (pattern: LambdaResourceAccessItem) =>
+    INDEX_ACTIONS.some(name => matchesAction(pattern, `dynamodb:${name}`))
+
+const onStream = (pattern: LambdaResourceAccessItem) =>
+    STREAM_ACTIONS.some(name => matchesAction(pattern, `dynamodb:${name}`))
+
 export type SNSAccess = `sns:${string}`
 export type SQSAccess = `sqs:${string}`
 export type SecretAccess = `secretsmanager:${string}`
