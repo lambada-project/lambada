@@ -268,8 +268,6 @@ export const createLambda = <E, R>(
     tags?: pulumi.Input<{ [key: string]: pulumi.Input<string> }>
 ): aws.lambda.EventHandler<E, R> => {
 
-    let roleArn: pulumi.Input<string> | undefined = overrideRole?.arn
-
     if (!policyStatements) policyStatements = []
     const key = grantsKey(environment, policyStatements, resources, options)
     if (!environmentVariables) environmentVariables = {}
@@ -291,19 +289,7 @@ export const createLambda = <E, R>(
     const statements = lift(options?.enableXRay ?? false, enabled =>
         enabled ? [...policyStatements, AWSXRayDaemonWriteAccess] : policyStatements)
 
-    if (!overrideRole) {
-        const shared = key === undefined ? undefined : sharedRoles.get(key)
-        const grants = lift(statements, s => JSON.stringify(mergeStatements(s)))
-
-        if (shared) {
-            roleArn = pulumi.all([shared.role.arn, shared.grants, grants]).apply(([arn, theirs, mine]) =>
-                sameGrants(`${name}-${environment}`, theirs, mine, arn))
-        } else {
-            const role = createLambdaRoleAndPolicies(name, environment, statements)
-            roleArn = role.arn
-            if (key !== undefined) sharedRoles.set(key, { role, grants })
-        }
-    }
+    const roleArn = overrideRole?.arn ?? roleFor(name, environment, statements, key)
 
     const variables = {
         AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1',
@@ -350,35 +336,30 @@ export const createLambda = <E, R>(
         })
     }
     else if ((definition as LambdaFolder).functionFolder) {
-        if (roleArn) {
-            const handlerInfo = (definition as LambdaFolder)
+        const handlerInfo = (definition as LambdaFolder)
 
-            return new aws.lambda.Function(`${name}-${environment}`, {
-                runtime: runtime,
-                architectures: architectures,
-                description: description,
-                code: new pulumi.asset.AssetArchive({
-                    ".": new pulumi.asset.FileArchive(
-                        handlerInfo.functionFolder
-                        //`./auth/lambdas/src/dist`
-                    ),
-                }),
-                memorySize: memorySize,
-                //code: new pulumi.asset.FileAsset('./auth/lambdas/postConfirmation.js'),
-                timeout: timeout,
-                //THE CONTENT OF DIST 1:1 
-                handler: handlerInfo.handler, //"./auth/lambdas/src/index.main",
-                role: roleArn,
-                layers: layers,
-                environment: functionEnvironment, // TODO:
-                reservedConcurrentExecutions: reservedConcurrentExecutions,
-                vpcConfig: _vpcConfig,
-                tags: tags
-            });
-        }
-        else {
-            throw Error(`No role for the lambda ${name} was specifed`)
-        }
+        return new aws.lambda.Function(`${name}-${environment}`, {
+            runtime: runtime,
+            architectures: architectures,
+            description: description,
+            code: new pulumi.asset.AssetArchive({
+                ".": new pulumi.asset.FileArchive(
+                    handlerInfo.functionFolder
+                    //`./auth/lambdas/src/dist`
+                ),
+            }),
+            memorySize: memorySize,
+            //code: new pulumi.asset.FileAsset('./auth/lambdas/postConfirmation.js'),
+            timeout: timeout,
+            //THE CONTENT OF DIST 1:1 
+            handler: handlerInfo.handler, //"./auth/lambdas/src/index.main",
+            role: roleArn,
+            layers: layers,
+            environment: functionEnvironment, // TODO:
+            reservedConcurrentExecutions: reservedConcurrentExecutions,
+            vpcConfig: _vpcConfig,
+            tags: tags
+        });
     }
     else {
         pulumi.log.error(`Invalid lambda definition: ${JSON.stringify(definition)}`)
@@ -476,6 +457,26 @@ const grantsKey = (
         return JSON.stringify([kind, identity(value), access.map(a => a.toLowerCase()).sort()])
     })
     return JSON.stringify([environment, Boolean(options?.vpcConfig), xray, grants.sort()])
+}
+
+const roleFor = (
+    name: string,
+    environment: string,
+    statements: pulumi.Output<aws.iam.PolicyStatement[]>,
+    key: string | undefined
+): pulumi.Input<string> => {
+    if (key === undefined) return createLambdaRoleAndPolicies(name, environment, statements).arn
+
+    const grants = lift(statements, s => JSON.stringify(mergeStatements(s)))
+    const shared = sharedRoles.get(key)
+    if (shared) {
+        return pulumi.all([shared.role.arn, shared.grants, grants]).apply(([arn, theirs, mine]) =>
+            sameGrants(`${name}-${environment}`, theirs, mine, arn))
+    }
+
+    const role = createLambdaRoleAndPolicies(name, environment, statements)
+    sharedRoles.set(key, { role, grants })
+    return role.arn
 }
 
 export const sameGrants = (functionName: string, theirs: string, mine: string, roleArn: string) => {
