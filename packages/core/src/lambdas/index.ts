@@ -269,27 +269,29 @@ export const createLambda = <E, R>(
 ): aws.lambda.EventHandler<E, R> => {
 
     if (!policyStatements) policyStatements = []
-    const key = grantsKey(environment, policyStatements, resources, options)
     if (!environmentVariables) environmentVariables = {}
+
+    const granted = [...policyStatements]
 
     var envVarsFromResources: EmbroideryEnvironmentVariables = {}
     for (let i = 0; i < resources.length; i++) {
         const resolved = resourceStatements(resources[i], name, environment)
 
-        policyStatements.push(...resolved.statements)
+        granted.push(...resolved.statements)
         Object.assign(envVarsFromResources, resolved.envVars)
     }
 
     if (options?.vpcConfig) {
-        policyStatements.push(VPCAccessExecutionStatement)
+        granted.push(VPCAccessExecutionStatement)
     }
 
     // enableXRay may be an Input, and an Input tested directly is an object: `false` would read as
     // true. The statement is added where the value is known, so the document becomes an Output.
     const statements = lift(options?.enableXRay ?? false, enabled =>
-        enabled ? [...policyStatements, AWSXRayDaemonWriteAccess] : policyStatements)
+        enabled ? [...granted, AWSXRayDaemonWriteAccess] : granted)
 
-    const roleArn = overrideRole?.arn ?? roleFor(name, environment, statements, key)
+    const roleArn = overrideRole?.arn ??
+        roleFor(name, environment, statements, grantsKey(environment, policyStatements, resources, options))
 
     const variables = {
         AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1',

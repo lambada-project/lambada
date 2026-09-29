@@ -77,6 +77,13 @@ describe('lambdas that grant differently keep their own role', () => {
     })
 })
 
+test("a lambda leaves the caller's statements as they were", async () => {
+    const statements = [{ Effect: 'Allow', Action: ['sns:Publish'], Resource: 'arn:topic' }]
+    await lambda('publishFeeds', [{ table: table('feeds') as never, access: ['dynamodb:GetItem'] }], { statements })
+
+    expect(statements).toHaveLength(1)
+})
+
 describe('sameGrants', () => {
     test('hands over the role when the policies agree', () => {
         expect(sameGrants('fn-test', '[]', '[]', 'arn:role')).toBe('arn:role')
