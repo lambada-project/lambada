@@ -86,10 +86,11 @@ test("a lambda leaves the caller's statements as they were", async () => {
 
 describe('sameGrants', () => {
     test('hands over the role when the policies agree', () => {
-        expect(sameGrants('fn-test', '[]', '[]', 'arn:role')).toBe('arn:role')
+        expect(sameGrants('fn-test', { Version: '2012-10-17', Statement: [] }, { Version: '2012-10-17', Statement: [] }, 'arn:role')).toBe('arn:role')
     })
 
     test('fails the deploy when they do not', () => {
-        expect(() => sameGrants('fn-test', '[1]', '[2]', 'arn:role')).toThrow('fn-test shares a role whose policy grants other than its own')
+        const grant = (Resource: string) => ({ Version: '2012-10-17' as const, Statement: [{ Effect: 'Allow' as const, Action: ['sns:publish'], Resource }] })
+        expect(() => sameGrants('fn-test', grant('arn:a'), grant('arn:b'), 'arn:role')).toThrow('fn-test shares a role whose policy grants other than its own')
     })
 })

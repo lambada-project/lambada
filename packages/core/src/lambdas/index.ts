@@ -323,7 +323,7 @@ const lowerActions = (s: ResolvedStatement): ResolvedStatement => ({
 })
 
 const withResources = (statement: ResolvedStatement, resources: Iterable<string>): ResolvedStatement => {
-    const list = [...resources].sort()
+    const list = [...resources]
     return canonical(list.length === 0 ? statement : { ...statement, Resource: list.length === 1 ? list[0] : list })
 }
 
@@ -358,7 +358,7 @@ export const mergeStatements = (statements: ResolvedStatement[]): ResolvedStatem
     for (const { context, actionsByResource } of grantsByContext.values()) {
         const byActions = new Map<string, { Action: string[], resources: string[] }>()
         for (const [resource, set] of actionsByResource) {
-            const Action = [...set].sort()
+            const Action = canonical([...set])
             const key = JSON.stringify(Action)
             const group = byActions.get(key) ?? { Action, resources: [] }
             group.resources.push(resource)
@@ -367,7 +367,7 @@ export const mergeStatements = (statements: ResolvedStatement[]): ResolvedStatem
         for (const { Action, resources } of byActions.values()) merged.push(withResources({ ...context, Action }, resources))
     }
 
-    return merged.sort((a, b) => JSON.stringify(a) < JSON.stringify(b) ? -1 : 1)
+    return merged.map(s => [JSON.stringify(s), s] as const).sort(([a], [b]) => a < b ? -1 : 1).map(([, s]) => s)
 }
 
 const sharedRoles = new Map<string, { role: aws.iam.Role, document: pulumi.Output<PolicyDocument> }>()
@@ -404,13 +404,13 @@ const roleFor = (
     key: string | undefined
 ): pulumi.Input<string> => {
     const dashed = dashedName(name, environment)
-    const document = lift(statements, s => policyDocument(`${dashed}-policy`, s))
+    const document = lift(statements, documentOf)
     if (key === undefined) return createRole(dashed, document).arn
 
     const shared = sharedRoles.get(key)
     if (shared) {
         return pulumi.all([shared.role.arn, shared.document, document]).apply(([arn, theirs, mine]) =>
-            sameGrants(`${name}-${environment}`, JSON.stringify(theirs), JSON.stringify(mine), arn))
+            sameGrants(`${name}-${environment}`, theirs, mine, arn))
     }
 
     const role = createRole(dashed, document)
@@ -418,15 +418,20 @@ const roleFor = (
     return role.arn
 }
 
-export const sameGrants = (functionName: string, theirs: string, mine: string, roleArn: string) => {
-    if (theirs !== mine) throw new Error(`${functionName} shares a role whose policy grants other than its own`)
+export const sameGrants = (functionName: string, theirs: PolicyDocument, mine: PolicyDocument, roleArn: string) => {
+    if (JSON.stringify(theirs) !== JSON.stringify(mine)) throw new Error(`${functionName} shares a role whose policy grants other than its own`)
     return roleArn
 }
 
 export const MANAGED_POLICY_LIMIT = 6144
 
-export const policyDocument = (policyName: string, statements: ResolvedStatement[]): PolicyDocument => {
-    const document: PolicyDocument = { Version: "2012-10-17", Statement: [logsStatement, ...mergeStatements(statements)] }
+const documentOf = (statements: ResolvedStatement[]): PolicyDocument =>
+    ({ Version: "2012-10-17", Statement: [logsStatement, ...mergeStatements(statements)] })
+
+export const policyDocument = (policyName: string, statements: ResolvedStatement[]) =>
+    withinLimit(policyName, documentOf(statements))
+
+const withinLimit = (policyName: string, document: PolicyDocument): PolicyDocument => {
     const size = JSON.stringify(document).length
 
     if (size > MANAGED_POLICY_LIMIT) {
@@ -444,19 +449,19 @@ export const createLambdaRoleAndPolicies = (
     environment: string,
     policyStatements: pulumi.Input<aws.iam.PolicyStatement[]>
 ) => {
-    const dashed = dashedName(name, environment)
-    return createRole(dashed, lift(policyStatements ?? [], statements => policyDocument(`${dashed}-policy`, statements)))
+    return createRole(dashedName(name, environment), lift(policyStatements ?? [], documentOf))
 }
 
 const createRole = (dashedNamed: string, document: pulumi.Output<PolicyDocument>) => {
+    const policyName = `${dashedNamed}-policy`
     const role = new aws.iam.Role(`${dashedNamed}-role`, {
         name: `${dashedNamed}-role`,
         assumeRolePolicy: lambdaAssumeRole,
     })
-    const policy = new aws.iam.Policy(`${dashedNamed}-policy`, {
-        name: `${dashedNamed}-policy`,
+    const policy = new aws.iam.Policy(policyName, {
+        name: policyName,
         path: "/",
-        policy: document
+        policy: document.apply(d => withinLimit(policyName, d))
     })
 
     new aws.iam.RolePolicyAttachment(`${dashedNamed}-policy-attachment`, {
