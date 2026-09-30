@@ -40,19 +40,38 @@ export const logsStatement: PolicyStatement = {
     "Resource": "arn:aws:logs:*:*:*"
 };
 
+// Lambda manages a function's network interfaces with its role, and requires these on every resource.
 const VPCAccessExecutionStatement: PolicyStatement = {
     "Effect": "Allow",
     "Action": [
-        "ec2:DescribeNetworkInterfaces",
         "ec2:CreateNetworkInterface",
+        "ec2:DescribeNetworkInterfaces",
+        "ec2:DescribeSubnets",
         "ec2:DeleteNetworkInterface",
-        "ec2:DescribeInstances",
-        "ec2:AttachNetworkInterface"
+        "ec2:AssignPrivateIpAddresses",
+        "ec2:UnassignPrivateIpAddresses"
     ],
     "Resource": "*"
 }
 
-//AWSXRayDaemonWriteAccess 
+// Lambda marks the calls a function's code makes with lambda:SourceFunctionArn, and not its own
+// calls for network interfaces, so this leaves the function's code none of VPCAccessExecutionStatement.
+const VPCAccessDeniedToCode: PolicyStatement = {
+    "Effect": "Deny",
+    "Action": [
+        "ec2:CreateNetworkInterface",
+        "ec2:DeleteNetworkInterface",
+        "ec2:DescribeNetworkInterfaces",
+        "ec2:DescribeSubnets",
+        "ec2:DetachNetworkInterface",
+        "ec2:AssignPrivateIpAddresses",
+        "ec2:UnassignPrivateIpAddresses"
+    ],
+    "Resource": "*",
+    "Condition": { "Null": { "lambda:SourceFunctionArn": "false" } }
+}
+
+// IAM supports no resource for these actions.
 const AWSXRayDaemonWriteAccess: PolicyStatement = {
     "Effect": "Allow",
     "Action": [
@@ -227,7 +246,7 @@ export const createLambda = <E, R>(
     }
 
     if (options?.vpcConfig) {
-        granted.push(VPCAccessExecutionStatement)
+        granted.push(VPCAccessExecutionStatement, VPCAccessDeniedToCode)
     }
 
     // enableXRay may be an Input, and an Input tested directly is an object: `false` would read as
