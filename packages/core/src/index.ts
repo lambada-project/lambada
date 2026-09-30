@@ -28,7 +28,7 @@ import { createBuckets, LambadaBuckets, LambadaBucketsRef, BucketsResult } from 
 export * from './context'
 export * from './inputs'
 // A pre-built bundle to deploy in place of a serialized closure; see `useBundle` on an endpoint.
-export type { LambdaFolder } from './lambdas'
+export type { LambdaFolder, LambdaHandler } from './lambdas'
 export * from './lambdas/bundles'
 export * from './api/index'
 export * from './extra'

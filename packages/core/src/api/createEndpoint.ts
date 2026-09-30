@@ -1,10 +1,9 @@
 import { Request, Response, Route } from '@pulumi/awsx/classic/apigateway/api'
 import * as aws from "@pulumi/aws";
-import { createLambda, LambdaFolder, LambdaOptions, LambdaResource } from '../lambdas';
+import { createLambda, LambdaFolder, LambdaHandler, LambdaOptions, LambdaResource } from '../lambdas';
 import { bundleOf } from '../lambdas/bundles';
 import { LambadaResources } from '../context';
 import { LambadaResourceRequest, LambadaGrantsShape, resolveEnvironment, resolveGrants } from '../resources/grants';
-import { Callback } from '@pulumi/aws/lambda';
 import { AuthExecutionContext, toWrapperEnvVars } from '@lambada/utils';
 import { EmbroideryEnvironmentVariables } from '..';
 import { CognitoAuthorizer, LambdaAuthorizer, Method } from '@pulumi/awsx/classic/apigateway';
@@ -197,7 +196,7 @@ export const createEndpoint = <E, R>(
     lambadaContext: LambadaResources,
     path: string,
     method: HTTP_METHODS,
-    callbackDefinition: Callback<E, R> | LambdaFolder,
+    callbackDefinition: LambdaHandler<E, R> | LambdaFolder,
     policyStatements: aws.iam.PolicyStatement[],
     environmentVariables: EmbroideryEnvironmentVariables = undefined,
     enableAuth = true,

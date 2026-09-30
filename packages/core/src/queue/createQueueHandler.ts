@@ -1,15 +1,14 @@
 import * as aws from "@pulumi/aws";
 import { QueueResultItem } from "."
 import { LambadaResources, EmbroideryEnvironmentVariables, mergeOptions } from ".."
-import { createLambda, LambdaFolder, LambdaOptions, LambdaResource } from '../lambdas'
+import { createLambda, LambdaFolder, LambdaHandler, LambdaOptions, LambdaResource } from '../lambdas'
 
-import { Callback } from '@pulumi/aws/lambda';
 import { QueueEvent, QueueEventSubscription, QueueEventSubscriptionArgs } from "@pulumi/aws/sqs";
 import { LambadaResourceRequest, LambadaGrantsShape, ResourceRef, resolveEnvironment, resolveGrants, resolveRef } from "../resources/grants";
 import { bundleOf, isLambdaFolder } from "../lambdas/bundles";
 
 export type QueueHandlerEvent = QueueEvent
-export type QueueHandlerCallback = Callback<QueueHandlerEvent, void>
+export type QueueHandlerCallback = LambdaHandler<QueueHandlerEvent, void>
 
 export type LambdaQueueHandler<TNames extends LambadaGrantsShape = LambadaGrantsShape> = {
     name: string

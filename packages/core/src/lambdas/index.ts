@@ -1,6 +1,6 @@
 import * as pulumi from '@pulumi/pulumi'
 import * as aws from "@pulumi/aws";
-import { Callback, Runtime } from '@pulumi/aws/lambda';
+import { Context, Runtime } from '@pulumi/aws/lambda';
 import { Input } from "@pulumi/pulumi";
 
 import { PolicyDocument, PolicyStatement } from "@pulumi/aws/iam";
@@ -110,6 +110,9 @@ export type LambdaOptions = {
 
     /**
      * Set to false to send the response right away and not wait for the event loop to be empty
+     *
+     * @deprecated Node 24 removed it and never waits for the event loop; it only takes effect on a
+     * `runtime` of Node 22 or older.
      */
     callbackWaitsForEmptyEventLoop?: boolean
 
@@ -272,10 +275,16 @@ export const resourceStatements = (
     return { statements, envVars }
 }
 
+/**
+ * Pulumi's `Callback` without its third, `callback` parameter: Node 24 refuses to run a handler that
+ * declares one, so a callback-style handler has to fail the build rather than the first invocation.
+ */
+export type LambdaHandler<E, R> = (event: E, context: Context) => Promise<R> | void
+
 export const createLambda = <E, R>(
     name: string,
     environment: string,
-    definition: Callback<E, R> | LambdaFolder,
+    definition: LambdaHandler<E, R> | LambdaFolder,
     policyStatements: aws.iam.PolicyStatement[],
     environmentVariables: EmbroideryEnvironmentVariables,
     resources: LambdaResource[],
@@ -340,7 +349,7 @@ export const createLambda = <E, R>(
     description = description ?? `${name}-${environment}`
 
     if (typeof definition === 'function') {
-        const callbackDefinition = definition as Callback<E, R>
+        const callbackDefinition = definition as LambdaHandler<E, R>
         return new aws.lambda.CallbackFunction(`${name}-${environment}`, {
             callback: callbackDefinition,
             role: lambdaRole,
