@@ -46,7 +46,7 @@
 		"@pulumi/awsx": "^3.0.0",
 		"@pulumi/pulumi": "^3.0.0",
 		"@types/bun": "^1.2.20",
-		"@types/node": "^22.0.0",
+		"@types/node": "^24.0.0",
 		"typescript": "^5.9.2"
 	},
 	"gitHead": "487cc342922d5e6fc5a1e9b2d8737f744c6e032c",

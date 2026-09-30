@@ -34,7 +34,7 @@ export function createAuthLambdas(environment: string, userAccountTable: Databas
     })
 
     const postConfirmation = new aws.lambda.Function(`postConfirmation-${environment}`, {
-        runtime: 'nodejs22.x',
+        runtime: aws.lambda.Runtime.NodeJS24dX,
         code: new pulumi.asset.AssetArchive({
             ".": new pulumi.asset.FileArchive("./auth/lambdas/src/dist"),
         }),

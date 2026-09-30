@@ -1,4 +1,4 @@
-FROM node:22
+FROM node:24
 RUN apt update && apt install -y less man-db sudo
 
 ARG USERNAME=node
