@@ -35,7 +35,12 @@ export type WrapperConfig = {
     }
     extraHeaders?: { [name: string]: string }
     cacheControl?: string
-    /** Left untouched when undefined, preserving whatever the runtime defaulted it to. */
+    /**
+     * Left untouched when undefined, preserving whatever the runtime defaulted it to.
+     *
+     * @deprecated Node 24 removed it and never waits for the event loop; it only takes effect on
+     * Node 22 or older.
+     */
     callbackWaitsForEmptyEventLoop?: boolean
 }
 

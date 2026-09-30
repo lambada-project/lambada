@@ -1,14 +1,13 @@
 import * as aws from "@pulumi/aws";
-import { createLambda, LambdaFolder, LambdaOptions, LambdaResource } from '../lambdas'
+import { createLambda, LambdaFolder, LambdaHandler, LambdaOptions, LambdaResource } from '../lambdas'
 import { MessagingContext, MessagingResultItem } from ".";
-import { Callback } from '@pulumi/aws/lambda';
 import { TopicEvent, TopicEventSubscription, TopicEventSubscriptionArgs } from "@pulumi/aws/sns";
 import { LambadaResources, EmbroideryEnvironmentVariables, mergeOptions } from "..";
 import { LambadaResourceRequest, LambadaGrantsShape, ResourceRef, resolveEnvironment, resolveGrants, resolveRef } from "../resources/grants";
 import { bundleOf, isLambdaFolder } from "../lambdas/bundles";
 
 export type SubscriptionEvent = TopicEvent
-export type SubscriptionCallback = Callback<SubscriptionEvent, void>
+export type SubscriptionCallback = LambdaHandler<SubscriptionEvent, void>
 
 export type LambdaSubscription<TNames extends LambadaGrantsShape = LambadaGrantsShape> = {
     name: string
