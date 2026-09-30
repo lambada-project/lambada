@@ -134,128 +134,64 @@ export const resourceStatements = (
     functionName: string,
     environment: string
 ): { statements: aws.iam.PolicyStatement[], envVars: Record<string, pulumi.Input<string>> } => {
-    const statements: aws.iam.PolicyStatement[] = []
-    const envVars: Record<string, pulumi.Input<string>> = {}
-
-
     if (access.access.length === 0) {
         throw new Error(`Resource on ${functionName} has zero access request`)
     }
+    const { resource, envVars } = grantedResource(access, functionName, environment)
+
+    return { statements: [{ Action: access.access, Resource: resource, Effect: 'Allow' }], envVars }
+}
+
+const grantedResource = (
+    access: LambdaResource,
+    functionName: string,
+    environment: string
+): { resource: aws.iam.PolicyStatement['Resource'], envVars: Record<string, pulumi.Input<string>> } => {
     if (access.table) {
-        envVars[access.table.definition.envKeyName] = access.table.ref.name
+        const { table } = access
         // IAM applies each action only to the resource types it supports.
-        const arns: pulumi.Input<string>[] = [access.table.ref.arn]
-        if (access.table.definition.indexes?.length && access.access.some(onIndex))
-            arns.push(pulumi.interpolate`${access.table.ref.arn}/index/*`)
-        if (access.table.streamEnabled && access.access.some(onStream))
-            arns.push(access.table.ref.streamArn)
+        const arns: pulumi.Input<string>[] = [table.ref.arn]
+        if (table.definition.indexes?.length && access.access.some(onIndex))
+            arns.push(pulumi.interpolate`${table.ref.arn}/index/*`)
+        if (table.streamEnabled && access.access.some(onStream))
+            arns.push(table.ref.streamArn)
 
-        statements.push(
-            {
-                Action: access.access,
-                Resource: arns,
-                Effect: 'Allow'
-            }
-        )
+        return { resource: arns, envVars: { [table.definition.envKeyName]: table.ref.name } }
     }
-    else if (access.bucket) {
+    if (access.bucket) {
         // S3 calls address a bucket by name, and object actions are on `${arn}/*`, not the bucket.
-        envVars[access.bucket.envKeyName] = access.bucket.awsS3Bucket.bucket
-        statements.push(
-            {
-                Action: access.access,
-                Resource: access.bucket.awsS3Bucket.arn,
-                Effect: 'Allow'
-            },
-            {
-                Action: access.access,
-                Resource: pulumi.interpolate`${access.bucket.awsS3Bucket.arn}/*`,
-                Effect: 'Allow'
-            }
-        )
+        const { awsS3Bucket, envKeyName } = access.bucket
+        return { resource: [awsS3Bucket.arn, pulumi.interpolate`${awsS3Bucket.arn}/*`], envVars: { [envKeyName]: awsS3Bucket.bucket } }
     }
-    else if (access.topic) {
+    if (access.topic) {
         //PubSub connections need the topic ARN to talk to SNS
-        envVars[access.topic.envKeyName] = access.topic.ref.arn
-        statements.push(
-            {
-                Action: access.access,
-                Resource: access.topic.ref.arn,
-                Effect: 'Allow'
-            }
-        )
+        return { resource: access.topic.ref.arn, envVars: { [access.topic.envKeyName]: access.topic.ref.arn } }
     }
-    else if (access.queue) {
-        envVars[access.queue.envKeyName] = access.queue.ref.url ?? access.queue.awsQueue.url
-        statements.push(
-            {
-                Action: access.access,
-                Resource: access.queue.ref.arn,
-                Effect: 'Allow'
-            }
-        )
+    if (access.queue) {
+        const { queue } = access
+        return { resource: queue.ref.arn, envVars: { [queue.envKeyName]: queue.ref.url ?? queue.awsQueue.url } }
     }
-    else if (access.notification) {
-        if (access.notification.gcm) {
-            statements.push(
-                {
-                    Action: access.access,
-                    Resource: access.notification.gcm.application.arn,
-                    Effect: 'Allow'
-                }
-            )
-        }
-        else {
-            throw new Error('other notification system than GCM is not implemented')
-        }
+    if (access.notification) {
+        if (!access.notification.gcm) throw new Error('other notification system than GCM is not implemented')
+        return { resource: access.notification.gcm.application.arn, envVars: {} }
     }
-    else if (access.secret) {
+    if (access.secret) {
         // A secretsmanager call addresses a secret by name; the policy needs its ARN.
-        envVars[access.secret.definition.envKeyName] = access.secret.awsSecret.name
-        statements.push(
-            {
-                Action: access.access,
-                Resource: access.secret.awsSecret.arn,
-                Effect: 'Allow'
-            }
-        )
+        const { secret } = access
+        return { resource: secret.awsSecret.arn, envVars: { [secret.definition.envKeyName]: secret.awsSecret.name } }
     }
-    else if (access.kmsKey) {
-        if (access.kmsKey.definition)
-            envVars[access.kmsKey.definition.envKeyName] = access.kmsKey.awsKmsKey.arn
-        statements.push(
-            {
-                Action: access.access,
-                Resource: access.kmsKey.awsKmsKey.arn,
-                Effect: 'Allow'
-            }
-        )
+    if (access.kmsKey) {
+        const { definition, awsKmsKey } = access.kmsKey
+        return { resource: awsKmsKey.arn, envVars: definition ? { [definition.envKeyName]: awsKmsKey.arn } : {} }
     }
-    else if (access.pool) {
+    if (access.pool) {
         //Cognito calls need the pool id to address the pool
-        envVars[access.pool.envKeyName] = access.pool.ref.id
-        statements.push(
-            {
-                Action: access.access,
-                Resource: access.pool.ref.arn,
-                Effect: 'Allow'
-            }
-        )
+        return { resource: access.pool.ref.arn, envVars: { [access.pool.envKeyName]: access.pool.ref.id } }
     }
-    else if (access.arn) {
-        statements.push(
-            {
-                Action: access.access,
-                Resource: access.arn,
-                Effect: 'Allow'
-            }
-        )
+    if (access.arn) {
+        return { resource: access.arn, envVars: {} }
     }
-    else {
-        throw functionName + '-' + environment + ': Access must have the resource, eg. topic, table, messaging, etc. ' + JSON.stringify(access);
-    }
-
-    return { statements, envVars }
+    throw functionName + '-' + environment + ': Access must have the resource, eg. topic, table, messaging, etc. ' + JSON.stringify(access);
 }
 
 /**
@@ -277,32 +213,30 @@ export const createLambda = <E, R>(
     tags?: pulumi.Input<{ [key: string]: pulumi.Input<string> }>
 ): aws.lambda.EventHandler<E, R> => {
 
-    let lambdaRole = overrideRole
-    const createRole = lambdaRole ? false : true
-
     if (!policyStatements) policyStatements = []
     if (!environmentVariables) environmentVariables = {}
+
+    const granted = [...policyStatements]
 
     var envVarsFromResources: EmbroideryEnvironmentVariables = {}
     for (let i = 0; i < resources.length; i++) {
         const resolved = resourceStatements(resources[i], name, environment)
 
-        policyStatements.push(...resolved.statements)
+        granted.push(...resolved.statements)
         Object.assign(envVarsFromResources, resolved.envVars)
     }
 
     if (options?.vpcConfig) {
-        policyStatements.push(VPCAccessExecutionStatement)
+        granted.push(VPCAccessExecutionStatement)
     }
 
     // enableXRay may be an Input, and an Input tested directly is an object: `false` would read as
     // true. The statement is added where the value is known, so the document becomes an Output.
     const statements = lift(options?.enableXRay ?? false, enabled =>
-        enabled ? [...policyStatements, AWSXRayDaemonWriteAccess] : policyStatements)
+        enabled ? [...granted, AWSXRayDaemonWriteAccess] : granted)
 
-    if (createRole) {
-        lambdaRole = createLambdaRoleAndPolicies(name, environment, statements)
-    }
+    const roleArn = overrideRole?.arn ??
+        roleFor(name, environment, statements, grantsKey(environment, policyStatements, resources, options))
 
     const variables = {
         AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1',
@@ -335,7 +269,7 @@ export const createLambda = <E, R>(
         const callbackDefinition = definition as LambdaHandler<E, R>
         return new aws.lambda.CallbackFunction(`${name}-${environment}`, {
             callback: callbackDefinition,
-            role: lambdaRole,
+            role: roleArn,
             description: description,
             environment: functionEnvironment,
             memorySize: memorySize,
@@ -349,35 +283,30 @@ export const createLambda = <E, R>(
         })
     }
     else if ((definition as LambdaFolder).functionFolder) {
-        if (lambdaRole) {
-            const handlerInfo = (definition as LambdaFolder)
+        const handlerInfo = (definition as LambdaFolder)
 
-            return new aws.lambda.Function(`${name}-${environment}`, {
-                runtime: runtime,
-                architectures: architectures,
-                description: description,
-                code: new pulumi.asset.AssetArchive({
-                    ".": new pulumi.asset.FileArchive(
-                        handlerInfo.functionFolder
-                        //`./auth/lambdas/src/dist`
-                    ),
-                }),
-                memorySize: memorySize,
-                //code: new pulumi.asset.FileAsset('./auth/lambdas/postConfirmation.js'),
-                timeout: timeout,
-                //THE CONTENT OF DIST 1:1 
-                handler: handlerInfo.handler, //"./auth/lambdas/src/index.main",
-                role: lambdaRole.arn,
-                layers: layers,
-                environment: functionEnvironment, // TODO:
-                reservedConcurrentExecutions: reservedConcurrentExecutions,
-                vpcConfig: _vpcConfig,
-                tags: tags
-            });
-        }
-        else {
-            throw Error(`No role for the lambda ${name} was specifed`)
-        }
+        return new aws.lambda.Function(`${name}-${environment}`, {
+            runtime: runtime,
+            architectures: architectures,
+            description: description,
+            code: new pulumi.asset.AssetArchive({
+                ".": new pulumi.asset.FileArchive(
+                    handlerInfo.functionFolder
+                    //`./auth/lambdas/src/dist`
+                ),
+            }),
+            memorySize: memorySize,
+            //code: new pulumi.asset.FileAsset('./auth/lambdas/postConfirmation.js'),
+            timeout: timeout,
+            //THE CONTENT OF DIST 1:1 
+            handler: handlerInfo.handler, //"./auth/lambdas/src/index.main",
+            role: roleArn,
+            layers: layers,
+            environment: functionEnvironment, // TODO:
+            reservedConcurrentExecutions: reservedConcurrentExecutions,
+            vpcConfig: _vpcConfig,
+            tags: tags
+        });
     }
     else {
         pulumi.log.error(`Invalid lambda definition: ${JSON.stringify(definition)}`)
@@ -403,7 +332,7 @@ const lowerActions = (s: ResolvedStatement): ResolvedStatement => ({
 })
 
 const withResources = (statement: ResolvedStatement, resources: Iterable<string>): ResolvedStatement => {
-    const list = [...resources].sort()
+    const list = [...resources]
     return canonical(list.length === 0 ? statement : { ...statement, Resource: list.length === 1 ? list[0] : list })
 }
 
@@ -438,7 +367,7 @@ export const mergeStatements = (statements: ResolvedStatement[]): ResolvedStatem
     for (const { context, actionsByResource } of grantsByContext.values()) {
         const byActions = new Map<string, { Action: string[], resources: string[] }>()
         for (const [resource, set] of actionsByResource) {
-            const Action = [...set].sort()
+            const Action = canonical([...set])
             const key = JSON.stringify(Action)
             const group = byActions.get(key) ?? { Action, resources: [] }
             group.resources.push(resource)
@@ -447,13 +376,71 @@ export const mergeStatements = (statements: ResolvedStatement[]): ResolvedStatem
         for (const { Action, resources } of byActions.values()) merged.push(withResources({ ...context, Action }, resources))
     }
 
-    return merged.sort((a, b) => JSON.stringify(a) < JSON.stringify(b) ? -1 : 1)
+    return merged.map(s => [JSON.stringify(s), s] as const).sort(([a], [b]) => a < b ? -1 : 1).map(([, s]) => s)
+}
+
+const sharedRoles = new Map<string, { role: aws.iam.Role, document: pulumi.Output<PolicyDocument> }>()
+const identities = new WeakMap<object, number>()
+let nextIdentity = 0
+
+const identity = (value: unknown) => {
+    if (typeof value !== 'object' || value === null) return JSON.stringify(value)
+    if (!identities.has(value)) identities.set(value, nextIdentity++)
+    return identities.get(value)
+}
+
+/** Lambdas with equal keys grant the same; undefined when that is known only at deploy. */
+const grantsKey = (
+    environment: string,
+    callerStatements: aws.iam.PolicyStatement[],
+    resources: LambdaResource[],
+    options?: LambdaOptions
+) => {
+    const xray = options?.enableXRay ?? false
+    if (callerStatements.length || typeof xray !== 'boolean') return undefined
+
+    const grants = resources.map(({ access, ...resource }) => {
+        const [kind, value] = Object.entries(resource).find(([, v]) => v !== undefined) ?? []
+        return JSON.stringify([kind, identity(value), access.map(actionName).sort()])
+    })
+    return JSON.stringify([environment, Boolean(options?.vpcConfig), xray, grants.sort()])
+}
+
+const roleFor = (
+    name: string,
+    environment: string,
+    statements: pulumi.Output<aws.iam.PolicyStatement[]>,
+    key: string | undefined
+): pulumi.Input<string> => {
+    const dashed = dashedName(name, environment)
+    const document = lift(statements, documentOf)
+    if (key === undefined) return createRole(dashed, document).arn
+
+    const shared = sharedRoles.get(key)
+    if (shared) {
+        return pulumi.all([shared.role.arn, shared.document, document]).apply(([arn, theirs, mine]) =>
+            sameGrants(`${name}-${environment}`, theirs, mine, arn))
+    }
+
+    const role = createRole(dashed, document)
+    sharedRoles.set(key, { role, document })
+    return role.arn
+}
+
+export const sameGrants = (functionName: string, theirs: PolicyDocument, mine: PolicyDocument, roleArn: string) => {
+    if (JSON.stringify(theirs) !== JSON.stringify(mine)) throw new Error(`${functionName} shares a role whose policy grants other than its own`)
+    return roleArn
 }
 
 export const MANAGED_POLICY_LIMIT = 6144
 
-export const policyDocument = (policyName: string, statements: ResolvedStatement[]): PolicyDocument => {
-    const document: PolicyDocument = { Version: "2012-10-17", Statement: [logsStatement, ...mergeStatements(statements)] }
+const documentOf = (statements: ResolvedStatement[]): PolicyDocument =>
+    ({ Version: "2012-10-17", Statement: [logsStatement, ...mergeStatements(statements)] })
+
+export const policyDocument = (policyName: string, statements: ResolvedStatement[]) =>
+    withinLimit(policyName, documentOf(statements))
+
+const withinLimit = (policyName: string, document: PolicyDocument): PolicyDocument => {
     const size = JSON.stringify(document).length
 
     if (size > MANAGED_POLICY_LIMIT) {
@@ -462,25 +449,28 @@ export const policyDocument = (policyName: string, statements: ResolvedStatement
     return document
 }
 
+const dashedName = (name: string, environment: string) =>
+    `${name.replace(/[A-Z]/g, m => "-" + m.toLowerCase()).replace(/^-/, '')}-${environment}`
+
+/** @deprecated createLambda chooses and builds a lambda's role; nothing in lambada calls this. */
 export const createLambdaRoleAndPolicies = (
     name: string,
     environment: string,
     policyStatements: pulumi.Input<aws.iam.PolicyStatement[]>
 ) => {
-    let dashedNamed = name.replace(/[A-Z]/g, m => "-" + m.toLowerCase());
-    if (dashedNamed.startsWith('-')) {
-        dashedNamed = dashedNamed.substr(1);
-    }
-    dashedNamed = `${dashedNamed}-${environment}`
+    return createRole(dashedName(name, environment), lift(policyStatements ?? [], documentOf))
+}
 
+const createRole = (dashedNamed: string, document: pulumi.Output<PolicyDocument>) => {
+    const policyName = `${dashedNamed}-policy`
     const role = new aws.iam.Role(`${dashedNamed}-role`, {
         name: `${dashedNamed}-role`,
         assumeRolePolicy: lambdaAssumeRole,
     })
-    const policy = new aws.iam.Policy(`${dashedNamed}-policy`, {
-        name: `${dashedNamed}-policy`,
+    const policy = new aws.iam.Policy(policyName, {
+        name: policyName,
         path: "/",
-        policy: lift(policyStatements ?? [], statements => policyDocument(`${dashedNamed}-policy`, statements))
+        policy: document.apply(d => withinLimit(policyName, d))
     })
 
     new aws.iam.RolePolicyAttachment(`${dashedNamed}-policy-attachment`, {

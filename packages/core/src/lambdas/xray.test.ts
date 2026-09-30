@@ -1,26 +1,47 @@
 import { describe, expect, test } from 'bun:test'
 import * as pulumi from '@pulumi/pulumi'
-import { lift } from '../inputs'
+import { createLambda } from '.'
 
-const value = <T>(output: pulumi.Output<T>): Promise<T> =>
-    (output as unknown as { promise(): Promise<T> }).promise()
+const created: pulumi.runtime.MockResourceArgs[] = []
 
-/** What createLambda does with `options.enableXRay`, which is a `pulumi.Input<boolean>`. */
-const gate = (enableXRay: pulumi.Input<boolean> | undefined, statements: string[]) =>
-    lift(enableXRay ?? false, enabled => (enabled ? [...statements, 'xray'] : statements))
+pulumi.runtime.setMocks({
+    newResource: (args: pulumi.runtime.MockResourceArgs) => {
+        created.push(args)
+        return { id: `${args.name}-id`, state: { ...args.inputs, arn: `arn:${args.name}` } }
+    },
+    call: () => ({}),
+})
 
-describe('gating a policy statement on an Input flag', () => {
+const settled = <T>(o: pulumi.Input<T>): Promise<T> =>
+    (pulumi.output(o) as unknown as { promise(): Promise<T> }).promise()
+
+let lambdas = 0
+
+/** The actions in the policy createLambda gives a lambda built with this flag. */
+const actionsFor = async (enableXRay: pulumi.Input<boolean> | undefined) => {
+    const name = `xray${lambdas++}`
+    const table = { ref: { arn: `arn:table/${name}`, name, streamArn: '' }, definition: { envKeyName: 'T', indexes: [] }, streamEnabled: false }
+    const fn = createLambda(name, 'test', { functionFolder: '.', handler: 'index.main' }, [], {},
+        [{ table: table as never, access: ['dynamodb:GetItem'] }], undefined, { enableXRay }) as unknown as { arn: pulumi.Output<string> }
+    await settled(fn.arn)
+
+    const policy = created.find(r => r.type === 'aws:iam/policy:Policy' && r.name === `${name}-test-policy`)!.inputs.policy
+    const document = typeof policy === 'string' ? JSON.parse(policy) : policy
+    return document.Statement.flatMap((s: { Action: string[] }) => s.Action) as string[]
+}
+
+describe('a lambda gets the X-Ray statement only when its flag is true', () => {
     test.each([
-        ['a plain false', false as pulumi.Input<boolean>, ['logs']],
-        ['a plain true', true as pulumi.Input<boolean>, ['logs', 'xray']],
-        ['an Output false', pulumi.output(false), ['logs']],
-        ['an Output true', pulumi.output(true), ['logs', 'xray']],
-        ['a promised false', Promise.resolve(false), ['logs']],
-    ] as [string, pulumi.Input<boolean>, string[]][])('%s', async (_name, flag, expected) => {
-        expect(await value(gate(flag, ['logs']))).toEqual(expected)
+        ['a plain false', false as pulumi.Input<boolean>, false],
+        ['a plain true', true as pulumi.Input<boolean>, true],
+        ['an Output false', pulumi.output(false), false],
+        ['an Output true', pulumi.output(true), true],
+        ['a promised false', Promise.resolve(false), false],
+    ] as [string, pulumi.Input<boolean>, boolean][])('%s', async (_name, flag, granted) => {
+        expect((await actionsFor(flag)).includes('xray:puttracesegments')).toBe(granted)
     })
 
-    test('omits it when the flag is not set at all', async () => {
-        expect(await value(gate(undefined, ['logs']))).toEqual(['logs'])
+    test('not set at all', async () => {
+        expect(await actionsFor(undefined)).not.toContain('xray:puttracesegments')
     })
 })
