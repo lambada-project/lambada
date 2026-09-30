@@ -438,6 +438,7 @@ export const policyDocument = (policyName: string, statements: ResolvedStatement
 const dashedName = (name: string, environment: string) =>
     `${name.replace(/[A-Z]/g, m => "-" + m.toLowerCase()).replace(/^-/, '')}-${environment}`
 
+/** @deprecated createLambda chooses and builds a lambda's role; nothing in lambada calls this. */
 export const createLambdaRoleAndPolicies = (
     name: string,
     environment: string,
