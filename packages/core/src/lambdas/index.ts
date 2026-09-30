@@ -131,128 +131,64 @@ export const resourceStatements = (
     functionName: string,
     environment: string
 ): { statements: aws.iam.PolicyStatement[], envVars: Record<string, pulumi.Input<string>> } => {
-    const statements: aws.iam.PolicyStatement[] = []
-    const envVars: Record<string, pulumi.Input<string>> = {}
-
-
     if (access.access.length === 0) {
         throw new Error(`Resource on ${functionName} has zero access request`)
     }
+    const { resource, envVars } = grantedResource(access, functionName, environment)
+
+    return { statements: [{ Action: access.access, Resource: resource, Effect: 'Allow' }], envVars }
+}
+
+const grantedResource = (
+    access: LambdaResource,
+    functionName: string,
+    environment: string
+): { resource: aws.iam.PolicyStatement['Resource'], envVars: Record<string, pulumi.Input<string>> } => {
     if (access.table) {
-        envVars[access.table.definition.envKeyName] = access.table.ref.name
+        const { table } = access
         // IAM applies each action only to the resource types it supports.
-        const arns: pulumi.Input<string>[] = [access.table.ref.arn]
-        if (access.table.definition.indexes?.length && access.access.some(onIndex))
-            arns.push(pulumi.interpolate`${access.table.ref.arn}/index/*`)
-        if (access.table.streamEnabled && access.access.some(onStream))
-            arns.push(access.table.ref.streamArn)
+        const arns: pulumi.Input<string>[] = [table.ref.arn]
+        if (table.definition.indexes?.length && access.access.some(onIndex))
+            arns.push(pulumi.interpolate`${table.ref.arn}/index/*`)
+        if (table.streamEnabled && access.access.some(onStream))
+            arns.push(table.ref.streamArn)
 
-        statements.push(
-            {
-                Action: access.access,
-                Resource: arns,
-                Effect: 'Allow'
-            }
-        )
+        return { resource: arns, envVars: { [table.definition.envKeyName]: table.ref.name } }
     }
-    else if (access.bucket) {
+    if (access.bucket) {
         // S3 calls address a bucket by name, and object actions are on `${arn}/*`, not the bucket.
-        envVars[access.bucket.envKeyName] = access.bucket.awsS3Bucket.bucket
-        statements.push(
-            {
-                Action: access.access,
-                Resource: access.bucket.awsS3Bucket.arn,
-                Effect: 'Allow'
-            },
-            {
-                Action: access.access,
-                Resource: pulumi.interpolate`${access.bucket.awsS3Bucket.arn}/*`,
-                Effect: 'Allow'
-            }
-        )
+        const { awsS3Bucket, envKeyName } = access.bucket
+        return { resource: [awsS3Bucket.arn, pulumi.interpolate`${awsS3Bucket.arn}/*`], envVars: { [envKeyName]: awsS3Bucket.bucket } }
     }
-    else if (access.topic) {
+    if (access.topic) {
         //PubSub connections need the topic ARN to talk to SNS
-        envVars[access.topic.envKeyName] = access.topic.ref.arn
-        statements.push(
-            {
-                Action: access.access,
-                Resource: access.topic.ref.arn,
-                Effect: 'Allow'
-            }
-        )
+        return { resource: access.topic.ref.arn, envVars: { [access.topic.envKeyName]: access.topic.ref.arn } }
     }
-    else if (access.queue) {
-        envVars[access.queue.envKeyName] = access.queue.ref.url ?? access.queue.awsQueue.url
-        statements.push(
-            {
-                Action: access.access,
-                Resource: access.queue.ref.arn,
-                Effect: 'Allow'
-            }
-        )
+    if (access.queue) {
+        const { queue } = access
+        return { resource: queue.ref.arn, envVars: { [queue.envKeyName]: queue.ref.url ?? queue.awsQueue.url } }
     }
-    else if (access.notification) {
-        if (access.notification.gcm) {
-            statements.push(
-                {
-                    Action: access.access,
-                    Resource: access.notification.gcm.application.arn,
-                    Effect: 'Allow'
-                }
-            )
-        }
-        else {
-            throw new Error('other notification system than GCM is not implemented')
-        }
+    if (access.notification) {
+        if (!access.notification.gcm) throw new Error('other notification system than GCM is not implemented')
+        return { resource: access.notification.gcm.application.arn, envVars: {} }
     }
-    else if (access.secret) {
+    if (access.secret) {
         // A secretsmanager call addresses a secret by name; the policy needs its ARN.
-        envVars[access.secret.definition.envKeyName] = access.secret.awsSecret.name
-        statements.push(
-            {
-                Action: access.access,
-                Resource: access.secret.awsSecret.arn,
-                Effect: 'Allow'
-            }
-        )
+        const { secret } = access
+        return { resource: secret.awsSecret.arn, envVars: { [secret.definition.envKeyName]: secret.awsSecret.name } }
     }
-    else if (access.kmsKey) {
-        if (access.kmsKey.definition)
-            envVars[access.kmsKey.definition.envKeyName] = access.kmsKey.awsKmsKey.arn
-        statements.push(
-            {
-                Action: access.access,
-                Resource: access.kmsKey.awsKmsKey.arn,
-                Effect: 'Allow'
-            }
-        )
+    if (access.kmsKey) {
+        const { definition, awsKmsKey } = access.kmsKey
+        return { resource: awsKmsKey.arn, envVars: definition ? { [definition.envKeyName]: awsKmsKey.arn } : {} }
     }
-    else if (access.pool) {
+    if (access.pool) {
         //Cognito calls need the pool id to address the pool
-        envVars[access.pool.envKeyName] = access.pool.ref.id
-        statements.push(
-            {
-                Action: access.access,
-                Resource: access.pool.ref.arn,
-                Effect: 'Allow'
-            }
-        )
+        return { resource: access.pool.ref.arn, envVars: { [access.pool.envKeyName]: access.pool.ref.id } }
     }
-    else if (access.arn) {
-        statements.push(
-            {
-                Action: access.access,
-                Resource: access.arn,
-                Effect: 'Allow'
-            }
-        )
+    if (access.arn) {
+        return { resource: access.arn, envVars: {} }
     }
-    else {
-        throw functionName + '-' + environment + ': Access must have the resource, eg. topic, table, messaging, etc. ' + JSON.stringify(access);
-    }
-
-    return { statements, envVars }
+    throw functionName + '-' + environment + ': Access must have the resource, eg. topic, table, messaging, etc. ' + JSON.stringify(access);
 }
 
 export const createLambda = <E, R>(
