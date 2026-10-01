@@ -23,20 +23,6 @@ export type TableOptions = {
 
 }
 
-export const withKeySchemas = (index: TableIndexDefinition): TableIndexDefinition => {
-    const { hashKey, rangeKey, ...rest } = index
-    if (rest.keySchemas !== undefined || hashKey === undefined) return index
-    const key = (attributeName: typeof hashKey) => attributeName as pulumi.Input<string>
-
-    return {
-        ...rest,
-        keySchemas: [
-            { attributeName: key(hashKey), keyType: 'HASH' },
-            ...(rangeKey ? [{ attributeName: key(rangeKey), keyType: 'RANGE' }] : []),
-        ],
-    }
-}
-
 function createTable(
     name: string,
     environment: string,
@@ -75,7 +61,7 @@ function createTable(
             attributeName: ttl.attributeName,
             enabled: ttl.enabled
         } : undefined,
-        globalSecondaryIndexes: secondaryIndexes?.map(withKeySchemas),
+        globalSecondaryIndexes: secondaryIndexes,
         //writeCapacity: 20,
         serverSideEncryption: {
             enabled: kmsKey ? true : false,
