@@ -23,6 +23,40 @@ export type TableOptions = {
 
 }
 
+export const INDEX_KEY_SCHEMAS_TAG = 'lambada:index-key-schemas'
+
+export const isMissingTable = (error: unknown) => /couldn't find resource|ResourceNotFoundException/i.test(String(error))
+
+/** The table as DynamoDB holds it before this deploy, or undefined when it does not exist yet. */
+const existingTable = (name: string): Promise<aws.dynamodb.GetTableResult | undefined> =>
+    aws.dynamodb.getTable({ name }).catch(error => {
+        if (isMissingTable(error)) return undefined
+        throw error
+    })
+
+/**
+ * An index declared with hashKey and rangeKey, in the form that moves its state to keySchemas
+ * without replacing it. DynamoDB creates an index only from one form, and a deploy can replace
+ * hashKey with keySchemas in the state only through a deploy that states both. The tag records
+ * that a table took that deploy.
+ */
+export const indexKeyForms = (
+    indexes: pulumi.Unwrap<TableIndexDefinition>[],
+    existing: aws.dynamodb.GetTableResult | undefined
+) => indexes.map(index => {
+    const { hashKey, rangeKey, ...rest } = index
+    if (hashKey === undefined || index.keySchemas !== undefined) return index
+
+    const keySchemas = [
+        { attributeName: hashKey, keyType: 'HASH' },
+        ...(rangeKey !== undefined ? [{ attributeName: rangeKey, keyType: 'RANGE' }] : []),
+    ]
+    const exists = (existing?.globalSecondaryIndexes ?? []).some(({ name }) => name === index.name)
+    const bridged = existing?.tags?.[INDEX_KEY_SCHEMAS_TAG] !== undefined
+
+    return exists && !bridged ? { ...index, keySchemas } : { ...rest, keySchemas }
+})
+
 function createTable(
     name: string,
     environment: string,
@@ -36,6 +70,9 @@ function createTable(
     tags?: pulumi.Input<{ [key: string]: pulumi.Input<string> }>
 ) {
     const tableName = `${name}-${environment}`
+    const indexes = secondaryIndexes?.length
+        ? pulumi.all([pulumi.output(secondaryIndexes), existingTable(tableName)]).apply(([declared, existing]) => indexKeyForms(declared, existing))
+        : secondaryIndexes
 
     return new aws.dynamodb.Table(tableName, {
         name: tableName,
@@ -56,12 +93,14 @@ function createTable(
         hashKey: primaryKeyName,
         rangeKey: rangeKeyName,
         //readCapacity: 20,
-        tags: tags,
+        tags: secondaryIndexes?.length
+            ? pulumi.output(tags).apply(declared => ({ ...declared, [INDEX_KEY_SCHEMAS_TAG]: 'keySchemas' }))
+            : tags,
         ttl: ttl ? {
             attributeName: ttl.attributeName,
             enabled: ttl.enabled
         } : undefined,
-        globalSecondaryIndexes: secondaryIndexes,
+        globalSecondaryIndexes: indexes,
         //writeCapacity: 20,
         serverSideEncryption: {
             enabled: kmsKey ? true : false,
