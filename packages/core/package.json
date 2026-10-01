@@ -4,7 +4,7 @@
 	"description": "A VERY opinionated infrastructure as code framework.",
 	"main": "dist/index.js",
 	"bin": {
-		"lambada-index-key-schemas": "dist/bin/indexKeySchemas.js"
+		"lambada-check-index-key-schemas": "dist/bin/checkIndexKeySchemas.js"
 	},
 	"module": "dist/index.js",
 	"typings": "dist/index.d.ts",

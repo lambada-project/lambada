@@ -1,63 +1,34 @@
 import { describe, expect, test } from 'bun:test'
-import { StackExport, withIndexKeySchemas } from './indexKeySchemasState'
+import { indexesWithoutKeySchemas, StackExport } from './indexKeySchemasState'
 
 const keySchemas = [{ attributeName: 'owner', keyType: 'HASH' }, { attributeName: 'createdAt', keyType: 'RANGE' }]
 
-/** An export holding one table whose index both sides record as given. */
+/** An export holding one resource whose state records this index. */
 const exported = (index: Record<string, unknown>, type = 'aws:dynamodb/table:Table'): StackExport => ({
     version: 3,
     deployment: {
-        manifest: {},
         resources: [
             { type: 'pulumi:pulumi:Stack', urn: 'stack' },
-            { type, urn: 'table', inputs: { name: 'pets-dev', globalSecondaryIndexes: [index] }, outputs: { name: 'pets-dev', globalSecondaryIndexes: [index] } },
+            { type, urn: 'table', outputs: { name: 'pets-dev', globalSecondaryIndexes: [index] } },
         ],
     },
 })
 
-const indexesOf = (state: StackExport) => state.deployment.resources!.flatMap(r =>
-    [r.inputs?.globalSecondaryIndexes, r.outputs?.globalSecondaryIndexes].filter(Boolean))
-
-describe('an index recorded with hashKey and rangeKey', () => {
-    test('also states them as keySchemas, on both sides of the state', () => {
-        const old = { name: 'byOwner', hashKey: 'owner', rangeKey: 'createdAt', projectionType: 'ALL' }
-
-        const { state, patched } = withIndexKeySchemas(exported(old))
-
-        expect(indexesOf(state)).toEqual([[{ ...old, keySchemas }], [{ ...old, keySchemas }]])
-        expect(patched).toBe(2)
+describe('the check', () => {
+    test('names an index whose state records hashKey without keySchemas', () => {
+        expect(indexesWithoutKeySchemas(exported({ name: 'byOwner', hashKey: 'owner', rangeKey: 'createdAt', keySchemas: [] })))
+            .toEqual([{ table: 'pets-dev', index: 'byOwner' }])
     })
 
-    test('without a rangeKey, as an older provider records it, has only a HASH key schema', () => {
-        const { state } = withIndexKeySchemas(exported({ name: 'byOwner', hashKey: 'owner', rangeKey: '', projectionType: 'ALL' }))
-
-        expect(indexesOf(state)[0]).toEqual([expect.objectContaining({ keySchemas: [{ attributeName: 'owner', keyType: 'HASH' }] })])
+    test('passes an index whose state also records keySchemas, as a refresh with the program leaves it', () => {
+        expect(indexesWithoutKeySchemas(exported({ name: 'byOwner', hashKey: 'owner', rangeKey: 'createdAt', keySchemas }))).toEqual([])
     })
-})
 
-test('an index that already records keySchemas is left as it was', () => {
-    const current = { name: 'byOwner', hashKey: 'owner', rangeKey: 'createdAt', keySchemas }
+    test('passes an index recorded by keySchemas alone', () => {
+        expect(indexesWithoutKeySchemas(exported({ name: 'byOwner', hashKey: '', keySchemas }))).toEqual([])
+    })
 
-    expect(withIndexKeySchemas(exported(current))).toEqual({ state: exported(current), patched: 0 })
-})
-
-test('anything that is not a DynamoDB table is left as it was', () => {
-    const index = { name: 'byOwner', hashKey: 'owner' }
-
-    expect(withIndexKeySchemas(exported(index, 'aws:s3/bucket:Bucket')).patched).toBe(0)
-})
-
-test('patching twice is patching once', () => {
-    const once = withIndexKeySchemas(exported({ name: 'byOwner', hashKey: 'owner', rangeKey: 'createdAt' })).state
-
-    expect(withIndexKeySchemas(once)).toEqual({ state: once, patched: 0 })
-})
-
-test('the export it was given is left as it was', () => {
-    const given = exported({ name: 'byOwner', hashKey: 'owner', rangeKey: 'createdAt' })
-    const copy = structuredClone(given)
-
-    withIndexKeySchemas(given)
-
-    expect(given).toEqual(copy)
+    test('ignores anything that is not a DynamoDB table', () => {
+        expect(indexesWithoutKeySchemas(exported({ name: 'byOwner', hashKey: 'owner' }, 'aws:s3/bucket:Bucket'))).toEqual([])
+    })
 })
