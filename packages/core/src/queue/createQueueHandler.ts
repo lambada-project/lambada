@@ -1,4 +1,5 @@
 import * as aws from "@pulumi/aws";
+import * as pulumi from "@pulumi/pulumi";
 import { QueueResultItem } from "."
 import { LambadaResources, EmbroideryEnvironmentVariables, mergeOptions } from ".."
 import { createLambda, LambdaFolder, LambdaHandler, LambdaOptions, LambdaResource } from '../lambdas'
@@ -8,7 +9,32 @@ import { LambadaResourceRequest, LambadaGrantsShape, ResourceRef, resolveEnviron
 import { bundleOf, isLambdaFolder } from "../lambdas/bundles";
 
 export type QueueHandlerEvent = QueueEvent
-export type QueueHandlerCallback = LambdaHandler<QueueHandlerEvent, void>
+export type QueueBatchResponse = { batchItemFailures: { itemIdentifier: string }[] }
+export type QueueHandlerCallback = LambdaHandler<QueueHandlerEvent, void | QueueBatchResponse>
+
+type EventCondition =
+    | string
+    | number
+    | boolean
+    | null
+    | { prefix: string }
+    | { suffix: string }
+    | { 'equals-ignore-case': string }
+    | { 'anything-but': string | number | (string | number)[] | { prefix: string } | { suffix: string } }
+    | { numeric: (string | number)[] }
+    | { exists: boolean }
+
+export type QueueEventPattern = { $or?: QueueEventPattern[] } & { [key: string]: EventCondition[] | QueueEventPattern | QueueEventPattern[] | undefined }
+
+type AttributeCondition =
+    | string
+    | { prefix: string }
+    | { suffix: string }
+    | { 'equals-ignore-case': string }
+    | { 'anything-but': string | string[] | { prefix: string } | { suffix: string } }
+    | { exists: boolean }
+
+export type QueueHandlerFilter = { body: QueueEventPattern } | { attributes: { [name: string]: AttributeCondition[] } }
 
 export type LambdaQueueHandler<TNames extends LambadaGrantsShape = LambadaGrantsShape> = {
     name: string
@@ -20,7 +46,23 @@ export type LambdaQueueHandler<TNames extends LambadaGrantsShape = LambadaGrants
     resources: LambadaResourceRequest<TNames>
     lambdaOptions?: LambdaOptions,
     subscriptionArgs?: QueueEventSubscriptionArgs | undefined
+    filter?: QueueHandlerFilter
+    reportBatchItemFailures?: boolean
+    maximumConcurrency?: number
 }
+
+const filterPattern = (filter: QueueHandlerFilter) => 'body' in filter
+    ? { body: filter.body }
+    : { messageAttributes: Object.fromEntries(Object.entries(filter.attributes).map(([name, conditions]) => [name, { stringValue: conditions }])) }
+
+export const eventSourceMappingArgs = ({ filter, reportBatchItemFailures, maximumConcurrency }: LambdaQueueHandler<any>) => ({
+    ...(filter && { filterCriteria: { filters: [{ pattern: JSON.stringify(filterPattern(filter)) }] } }),
+    ...(reportBatchItemFailures && { functionResponseTypes: ['ReportBatchItemFailures'] }),
+    ...(maximumConcurrency !== undefined && { scalingConfig: { maximumConcurrency } }),
+})
+
+export const withMappingArgs = (args: object): pulumi.ResourceTransform => ({ type, props, opts }) =>
+    type === 'aws:lambda/eventSourceMapping:EventSourceMapping' ? { props: { ...props, ...args }, opts } : undefined
 
 
 export const createQueueHandler = (
@@ -66,7 +108,7 @@ export const createQueueHandler = (
         ? queueHandler.callback
         : bundleOf(context.bundles, queueHandler.name)
 
-    const callback = createLambda<QueueHandlerEvent, void>(
+    const callback = createLambda<QueueHandlerEvent, void | QueueBatchResponse>(
         queueHandler.name,
         environment,
         artifact ?? queueHandler.callback,
@@ -78,10 +120,13 @@ export const createQueueHandler = (
     )
 
     if (queue.awsQueue)
-        return queue.awsQueue.onEvent(`${topicName}_${queueHandler.name}_${environment}`, callback, {
+    {
+        const mappingArgs = eventSourceMappingArgs(queueHandler)
+        return queue.awsQueue.onEvent(`${topicName}_${queueHandler.name}_${environment}`, callback as aws.sqs.QueueEventHandler, {
             batchSize: queueHandler.subscriptionArgs?.batchSize,
             maximumBatchingWindowInSeconds: queueHandler.subscriptionArgs?.maximumBatchingWindowInSeconds
-        })
+        }, Object.keys(mappingArgs).length ? { transforms: [withMappingArgs(mappingArgs)] } : undefined)
+    }
     else
         throw `Cannot subscribe to this queue: ${queue.definition.name}`
 }
