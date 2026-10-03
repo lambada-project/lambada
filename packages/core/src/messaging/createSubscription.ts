@@ -18,6 +18,7 @@ export type LambdaSubscription<TNames extends LambadaGrantsShape = LambadaGrants
     environmentVariables?: EmbroideryEnvironmentVariables
     resources: LambadaResourceRequest<TNames>
     subscriptionArgs?: TopicEventSubscriptionArgs
+    lambdaOptions?: LambdaOptions
 }
 
 export type LambadaSubscriptionHandler<TNames extends LambadaGrantsShape = LambadaGrantsShape> =
@@ -85,7 +86,7 @@ export const subscribeToTopic = (
         envVars,
         grants,
         overrideRole,
-        mergeOptions(options, context.api?.lambdaOptions, { functionName: subscription.name, logGroups: context.logGroups }),
+        mergeOptions(mergeOptions(subscription.lambdaOptions, options), context.api?.lambdaOptions, { functionName: subscription.name, logGroups: context.logGroups }),
         `Handler for ${topic.definition.name} in ${environment} with subscription ${subscription.name}`,
         context.globalTags
 
