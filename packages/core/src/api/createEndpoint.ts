@@ -266,20 +266,11 @@ export function mergeOptions(
     globalOptions: LambdaOptions | undefined,
     stack?: { functionName: string, logGroups?: LogGroupsResult }
 ): LambdaOptions {
-    const logGroup = lambdaOptions?.logGroup ?? globalOptions?.logGroup
-    return {
-        memorySize: lambdaOptions?.memorySize ?? globalOptions?.memorySize,
-        vpcConfig: lambdaOptions?.vpcConfig ?? globalOptions?.vpcConfig,
-        architecture: lambdaOptions?.architecture ?? globalOptions?.architecture,
-        callbackWaitsForEmptyEventLoop: lambdaOptions?.callbackWaitsForEmptyEventLoop ?? globalOptions?.callbackWaitsForEmptyEventLoop,
-        reservedConcurrentExecutions: lambdaOptions?.reservedConcurrentExecutions ?? globalOptions?.reservedConcurrentExecutions,
-        runtime: lambdaOptions?.runtime ?? globalOptions?.runtime,
-        timeout: lambdaOptions?.timeout ?? globalOptions?.timeout,
-        layers: lambdaOptions?.layers ?? globalOptions?.layers,
-        enableXRay: lambdaOptions?.enableXRay ?? globalOptions?.enableXRay,
-        logGroup: typeof logGroup === 'string' && stack
-            ? requireItem(stack.logGroups, { name: stack.functionName, kind: 'logGroup', ref: logGroup })
-            : logGroup,
-    }
+    const keys = new Set([...Object.keys(globalOptions ?? {}), ...Object.keys(lambdaOptions ?? {})]) as Set<keyof LambdaOptions>
+    const merged: LambdaOptions = Object.fromEntries([...keys].map(key => [key, lambdaOptions?.[key] ?? globalOptions?.[key]]))
+
+    return typeof merged.logGroup === 'string' && stack
+        ? { ...merged, logGroup: requireItem(stack.logGroups, { name: stack.functionName, kind: 'logGroup', ref: merged.logGroup }) }
+        : merged
 }
 
