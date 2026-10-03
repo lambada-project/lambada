@@ -16,6 +16,7 @@ import { createKMSKeys, createSecrets, SecurityKeys, SecurityKeysRef, Embroidery
 import { UserPool } from "@pulumi/aws/cognito/userPool";
 import { LambdaAuthorizer } from "@pulumi/awsx/classic/apigateway";
 import { createQueueHandlers, createQueues, LambadaQueueHandlerDefinition, LambadaQueues, QueuesResult } from "./queue";
+import { createLogGroups, LambadaLogGroups } from "./logs";
 import { OpenAPIObjectConfigV31 } from "@asteasolutions/zod-to-openapi/dist/v3.1/openapi-generator";
 import { LambdaOptions } from "./lambdas";
 import { BundleSource } from "./lambdas/bundles";
@@ -35,6 +36,7 @@ export * from './extra'
 export * from './test_utils'
 export * from './messaging'
 export * from './queue'
+export * from './logs'
 export * from './auth/pools'
 export * from './buckets'
 export * from './resources'
@@ -95,6 +97,8 @@ export type LambadaRunArguments = {
     queues?: LambadaQueues,
     queuesRef?: LambadaQueues | QueuesResult,
     queueHandlerDefinitions?: readonly LambadaQueueHandlerDefinition[]
+
+    logGroups?: LambadaLogGroups
 
     /**
      * Pre-built artifacts by function name, for a definition carrying no `useBundle` of its own.
@@ -238,6 +242,7 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
         queues: queues,
         notifications: notifications,
         databases: databases,
+        logGroups: createLogGroups(environment, args.logGroups, globalTags),
         buckets: buckets,
         environment: environment,
         kmsKeys: encryptionKeys,

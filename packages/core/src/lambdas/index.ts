@@ -14,6 +14,7 @@ import { enums } from '@pulumi/aws/types';
 import { QueueResultItem } from '../queue';
 import { BucketResultItem } from '../buckets';
 import { lift } from '../inputs';
+import type { LogGroupResultItem } from '../logs';
 import { PoolResultItem } from '../auth/pools';
 //import { NotificationResult, NotificationResultItem } from '../notifications';
 
@@ -126,6 +127,8 @@ export type LambdaOptions = {
      * Enables XRay access from this lambda
      */
     enableXRay?: pulumi.Input<boolean>
+
+    logGroup?: string | LogGroupResultItem
 }
 
 /** What one granted resource costs in IAM and in environment. */
@@ -265,6 +268,11 @@ export const createLambda = <E, R>(
 
     description = description ?? `${name}-${environment}`
 
+    if (typeof options?.logGroup === 'string') {
+        throw new Error(`${name} names the log group '${options.logGroup}', which only a stack's lambda options resolve`)
+    }
+    const loggingConfig = options?.logGroup ? { logFormat: 'Text', logGroup: options.logGroup.awsLogGroup.name } : undefined
+
     if (typeof definition === 'function') {
         const callbackDefinition = definition as LambdaHandler<E, R>
         return new aws.lambda.CallbackFunction(`${name}-${environment}`, {
@@ -279,7 +287,8 @@ export const createLambda = <E, R>(
             architectures: architectures,
             vpcConfig: _vpcConfig,
             tags: tags,
-            layers: layers
+            layers: layers,
+            loggingConfig: loggingConfig
         })
     }
     else if ((definition as LambdaFolder).functionFolder) {
@@ -305,7 +314,8 @@ export const createLambda = <E, R>(
             environment: functionEnvironment, // TODO:
             reservedConcurrentExecutions: reservedConcurrentExecutions,
             vpcConfig: _vpcConfig,
-            tags: tags
+            tags: tags,
+            loggingConfig: loggingConfig
         });
     }
     else {
