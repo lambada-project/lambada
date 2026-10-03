@@ -10,6 +10,33 @@ import { AsyncFailures, asyncInvocationConfig, failureDestination } from "../lam
 export type SubscriptionEvent = TopicEvent
 export type SubscriptionCallback = LambdaHandler<SubscriptionEvent, void>
 
+type SnsFilterCondition =
+    | string
+    | number
+    | boolean
+    | null
+    | { prefix: string }
+    | { suffix: string }
+    | { 'equals-ignore-case': string }
+    | { 'anything-but': string | number | (string | number)[] | { prefix: string } | { suffix: string } }
+    | { numeric: (string | number)[] }
+    | { exists: boolean }
+    | { cidr: string }
+
+export type SnsFilterPolicy = { $or?: SnsFilterPolicy[] } & { [key: string]: SnsFilterCondition[] | SnsFilterPolicy | SnsFilterPolicy[] | undefined }
+
+export type SnsSubscriptionFilter = { attributes: SnsFilterPolicy } | { body: SnsFilterPolicy }
+
+export const filterArgs = (subscriptionName: string, filter: SnsSubscriptionFilter | undefined, args: TopicEventSubscriptionArgs = {}): TopicEventSubscriptionArgs => {
+    if (!filter) return args
+    if (args.filterPolicy !== undefined || args.filterPolicyScope !== undefined) {
+        throw new Error(`${subscriptionName} sets both filter and subscriptionArgs.filterPolicy`)
+    }
+    return 'attributes' in filter
+        ? { ...args, filterPolicy: JSON.stringify(filter.attributes), filterPolicyScope: 'MessageAttributes' }
+        : { ...args, filterPolicy: JSON.stringify(filter.body), filterPolicyScope: 'MessageBody' }
+}
+
 export type LambdaSubscription<TNames extends LambadaGrantsShape = LambadaGrantsShape> = AsyncFailures & {
     name: string
     /** A `FolderLambda` deploys a pre-built bundle instead of a serialized closure. */
@@ -19,6 +46,7 @@ export type LambdaSubscription<TNames extends LambadaGrantsShape = LambadaGrants
     resources: LambadaResourceRequest<TNames>
     subscriptionArgs?: TopicEventSubscriptionArgs
     lambdaOptions?: LambdaOptions
+    filter?: SnsSubscriptionFilter
 }
 
 export type LambadaSubscriptionHandler<TNames extends LambadaGrantsShape = LambadaGrantsShape> =
@@ -94,7 +122,8 @@ export const subscribeToTopic = (
     asyncInvocationConfig(subscription.name, environment, (callback as aws.lambda.Function).name, subscription, destination?.arn)
 
     if (topic.awsTopic)
-        return topic.awsTopic.onEvent(`${topicName}_${subscription.name}_${environment}`, callback, subscription.subscriptionArgs)
+        return topic.awsTopic.onEvent(`${topicName}_${subscription.name}_${environment}`, callback,
+            filterArgs(subscription.name, subscription.filter, subscription.subscriptionArgs))
     else
         throw `Cannot subscribe to this topic: ${topic.definition.name}`
 }
