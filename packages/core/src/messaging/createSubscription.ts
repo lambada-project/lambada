@@ -9,6 +9,35 @@ import { bundleOf, isLambdaFolder } from "../lambdas/bundles";
 export type SubscriptionEvent = TopicEvent
 export type SubscriptionCallback = LambdaHandler<SubscriptionEvent, void>
 
+type SnsFilterCondition =
+    | string
+    | number
+    | boolean
+    | null
+    | { prefix: string }
+    | { suffix: string }
+    | { 'equals-ignore-case': string }
+    | { 'anything-but': string | number | (string | number)[] | { prefix: string } | { suffix: string } }
+    | { numeric: (string | number)[] }
+    | { exists: boolean }
+    | { cidr: string }
+
+/** An SNS filter policy: each key lists the conditions any one of which matches its value. */
+export type SnsFilterPolicy = { $or?: SnsFilterPolicy[] } & { [key: string]: SnsFilterCondition[] | SnsFilterPolicy | SnsFilterPolicy[] | undefined }
+
+/** Which part of a message SNS matches the policy against: its message attributes, or its JSON body. */
+export type SnsSubscriptionFilter = { attributes: SnsFilterPolicy } | { body: SnsFilterPolicy }
+
+export const filterArgs = (subscriptionName: string, filter: SnsSubscriptionFilter | undefined, args: TopicEventSubscriptionArgs = {}): TopicEventSubscriptionArgs => {
+    if (!filter) return args
+    if (args.filterPolicy !== undefined || args.filterPolicyScope !== undefined) {
+        throw new Error(`${subscriptionName} sets both filter and subscriptionArgs.filterPolicy`)
+    }
+    return 'attributes' in filter
+        ? { ...args, filterPolicy: JSON.stringify(filter.attributes), filterPolicyScope: 'MessageAttributes' }
+        : { ...args, filterPolicy: JSON.stringify(filter.body), filterPolicyScope: 'MessageBody' }
+}
+
 export type LambdaSubscription<TNames extends LambadaGrantsShape = LambadaGrantsShape> = {
     name: string
     /** A `FolderLambda` deploys a pre-built bundle instead of a serialized closure. */
@@ -17,6 +46,7 @@ export type LambdaSubscription<TNames extends LambadaGrantsShape = LambadaGrants
     environmentVariables?: EmbroideryEnvironmentVariables
     resources: LambadaResourceRequest<TNames>
     subscriptionArgs?: TopicEventSubscriptionArgs
+    filter?: SnsSubscriptionFilter
 }
 
 export type LambadaSubscriptionHandler<TNames extends LambadaGrantsShape = LambadaGrantsShape> =
@@ -100,7 +130,8 @@ export const subscribeToTopic = (
 
     )
     if (topic.awsTopic)
-        return topic.awsTopic.onEvent(`${topicName}_${subscription.name}_${environment}`, callback, subscription.subscriptionArgs)
+        return topic.awsTopic.onEvent(`${topicName}_${subscription.name}_${environment}`, callback,
+            filterArgs(subscription.name, subscription.filter, subscription.subscriptionArgs))
     else
         throw `Cannot subscribe to this topic: ${topic.definition.name}`
 }
