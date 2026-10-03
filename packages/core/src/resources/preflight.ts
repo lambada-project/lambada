@@ -17,6 +17,7 @@ type Declaration = {
     path?: string
     method?: string
     resources?: LambadaResourceRequest<any>
+    onFailure?: Partial<Record<ResourceKind, unknown>>
 } & Partial<Record<ResourceKind, unknown>>
 
 /**
@@ -39,13 +40,14 @@ const missingBindings = (
     functionName: string,
     declaration: Declaration
 ): MissingResource[] =>
-    Object.entries(resourceLookups(context)).flatMap(([kind, record]) => {
-        const name = declaration[kind as ResourceKind]
+    [declaration, declaration.onFailure ?? {}].flatMap(bindings =>
+        Object.entries(resourceLookups(context)).flatMap(([kind, record]) => {
+            const name = bindings[kind as ResourceKind]
 
-        if (typeof name !== 'string' || record?.[name] !== undefined) return []
+            if (typeof name !== 'string' || record?.[name] !== undefined) return []
 
-        return [{ functionName, kind, name, available: Object.keys(record ?? {}) }]
-    })
+            return [{ functionName, kind, name, available: Object.keys(record ?? {}) }]
+        }))
 
 /**
  * Checks every plain declaration against the stack before a single function is built, so a run with

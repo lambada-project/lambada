@@ -2,6 +2,7 @@ import * as aws from "@pulumi/aws";
 import { EventRuleEvent, EventRuleEventSubscription } from "@pulumi/aws/cloudwatch";
 import { LambadaResources, EmbroideryEnvironmentVariables, mergeOptions } from "..";
 import { createLambda, LambdaFolder, LambdaHandler, LambdaOptions } from "../lambdas";
+import { AsyncFailures, asyncInvocationConfig, failureDestination } from "../lambdas/asyncFailures";
 import { bundleOf, isLambdaFolder } from "../lambdas/bundles";
 import { asCreator, LambadaDefinition } from "../resources/creators";
 import { dynamodbKeyGrants, LambadaGrantsShape, LambadaResourceRequest, resolveEnvironment, resolveGrants } from "../resources/grants";
@@ -31,7 +32,7 @@ export const scheduleExpression = (name: string, schedule: Schedule): string => 
     return `cron(${minute} ${hour} ${dayOfMonth ?? (dayOfWeek === undefined ? '*' : '?')} ${month} ${dayOfWeek ?? '?'} ${year})`
 }
 
-export type LambdaSchedule<TNames extends LambadaGrantsShape = LambadaGrantsShape> = {
+export type LambdaSchedule<TNames extends LambadaGrantsShape = LambadaGrantsShape> = AsyncFailures & {
     name: string
     schedule: Schedule
     callback: ScheduleCallback | LambdaFolder
@@ -47,6 +48,8 @@ export const createSchedule = (context: LambadaResources, schedule: LambdaSchedu
     const environment = context.environment
     const expression = scheduleExpression(schedule.name, schedule.schedule)
     const grants = [...resolveGrants(context, { name: schedule.name, resources: schedule.resources }), ...dynamodbKeyGrants(context)]
+    const destination = failureDestination(context, schedule.name, schedule)
+    if (destination) grants.push(destination.grant)
     const envVars = resolveEnvironment(context, {
         name: schedule.name,
         resources: schedule.resources,
@@ -66,6 +69,8 @@ export const createSchedule = (context: LambadaResources, schedule: LambdaSchedu
         `${schedule.name} in ${environment} on ${expression}`,
         context.globalTags
     )
+
+    asyncInvocationConfig(schedule.name, environment, (handler as aws.lambda.Function).name, schedule, destination?.arn)
 
     return aws.cloudwatch.onSchedule(`${schedule.name}-${environment}`, expression, handler)
 }

@@ -5,11 +5,12 @@ import { TopicEvent, TopicEventSubscription, TopicEventSubscriptionArgs } from "
 import { LambadaResources, EmbroideryEnvironmentVariables, mergeOptions } from "..";
 import { LambadaResourceRequest, LambadaGrantsShape, ResourceRef, resolveEnvironment, resolveGrants, resolveRef, dynamodbKeyGrants } from "../resources/grants";
 import { bundleOf, isLambdaFolder } from "../lambdas/bundles";
+import { AsyncFailures, asyncInvocationConfig, failureDestination } from "../lambdas/asyncFailures";
 
 export type SubscriptionEvent = TopicEvent
 export type SubscriptionCallback = LambdaHandler<SubscriptionEvent, void>
 
-export type LambdaSubscription<TNames extends LambadaGrantsShape = LambadaGrantsShape> = {
+export type LambdaSubscription<TNames extends LambadaGrantsShape = LambadaGrantsShape> = AsyncFailures & {
     name: string
     /** A `FolderLambda` deploys a pre-built bundle instead of a serialized closure. */
     callback: SubscriptionCallback | LambdaFolder
@@ -61,6 +62,8 @@ export const subscribeToTopic = (
     //     Effect: "Allow"
     // })
     const grants = resolveGrants(context, { name: subscription.name, resources: subscription.resources })
+    const destination = failureDestination(context, subscription.name, subscription)
+    if (destination) grants.push(destination.grant)
 
     grants.push(...dynamodbKeyGrants(context))
 
@@ -87,6 +90,8 @@ export const subscribeToTopic = (
         context.globalTags
 
     )
+    asyncInvocationConfig(subscription.name, environment, (callback as aws.lambda.Function).name, subscription, destination?.arn)
+
     if (topic.awsTopic)
         return topic.awsTopic.onEvent(`${topicName}_${subscription.name}_${environment}`, callback, subscription.subscriptionArgs)
     else

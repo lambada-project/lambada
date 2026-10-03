@@ -48,6 +48,13 @@ describe('preflight', () => {
         expect(message).toContain("environment variable 'STRIPE_KEYY'")
     })
 
+    test('checks the queue or topic a failed event is sent to', () => {
+        expect(run([
+            { name: 'onStatusChanged', topic: 'statusChanged', resources: [], onFailure: { queue: 'failedEvents' } },
+            { name: 'sweep', resources: [], onFailure: { topic: 'statusChanged' } },
+        ])).toThrow(/failedEvents/)
+    })
+
     test('shows what the stack does carry, so a near miss is obvious', () => {
         expect(run([{ name: 'getPet', resources: { table: { pet: ['dynamodb:GetItem'] } } }]))
             .toThrow(/the stack has: pets, stores/)
