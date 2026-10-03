@@ -94,7 +94,7 @@ function findTable(name: string, environment: string): pulumi.Output<TableRefere
     const tableName = `${name}-${environment}`
     return pulumi.output(aws.dynamodb.getTable({
         name: tableName,
-    }, { async: true }));
+    }, { async: true })).apply(table => ({ ...table, kmsKeyArn: table.serverSideEncryption?.kmsKeyArn ?? '' }));
 }
 
 export type TableIndexDefinition = dynamodb.TableGlobalSecondaryIndex
@@ -154,7 +154,8 @@ export const createDynamoDbTables = (
                     arn: awsTable.arn,
                     name: awsTable.name,
                     hashKey: awsTable.hashKey,
-                    streamArn: awsTable.streamArn
+                    streamArn: awsTable.streamArn,
+                    kmsKeyArn: awsTable.serverSideEncryption.apply(encryption => encryption?.kmsKeyArn ?? ''),
                 }),
                 awsTable: awsTable,
                 definition: table,
@@ -198,6 +199,7 @@ type TableReference = {
     hashKey: string;
     /** Empty unless the table has a stream: the stream is its own resource in IAM. */
     streamArn: string
+    kmsKeyArn: string
 }
 
 export type DatabaseResultItem = {

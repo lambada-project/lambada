@@ -8,7 +8,7 @@ import { createCallback } from "./callbackWrapper";
 import * as SQS from '@aws-sdk/client-sqs'
 import { QueueHandlerEvent } from "../queue/createQueueHandler";
 import { getBody } from "@lambada/utils";
-import { dynamodbKeyGrants, resolveEnvironment, resolveGrants } from '../resources/grants';
+import { resolveEnvironment, resolveGrants } from '../resources/grants';
 import { lift2 } from '../inputs';
 
 
@@ -74,7 +74,6 @@ export function createWebhook(
 
 
     const handlerResources: LambdaResource[] = resolveGrants(context, { name: endpointParams.name, resources: endpointParams.resources })
-    handlerResources.push(...dynamodbKeyGrants(context))
 
     handlerResources.push({
         // queue: {

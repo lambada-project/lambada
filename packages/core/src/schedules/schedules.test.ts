@@ -53,14 +53,6 @@ describe('a schedule', () => {
             .toMatchObject({ variables: { QUOTES: 'quotes-test' } })
     })
 
-    test("is granted the stack's dynamodb key, as every other handler is", async () => {
-        const keyed = { ...context, kmsKeys: { dynamodb: { awsKmsKey: { arn: 'arn:key/dynamodb' } } } }
-        const [subscription] = createSchedules(keyed as never, [schedule('decryptQuotes')])
-        await registered(subscription)
-
-        expect(JSON.stringify(ofType('aws:iam/policy:Policy', 'decrypt-quotes-test').inputs.policy)).toContain('"Resource":"arn:key/dynamodb"')
-    })
-
     test('logs to the log group its lambda options name', async () => {
         const logged = { ...context, logGroups: createLogGroups(environment, { jobs: { name: 'jobs' } }) }
         const [subscription] = createSchedules(logged as never, [schedule('logQuotes', { lambdaOptions: { logGroup: 'jobs' } })])

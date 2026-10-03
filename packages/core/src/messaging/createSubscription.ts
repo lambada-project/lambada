@@ -3,7 +3,7 @@ import { createLambda, LambdaFolder, LambdaHandler, LambdaOptions, LambdaResourc
 import { MessagingContext, MessagingResultItem } from ".";
 import { TopicEvent, TopicEventSubscription, TopicEventSubscriptionArgs } from "@pulumi/aws/sns";
 import { LambadaResources, EmbroideryEnvironmentVariables, mergeOptions } from "..";
-import { LambadaResourceRequest, LambadaGrantsShape, ResourceRef, resolveEnvironment, resolveGrants, resolveRef, dynamodbKeyGrants } from "../resources/grants";
+import { LambadaResourceRequest, LambadaGrantsShape, ResourceRef, resolveEnvironment, resolveGrants, resolveRef } from "../resources/grants";
 import { bundleOf, isLambdaFolder } from "../lambdas/bundles";
 import { AsyncFailures, asyncInvocationConfig, failureDestination } from "../lambdas/asyncFailures";
 
@@ -94,7 +94,6 @@ export const subscribeToTopic = (
     const destination = failureDestination(context, subscription.name, subscription)
     if (destination) grants.push(destination.grant)
 
-    grants.push(...dynamodbKeyGrants(context))
 
     const envVars = resolveEnvironment(context, {
         name: subscription.name,

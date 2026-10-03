@@ -13,7 +13,7 @@ import { EmbroideryEnvironmentVariables } from '..';
 import { enums } from '@pulumi/aws/types';
 import { QueueResultItem } from '../queue';
 import { BucketResultItem } from '../buckets';
-import { lift } from '../inputs';
+import { lift, lift2 } from '../inputs';
 import type { LogGroupResultItem } from '../logs';
 import { PoolResultItem } from '../auth/pools';
 //import { NotificationResult, NotificationResultItem } from '../notifications';
@@ -203,6 +203,22 @@ const grantedResource = (
  */
 export type LambdaHandler<E, R> = (event: E, context: Context) => Promise<R> | void
 
+export const tableKeyStatements = (tables: { name: string, kmsKeyArn: string }[]): PolicyStatement[] => {
+    const tablesByKey = new Map<string, string[]>()
+    for (const { name, kmsKeyArn } of tables) {
+        if (kmsKeyArn) tablesByKey.set(kmsKeyArn, [...(tablesByKey.get(kmsKeyArn) ?? []), name])
+    }
+    return [...tablesByKey].map(([key, names]) => ({
+        Effect: 'Allow',
+        Action: ['kms:Decrypt'],
+        Resource: key,
+        Condition: {
+            StringLike: { 'kms:ViaService': 'dynamodb.*.amazonaws.com' },
+            StringEquals: { 'kms:EncryptionContext:aws:dynamodb:tableName': names },
+        },
+    }))
+}
+
 export const createLambda = <E, R>(
     name: string,
     environment: string,
@@ -235,8 +251,9 @@ export const createLambda = <E, R>(
 
     // enableXRay may be an Input, and an Input tested directly is an object: `false` would read as
     // true. The statement is added where the value is known, so the document becomes an Output.
-    const statements = lift(options?.enableXRay ?? false, enabled =>
-        enabled ? [...granted, AWSXRayDaemonWriteAccess] : granted)
+    const tables = pulumi.all(resources.flatMap(r => r.table ? [r.table.ref] : []))
+    const statements = lift2(options?.enableXRay ?? false, tables, (enabled, refs) =>
+        [...granted, ...tableKeyStatements(refs), ...(enabled ? [AWSXRayDaemonWriteAccess] : [])])
 
     const roleArn = overrideRole?.arn ??
         roleFor(name, environment, statements, grantsKey(environment, policyStatements, resources, options))

@@ -3,7 +3,7 @@ import * as aws from "@pulumi/aws";
 import { createLambda, LambdaFolder, LambdaHandler, LambdaOptions, LambdaResource } from '../lambdas';
 import { bundleOf } from '../lambdas/bundles';
 import { LambadaResources } from '../context';
-import { LambadaResourceRequest, LambadaGrantsShape, requireItem, resolveEnvironment, resolveGrants, dynamodbKeyGrants } from '../resources/grants';
+import { LambadaResourceRequest, LambadaGrantsShape, requireItem, resolveEnvironment, resolveGrants } from '../resources/grants';
 import { LogGroupsResult } from '../logs';
 import { AuthExecutionContext, toWrapperEnvVars } from '@lambada/utils';
 import { EmbroideryEnvironmentVariables } from '..';
@@ -214,7 +214,6 @@ export const createEndpoint = <E, R>(
         policyStatements = []
     }
 
-    grants.push(...dynamodbKeyGrants(lambadaContext))
 
     const envVars = resolveEnvironment(lambadaContext, { name, resources, environmentVariables })
 

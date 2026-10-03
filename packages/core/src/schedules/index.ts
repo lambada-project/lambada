@@ -5,7 +5,7 @@ import { createLambda, LambdaFolder, LambdaHandler, LambdaOptions } from "../lam
 import { AsyncFailures, asyncInvocationConfig, failureDestination } from "../lambdas/asyncFailures";
 import { bundleOf, isLambdaFolder } from "../lambdas/bundles";
 import { asCreator, LambadaDefinition } from "../resources/creators";
-import { dynamodbKeyGrants, LambadaGrantsShape, LambadaResourceRequest, resolveEnvironment, resolveGrants } from "../resources/grants";
+import { LambadaGrantsShape, LambadaResourceRequest, resolveEnvironment, resolveGrants } from "../resources/grants";
 
 export type ScheduleEvent = EventRuleEvent
 export type ScheduleCallback = LambdaHandler<ScheduleEvent, void>
@@ -47,7 +47,7 @@ export type LambadaScheduleDefinition = LambadaDefinition<LambdaSchedule<any>>
 export const createSchedule = (context: LambadaResources, schedule: LambdaSchedule<any>): EventRuleEventSubscription => {
     const environment = context.environment
     const expression = scheduleExpression(schedule.name, schedule.schedule)
-    const grants = [...resolveGrants(context, { name: schedule.name, resources: schedule.resources }), ...dynamodbKeyGrants(context)]
+    const grants = resolveGrants(context, { name: schedule.name, resources: schedule.resources })
     const destination = failureDestination(context, schedule.name, schedule)
     if (destination) grants.push(destination.grant)
     const envVars = resolveEnvironment(context, {
