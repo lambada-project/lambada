@@ -52,6 +52,14 @@ describe('a schedule', () => {
             .toMatchObject({ variables: { QUOTES: 'quotes-test' } })
     })
 
+    test("is granted the stack's dynamodb key, as every other handler is", async () => {
+        const keyed = { ...context, kmsKeys: { dynamodb: { awsKmsKey: { arn: 'arn:key/dynamodb' } } } }
+        const [subscription] = createSchedules(keyed as never, [schedule('decryptQuotes')])
+        await registered(subscription)
+
+        expect(JSON.stringify(ofType('aws:iam/policy:Policy', 'decrypt-quotes-test').inputs.policy)).toContain('"Resource":"arn:key/dynamodb"')
+    })
+
     test('may be written as a creator of the context', async () => {
         const [subscription] = createSchedules(context as never, [() => schedule('purgeQuotes')])
         await registered(subscription)

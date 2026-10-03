@@ -88,6 +88,11 @@ export const resolveRef = <T>(
  * anything is built and reports them together, so this only fires for a creator, which cannot be
  * inspected without executing it. One at a time is the best that path allows.
  */
+export const dynamodbKeyGrants = (context: LambadaResources): LambdaResource[] =>
+    context.kmsKeys?.dynamodb
+        ? [{ kmsKey: context.kmsKeys.dynamodb, access: ['kms:Encrypt', 'kms:Decrypt', 'kms:ReEncrypt*', 'kms:GenerateDataKey*', 'kms:DescribeKey'] }]
+        : []
+
 export const requireItem = <T>(
     record: Record<string, T> | undefined,
     { name, kind, ref }: LookupAsk<string>

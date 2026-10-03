@@ -3,7 +3,7 @@ import { createLambda, LambdaFolder, LambdaHandler, LambdaOptions, LambdaResourc
 import { MessagingContext, MessagingResultItem } from ".";
 import { TopicEvent, TopicEventSubscription, TopicEventSubscriptionArgs } from "@pulumi/aws/sns";
 import { LambadaResources, EmbroideryEnvironmentVariables, mergeOptions } from "..";
-import { LambadaResourceRequest, LambadaGrantsShape, ResourceRef, resolveEnvironment, resolveGrants, resolveRef } from "../resources/grants";
+import { LambadaResourceRequest, LambadaGrantsShape, ResourceRef, resolveEnvironment, resolveGrants, resolveRef, dynamodbKeyGrants } from "../resources/grants";
 import { bundleOf, isLambdaFolder } from "../lambdas/bundles";
 
 export type SubscriptionEvent = TopicEvent
@@ -62,19 +62,7 @@ export const subscribeToTopic = (
     // })
     const grants = resolveGrants(context, { name: subscription.name, resources: subscription.resources })
 
-    if (context.kmsKeys && context.kmsKeys.dynamodb) {
-        grants.push(
-            {
-                kmsKey: context.kmsKeys.dynamodb,
-                access: [
-                    "kms:Encrypt",
-                    "kms:Decrypt",
-                    "kms:ReEncrypt*",
-                    "kms:GenerateDataKey*",
-                    "kms:DescribeKey"
-                ],
-            })
-    }
+    grants.push(...dynamodbKeyGrants(context))
 
     const envVars = resolveEnvironment(context, {
         name: subscription.name,

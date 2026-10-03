@@ -4,7 +4,7 @@ import { LambadaResources, EmbroideryEnvironmentVariables, mergeOptions } from "
 import { createLambda, LambdaFolder, LambdaHandler, LambdaOptions } from "../lambdas";
 import { bundleOf, isLambdaFolder } from "../lambdas/bundles";
 import { asCreator, LambadaDefinition } from "../resources/creators";
-import { LambadaGrantsShape, LambadaResourceRequest, resolveEnvironment, resolveGrants } from "../resources/grants";
+import { dynamodbKeyGrants, LambadaGrantsShape, LambadaResourceRequest, resolveEnvironment, resolveGrants } from "../resources/grants";
 
 export type ScheduleEvent = EventRuleEvent
 export type ScheduleCallback = LambdaHandler<ScheduleEvent, void>
@@ -46,7 +46,7 @@ export type LambadaScheduleDefinition = LambadaDefinition<LambdaSchedule<any>>
 export const createSchedule = (context: LambadaResources, schedule: LambdaSchedule<any>): EventRuleEventSubscription => {
     const environment = context.environment
     const expression = scheduleExpression(schedule.name, schedule.schedule)
-    const grants = resolveGrants(context, { name: schedule.name, resources: schedule.resources })
+    const grants = [...resolveGrants(context, { name: schedule.name, resources: schedule.resources }), ...dynamodbKeyGrants(context)]
     const envVars = resolveEnvironment(context, {
         name: schedule.name,
         resources: schedule.resources,

@@ -4,7 +4,7 @@ import { LambadaResources, EmbroideryEnvironmentVariables, mergeOptions } from "
 import { createLambda, LambdaFolder, LambdaHandler, LambdaOptions, LambdaResource } from '../lambdas'
 
 import { QueueEvent, QueueEventSubscription, QueueEventSubscriptionArgs } from "@pulumi/aws/sqs";
-import { LambadaResourceRequest, LambadaGrantsShape, ResourceRef, resolveEnvironment, resolveGrants, resolveRef } from "../resources/grants";
+import { LambadaResourceRequest, LambadaGrantsShape, ResourceRef, resolveEnvironment, resolveGrants, resolveRef, dynamodbKeyGrants } from "../resources/grants";
 import { bundleOf, isLambdaFolder } from "../lambdas/bundles";
 
 export type QueueHandlerEvent = QueueEvent
@@ -33,19 +33,7 @@ export const createQueueHandler = (
 
     const grants = resolveGrants(context, { name: queueHandler.name, resources: queueHandler.resources })
 
-    if (context.kmsKeys && context.kmsKeys.dynamodb) {
-        grants.push(
-            {
-                kmsKey: context.kmsKeys.dynamodb,
-                access: [
-                    "kms:Encrypt",
-                    "kms:Decrypt",
-                    "kms:ReEncrypt*",
-                    "kms:GenerateDataKey*",
-                    "kms:DescribeKey"
-                ],
-            })
-    }
+    grants.push(...dynamodbKeyGrants(context))
 
     grants.push({
         arn: queue.awsQueue.arn,

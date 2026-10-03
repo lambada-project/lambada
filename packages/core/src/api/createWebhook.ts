@@ -8,7 +8,7 @@ import { createCallback } from "./callbackWrapper";
 import * as SQS from '@aws-sdk/client-sqs'
 import { QueueHandlerEvent } from "../queue/createQueueHandler";
 import { getBody } from "@lambada/utils";
-import { resolveEnvironment, resolveGrants } from '../resources/grants';
+import { dynamodbKeyGrants, resolveEnvironment, resolveGrants } from '../resources/grants';
 import { lift2 } from '../inputs';
 
 
@@ -74,19 +74,7 @@ export function createWebhook(
 
 
     const handlerResources: LambdaResource[] = resolveGrants(context, { name: endpointParams.name, resources: endpointParams.resources })
-    if (context.kmsKeys && context.kmsKeys.dynamodb) {
-        handlerResources.push(
-            {
-                kmsKey: context.kmsKeys.dynamodb,
-                access: [
-                    "kms:Encrypt",
-                    "kms:Decrypt",
-                    "kms:ReEncrypt*",
-                    "kms:GenerateDataKey*",
-                    "kms:DescribeKey"
-                ],
-            })
-    }
+    handlerResources.push(...dynamodbKeyGrants(context))
 
     handlerResources.push({
         // queue: {

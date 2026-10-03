@@ -3,7 +3,7 @@ import * as aws from "@pulumi/aws";
 import { createLambda, LambdaFolder, LambdaHandler, LambdaOptions, LambdaResource } from '../lambdas';
 import { bundleOf } from '../lambdas/bundles';
 import { LambadaResources } from '../context';
-import { LambadaResourceRequest, LambadaGrantsShape, resolveEnvironment, resolveGrants } from '../resources/grants';
+import { LambadaResourceRequest, LambadaGrantsShape, resolveEnvironment, resolveGrants, dynamodbKeyGrants } from '../resources/grants';
 import { AuthExecutionContext, toWrapperEnvVars } from '@lambada/utils';
 import { EmbroideryEnvironmentVariables } from '..';
 import { CognitoAuthorizer, LambdaAuthorizer, Method } from '@pulumi/awsx/classic/apigateway';
@@ -213,19 +213,7 @@ export const createEndpoint = <E, R>(
         policyStatements = []
     }
 
-    if (lambadaContext.kmsKeys && lambadaContext.kmsKeys.dynamodb) {
-        grants.push(
-            {
-                kmsKey: lambadaContext.kmsKeys.dynamodb,
-                access: [
-                    "kms:Encrypt",
-                    "kms:Decrypt",
-                    "kms:ReEncrypt*",
-                    "kms:GenerateDataKey*",
-                    "kms:DescribeKey"
-                ],
-            })
-    }
+    grants.push(...dynamodbKeyGrants(lambadaContext))
 
     const envVars = resolveEnvironment(lambadaContext, { name, resources, environmentVariables })
 
