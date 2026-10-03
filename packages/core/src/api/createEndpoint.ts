@@ -3,7 +3,8 @@ import * as aws from "@pulumi/aws";
 import { createLambda, LambdaFolder, LambdaHandler, LambdaOptions, LambdaResource } from '../lambdas';
 import { bundleOf } from '../lambdas/bundles';
 import { LambadaResources } from '../context';
-import { LambadaResourceRequest, LambadaGrantsShape, resolveEnvironment, resolveGrants, dynamodbKeyGrants } from '../resources/grants';
+import { LambadaResourceRequest, LambadaGrantsShape, requireItem, resolveEnvironment, resolveGrants, dynamodbKeyGrants } from '../resources/grants';
+import { LogGroupsResult } from '../logs';
 import { AuthExecutionContext, toWrapperEnvVars } from '@lambada/utils';
 import { EmbroideryEnvironmentVariables } from '..';
 import { CognitoAuthorizer, LambdaAuthorizer, Method } from '@pulumi/awsx/classic/apigateway';
@@ -225,7 +226,7 @@ export const createEndpoint = <E, R>(
         envVars,
         grants,
         undefined,
-        mergeOptions(options, lambadaContext.api?.lambdaOptions),
+        mergeOptions(options, lambadaContext.api?.lambdaOptions, { functionName: name, logGroups: lambadaContext.logGroups }),
         `${lambadaContext.projectName} ${method} ${path}`,
         lambadaContext.globalTags
     )
@@ -248,7 +249,12 @@ export const createEndpoint = <E, R>(
 
 
 
-export function mergeOptions(lambdaOptions: LambdaOptions | undefined, globalOptions: LambdaOptions | undefined): LambdaOptions {
+export function mergeOptions(
+    lambdaOptions: LambdaOptions | undefined,
+    globalOptions: LambdaOptions | undefined,
+    stack?: { functionName: string, logGroups?: LogGroupsResult }
+): LambdaOptions {
+    const logGroup = lambdaOptions?.logGroup ?? globalOptions?.logGroup
     return {
         memorySize: lambdaOptions?.memorySize ?? globalOptions?.memorySize,
         vpcConfig: lambdaOptions?.vpcConfig ?? globalOptions?.vpcConfig,
@@ -259,6 +265,9 @@ export function mergeOptions(lambdaOptions: LambdaOptions | undefined, globalOpt
         timeout: lambdaOptions?.timeout ?? globalOptions?.timeout,
         layers: lambdaOptions?.layers ?? globalOptions?.layers,
         enableXRay: lambdaOptions?.enableXRay ?? globalOptions?.enableXRay,
+        logGroup: typeof logGroup === 'string' && stack
+            ? requireItem(stack.logGroups, { name: stack.functionName, kind: 'logGroup', ref: logGroup })
+            : logGroup,
     }
 }
 

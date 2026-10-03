@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import * as pulumi from '@pulumi/pulumi'
 import { createDynamoDbTables } from '../database'
+import { createLogGroups } from '../logs'
 import { createSchedules, LambdaSchedule, scheduleExpression } from '.'
 
 const created: pulumi.runtime.MockResourceArgs[] = []
@@ -58,6 +59,14 @@ describe('a schedule', () => {
         await registered(subscription)
 
         expect(JSON.stringify(ofType('aws:iam/policy:Policy', 'decrypt-quotes-test').inputs.policy)).toContain('"Resource":"arn:key/dynamodb"')
+    })
+
+    test('logs to the log group its lambda options name', async () => {
+        const logged = { ...context, logGroups: createLogGroups(environment, { jobs: { name: 'jobs' } }) }
+        const [subscription] = createSchedules(logged as never, [schedule('logQuotes', { lambdaOptions: { logGroup: 'jobs' } })])
+        await registered(subscription)
+
+        expect(ofType('aws:lambda/function:Function', 'logQuotes-test').inputs.loggingConfig).toEqual({ logFormat: 'Text', logGroup: '/lambada/jobs-test' })
     })
 
     test('may be written as a creator of the context', async () => {

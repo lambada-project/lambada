@@ -113,7 +113,7 @@ export function createWebhook(
         handlerResources,
         undefined,
         {
-            ...mergeOptions(endpointParams.options, context.api?.lambdaOptions),
+            ...mergeOptions(endpointParams.options, context.api?.lambdaOptions, { functionName: endpointParams.name, logGroups: context.logGroups }),
             timeout: endpointOptions.timeout,
         }
     )

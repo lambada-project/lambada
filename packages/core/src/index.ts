@@ -17,6 +17,7 @@ import { UserPool } from "@pulumi/aws/cognito/userPool";
 import { LambdaAuthorizer } from "@pulumi/awsx/classic/apigateway";
 import { createQueueHandlers, createQueues, LambadaQueueHandlerDefinition, LambadaQueues, QueuesResult } from "./queue";
 import { createSchedules, LambadaScheduleDefinition } from "./schedules";
+import { createLogGroups, LambadaLogGroups } from "./logs";
 import { OpenAPIObjectConfigV31 } from "@asteasolutions/zod-to-openapi/dist/v3.1/openapi-generator";
 import { LambdaOptions } from "./lambdas";
 import { BundleSource } from "./lambdas/bundles";
@@ -37,6 +38,7 @@ export * from './test_utils'
 export * from './messaging'
 export * from './queue'
 export * from './schedules'
+export * from './logs'
 export * from './auth/pools'
 export * from './buckets'
 export * from './resources'
@@ -98,6 +100,8 @@ export type LambadaRunArguments = {
     queuesRef?: LambadaQueues | QueuesResult,
     queueHandlerDefinitions?: readonly LambadaQueueHandlerDefinition[]
     scheduleDefinitions?: readonly LambadaScheduleDefinition[]
+
+    logGroups?: LambadaLogGroups
 
     /**
      * Pre-built artifacts by function name, for a definition carrying no `useBundle` of its own.
@@ -241,6 +245,7 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
         queues: queues,
         notifications: notifications,
         databases: databases,
+        logGroups: createLogGroups(environment, args.logGroups, globalTags),
         buckets: buckets,
         environment: environment,
         kmsKeys: encryptionKeys,
