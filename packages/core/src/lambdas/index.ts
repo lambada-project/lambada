@@ -220,23 +220,34 @@ export const tableKeyStatements = (tables: { name: string, kmsKeyArn: string }[]
     }))
 }
 
-export const createLambda = <E, R>(
-    name: string,
-    environment: string,
-    definition: LambdaHandler<E, R> | LambdaFolder,
-    policyStatements: aws.iam.PolicyStatement[],
-    environmentVariables: EmbroideryEnvironmentVariables,
-    resources: LambdaResource[],
-    overrideRole?: aws.iam.Role,
-    options?: LambdaOptions,
-    description?: string,
-    tags?: pulumi.Input<{ [key: string]: pulumi.Input<string> }>,
+export type LambdaArgs<E, R> = {
+    name: string
+    environment: string
+    definition: LambdaHandler<E, R> | LambdaFolder
+    policyStatements?: aws.iam.PolicyStatement[]
+    environmentVariables?: EmbroideryEnvironmentVariables
+    resources?: LambdaResource[]
+    /** Used as given, in place of the role its grants would build. */
+    role?: aws.iam.Role
+    options?: LambdaOptions
+    description?: string
+    tags?: pulumi.Input<{ [key: string]: pulumi.Input<string> }>
     logs?: LogsResult
-): aws.lambda.EventHandler<E, R> => {
+}
 
-    if (!policyStatements) policyStatements = []
-    if (!environmentVariables) environmentVariables = {}
-
+export const createLambda = <E, R>({
+    name,
+    environment,
+    definition,
+    policyStatements = [],
+    environmentVariables = {},
+    resources = [],
+    role,
+    options,
+    description = `${name}-${environment}`,
+    tags,
+    logs,
+}: LambdaArgs<E, R>): aws.lambda.EventHandler<E, R> => {
     const granted = [...policyStatements]
 
     var envVarsFromResources: EmbroideryEnvironmentVariables = {}
@@ -257,7 +268,7 @@ export const createLambda = <E, R>(
     const statements = lift2(options?.enableXRay ?? false, tables, (enabled, refs) =>
         [...granted, ...tableKeyStatements(refs), ...(enabled ? [AWSXRayDaemonWriteAccess] : [])])
 
-    const roleArn = overrideRole?.arn ??
+    const roleArn = role?.arn ??
         roleFor(name, environment, statements, grantsKey(environment, policyStatements, resources, options))
 
     const variables = {
@@ -284,8 +295,6 @@ export const createLambda = <E, R>(
         securityGroupIds: [],
         subnetIds: []
     }
-
-    description = description ?? `${name}-${environment}`
 
     const logGroup = logs && new aws.cloudwatch.LogGroup(`${name}-${environment}-logs`, {
         name: `${logs.prefix}/${name}-${environment}`,

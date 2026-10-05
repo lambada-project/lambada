@@ -18,7 +18,7 @@ const settled = <T>(o: pulumi.Input<T>): Promise<T> =>
     (pulumi.output(o) as unknown as { promise(): Promise<T> }).promise()
 
 const built = async (name: string, options: LambdaOptions, logs?: LogsResult) => {
-    const fn = createLambda(name, 'test', { functionFolder: '.', handler: 'index.main' }, [], {}, [], undefined, options, undefined, undefined, logs) as unknown as { arn: pulumi.Output<string> }
+    const fn = createLambda({ name, environment: 'test', definition: { functionFolder: '.', handler: 'index.main' }, options, logs }) as unknown as { arn: pulumi.Output<string> }
     await settled(fn.arn)
     return {
         fn: created.find(r => r.type === 'aws:lambda/function:Function' && r.name === `${name}-test`)!.inputs,

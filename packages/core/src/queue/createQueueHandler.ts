@@ -95,19 +95,16 @@ export const createQueueHandler = (
         ? queueHandler.callback
         : bundleOf(context.bundles, queueHandler.name)
 
-    const callback = createLambda<QueueHandlerEvent, void | QueueBatchResponse>(
-        queueHandler.name,
+    const callback = createLambda<QueueHandlerEvent, void | QueueBatchResponse>({
+        name: queueHandler.name,
         environment,
-        artifact ?? queueHandler.callback,
-        queueHandler.policyStatements ?? [],
-        envVars,
-        grants,
-        undefined,
-        mergeOptions(queueHandler.lambdaOptions, context.api?.lambdaOptions),
-        undefined,
-        undefined,
-        context.logs
-    )
+        definition: artifact ?? queueHandler.callback,
+        policyStatements: queueHandler.policyStatements,
+        environmentVariables: envVars,
+        resources: grants,
+        options: mergeOptions(queueHandler.lambdaOptions, context.api?.lambdaOptions),
+        logs: context.logs,
+    })
 
     if (queue.awsQueue)
     {

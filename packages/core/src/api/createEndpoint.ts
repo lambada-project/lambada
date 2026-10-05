@@ -216,19 +216,18 @@ export const createEndpoint = <E, R>(
 
     const envVars = resolveEnvironment(lambadaContext, { name, resources, environmentVariables })
 
-    const callback = createLambda<E, R>(
+    const callback = createLambda<E, R>({
         name,
         environment,
-        callbackDefinition,
+        definition: callbackDefinition,
         policyStatements,
-        envVars,
-        grants,
-        undefined,
-        mergeOptions(options, lambadaContext.api?.lambdaOptions),
-        `${lambadaContext.projectName} ${method} ${path}`,
-        lambadaContext.globalTags,
-        lambadaContext.logs
-    )
+        environmentVariables: envVars,
+        resources: grants,
+        options: mergeOptions(options, lambadaContext.api?.lambdaOptions),
+        description: `${lambadaContext.projectName} ${method} ${path}`,
+        tags: lambadaContext.globalTags,
+        logs: lambadaContext.logs,
+    })
 
     let auth: (CognitoAuthorizer | LambdaAuthorizer)[] = []
 

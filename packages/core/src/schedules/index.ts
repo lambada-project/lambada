@@ -57,19 +57,18 @@ export const createSchedule = (context: LambadaResources, schedule: LambdaSchedu
     })
     const artifact = isLambdaFolder(schedule.callback) ? schedule.callback : bundleOf(context.bundles, schedule.name)
 
-    const handler = createLambda<ScheduleEvent, void>(
-        schedule.name,
+    const handler = createLambda<ScheduleEvent, void>({
+        name: schedule.name,
         environment,
-        artifact ?? schedule.callback,
-        schedule.policyStatements ?? [],
-        envVars,
-        grants,
-        undefined,
-        mergeOptions(schedule.lambdaOptions, context.api?.lambdaOptions),
-        `${schedule.name} in ${environment} on ${expression}`,
-        context.globalTags,
-        context.logs
-    )
+        definition: artifact ?? schedule.callback,
+        policyStatements: schedule.policyStatements,
+        environmentVariables: envVars,
+        resources: grants,
+        options: mergeOptions(schedule.lambdaOptions, context.api?.lambdaOptions),
+        description: `${schedule.name} in ${environment} on ${expression}`,
+        tags: context.globalTags,
+        logs: context.logs,
+    })
 
     asyncInvocationConfig(schedule.name, environment, (handler as aws.lambda.Function).name, schedule, destination?.arn)
 

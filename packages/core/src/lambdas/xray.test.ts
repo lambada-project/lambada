@@ -21,8 +21,8 @@ let lambdas = 0
 const actionsFor = async (enableXRay: pulumi.Input<boolean> | undefined) => {
     const name = `xray${lambdas++}`
     const table = { ref: { arn: `arn:table/${name}`, name, streamArn: '' }, definition: { envKeyName: 'T', indexes: [] }, streamEnabled: false }
-    const fn = createLambda(name, 'test', { functionFolder: '.', handler: 'index.main' }, [], {},
-        [{ table: table as never, access: ['dynamodb:GetItem'] }], undefined, { enableXRay }) as unknown as { arn: pulumi.Output<string> }
+    const fn = createLambda({ name, environment: 'test', definition: { functionFolder: '.', handler: 'index.main' },
+        resources: [{ table: table as never, access: ['dynamodb:GetItem'] }], options: { enableXRay } }) as unknown as { arn: pulumi.Output<string> }
     await settled(fn.arn)
 
     const policy = created.find(r => r.type === 'aws:iam/policy:Policy' && r.name === `${name}-test-policy`)!.inputs.policy

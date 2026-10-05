@@ -105,19 +105,19 @@ export const subscribeToTopic = (
         ? subscription.callback
         : bundleOf(context.bundles, subscription.name)
 
-    const callback = createLambda<TopicEvent, void>(
-        subscription.name,
+    const callback = createLambda<TopicEvent, void>({
+        name: subscription.name,
         environment,
-        artifact ?? subscription.callback,
-        subscription.policyStatements ?? [],
-        envVars,
-        grants,
-        overrideRole,
-        mergeOptions(mergeOptions(subscription.lambdaOptions, options), context.api?.lambdaOptions),
-        `Handler for ${topic.definition.name} in ${environment} with subscription ${subscription.name}`,
-        context.globalTags,
-        context.logs
-    )
+        definition: artifact ?? subscription.callback,
+        policyStatements: subscription.policyStatements,
+        environmentVariables: envVars,
+        resources: grants,
+        role: overrideRole,
+        options: mergeOptions(mergeOptions(subscription.lambdaOptions, options), context.api?.lambdaOptions),
+        description: `Handler for ${topic.definition.name} in ${environment} with subscription ${subscription.name}`,
+        tags: context.globalTags,
+        logs: context.logs,
+    })
     asyncInvocationConfig(subscription.name, environment, (callback as aws.lambda.Function).name, subscription, destination?.arn)
 
     if (topic.awsTopic)

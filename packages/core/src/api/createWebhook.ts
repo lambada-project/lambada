@@ -103,22 +103,18 @@ export function createWebhook(
     }
 
 
-    const queueHandler = createLambda<any, any>(
-        endpointParams.name + '-handler',
-        context.environment,
-        handlerCallback,
-        [],
-        handlerEnvVars,
-        handlerResources,
-        undefined,
-        {
+    const queueHandler = createLambda<any, any>({
+        name: endpointParams.name + '-handler',
+        environment: context.environment,
+        definition: handlerCallback,
+        environmentVariables: handlerEnvVars,
+        resources: handlerResources,
+        options: {
             ...mergeOptions(endpointParams.options, context.api?.lambdaOptions),
             timeout: endpointOptions.timeout,
         },
-        undefined,
-        undefined,
-        context.logs
-    )
+        logs: context.logs,
+    })
 
     queue.onEvent(queueName, queueHandler, {
         batchSize: 1,
