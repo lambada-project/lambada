@@ -115,8 +115,8 @@ export const subscribeToTopic = (
         overrideRole,
         mergeOptions(mergeOptions(subscription.lambdaOptions, options), context.api?.lambdaOptions),
         `Handler for ${topic.definition.name} in ${environment} with subscription ${subscription.name}`,
-        context.globalTags
-
+        context.globalTags,
+        context.logs
     )
     asyncInvocationConfig(subscription.name, environment, (callback as aws.lambda.Function).name, subscription, destination?.arn)
 

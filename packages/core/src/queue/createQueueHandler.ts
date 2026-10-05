@@ -103,7 +103,10 @@ export const createQueueHandler = (
         envVars,
         grants,
         undefined,
-        mergeOptions(queueHandler.lambdaOptions, context.api?.lambdaOptions)
+        mergeOptions(queueHandler.lambdaOptions, context.api?.lambdaOptions),
+        undefined,
+        undefined,
+        context.logs
     )
 
     if (queue.awsQueue)

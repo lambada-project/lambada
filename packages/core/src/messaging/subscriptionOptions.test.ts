@@ -33,7 +33,8 @@ test("a subscription's own lambda options reach its function, over the caller's 
     const context = {
         environment,
         messaging: createMessaging(environment, { events: { name: 'events', envKeyName: 'EVENTS' } }),
-        api: { apiPath: '/api', lambdaOptions: { memorySize: 256, timeout: 30, logGroupPrefix: '/lambada/pets' } },
+        api: { apiPath: '/api', lambdaOptions: { memorySize: 256, timeout: 30 } },
+        logs: { prefix: '/lambada/pets' },
     }
 
     const subscription = subscribeToTopic(context as never, 'events', {

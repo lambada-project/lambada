@@ -17,6 +17,7 @@ import { UserPool } from "@pulumi/aws/cognito/userPool";
 import { LambdaAuthorizer } from "@pulumi/awsx/classic/apigateway";
 import { createQueueHandlers, createQueues, LambadaQueueHandlerDefinition, LambadaQueues, QueuesResult } from "./queue";
 import { createSchedules, LambadaScheduleDefinition } from "./schedules";
+import { LambadaLogs } from "./logs";
 import { OpenAPIObjectConfigV31 } from "@asteasolutions/zod-to-openapi/dist/v3.1/openapi-generator";
 import { LambdaOptions } from "./lambdas";
 import { BundleSource } from "./lambdas/bundles";
@@ -100,6 +101,8 @@ export type LambadaRunArguments = {
     queueHandlerDefinitions?: readonly LambadaQueueHandlerDefinition[]
     scheduleDefinitions?: readonly LambadaScheduleDefinition[]
 
+    /** Without it, every lambda keeps the log group Lambda gives it. */
+    logs?: LambadaLogs
 
     /**
      * Pre-built artifacts by function name, for a definition carrying no `useBundle` of its own.
@@ -236,7 +239,7 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
                 useApiKey: typeof args.auth?.useApiKey != 'undefined',
                 useAuthorizers: authorizers.length > 0
             },
-            lambdaOptions: { logGroupPrefix: `/lambada/${projectName}`, ...args.api?.lambdaDefaultOptions },
+            lambdaOptions: args.api?.lambdaDefaultOptions
         } : undefined,
         authorizers: authorizers,
         messaging: messaging,
@@ -244,6 +247,7 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
         notifications: notifications,
         databases: databases,
         buckets: buckets,
+        logs: args.logs && { prefix: `/lambada/${projectName}`, ...args.logs },
         environment: environment,
         kmsKeys: encryptionKeys,
         environmentVariables: args.environmentVariables || {},

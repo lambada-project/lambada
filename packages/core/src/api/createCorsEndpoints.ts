@@ -52,7 +52,7 @@ function createCorsFunction(origins: string[] | undefined, headers: string[] | u
     };
 
     return {
-        eventHandler: createLambda(name, embroideryContext.environment, callback, [], {}, [], sharedCorsRole, undefined, `${embroideryContext.projectName} OPTIONS ${path}`),
+        eventHandler: createLambda(name, embroideryContext.environment, callback, [], {}, [], sharedCorsRole, undefined, `${embroideryContext.projectName} OPTIONS ${path}`, undefined, embroideryContext.logs),
         method: 'OPTIONS',
         path: path,
         authorizers: []

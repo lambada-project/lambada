@@ -67,7 +67,8 @@ export const createSchedule = (context: LambadaResources, schedule: LambdaSchedu
         undefined,
         mergeOptions(schedule.lambdaOptions, context.api?.lambdaOptions),
         `${schedule.name} in ${environment} on ${expression}`,
-        context.globalTags
+        context.globalTags,
+        context.logs
     )
 
     asyncInvocationConfig(schedule.name, environment, (handler as aws.lambda.Function).name, schedule, destination?.arn)

@@ -114,7 +114,10 @@ export function createWebhook(
         {
             ...mergeOptions(endpointParams.options, context.api?.lambdaOptions),
             timeout: endpointOptions.timeout,
-        }
+        },
+        undefined,
+        undefined,
+        context.logs
     )
 
     queue.onEvent(queueName, queueHandler, {

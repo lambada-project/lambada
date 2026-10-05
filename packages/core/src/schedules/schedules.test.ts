@@ -52,8 +52,8 @@ describe('a schedule', () => {
             .toMatchObject({ variables: { QUOTES: 'quotes-test' } })
     })
 
-    test('logs to a log group of its own, for its project', async () => {
-        const [subscription] = createSchedules({ ...context, api: { apiPath: '/api', lambdaOptions: { logGroupPrefix: '/lambada/pets' } } } as never, [schedule('logQuotes')])
+    test('logs to a log group of its own when the stack declares logs, with no api in the stack', async () => {
+        const [subscription] = createSchedules({ ...context, api: undefined, logs: { prefix: '/lambada/pets' } } as never, [schedule('logQuotes')])
         await registered(subscription)
 
         expect(ofType('aws:lambda/function:Function', 'logQuotes-test').inputs.loggingConfig).toEqual({ logFormat: 'Text', logGroup: '/lambada/pets/logQuotes-test' })
