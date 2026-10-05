@@ -1,7 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import * as pulumi from '@pulumi/pulumi'
 import { createDynamoDbTables } from '../database'
-import { createLogGroups } from '../logs'
 import { createSchedules, LambdaSchedule, scheduleExpression } from '.'
 
 const created: pulumi.runtime.MockResourceArgs[] = []
@@ -53,12 +52,11 @@ describe('a schedule', () => {
             .toMatchObject({ variables: { QUOTES: 'quotes-test' } })
     })
 
-    test('logs to the log group its lambda options name', async () => {
-        const logged = { ...context, logGroups: createLogGroups(environment, { jobs: { name: 'jobs' } }) }
-        const [subscription] = createSchedules(logged as never, [schedule('logQuotes', { lambdaOptions: { logGroup: 'jobs' } })])
+    test('logs to a log group of its own, for its project', async () => {
+        const [subscription] = createSchedules({ ...context, api: { apiPath: '/api', lambdaOptions: { logGroupPrefix: '/lambada/pets' } } } as never, [schedule('logQuotes')])
         await registered(subscription)
 
-        expect(ofType('aws:lambda/function:Function', 'logQuotes-test').inputs.loggingConfig).toEqual({ logFormat: 'Text', logGroup: '/lambada/jobs-test' })
+        expect(ofType('aws:lambda/function:Function', 'logQuotes-test').inputs.loggingConfig).toEqual({ logFormat: 'Text', logGroup: '/lambada/pets/logQuotes-test' })
     })
 
     test('may be written as a creator of the context', async () => {

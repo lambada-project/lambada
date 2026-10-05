@@ -65,7 +65,7 @@ export const createSchedule = (context: LambadaResources, schedule: LambdaSchedu
         envVars,
         grants,
         undefined,
-        mergeOptions(schedule.lambdaOptions, context.api?.lambdaOptions, { functionName: schedule.name, logGroups: context.logGroups }),
+        mergeOptions(schedule.lambdaOptions, context.api?.lambdaOptions),
         `${schedule.name} in ${environment} on ${expression}`,
         context.globalTags
     )

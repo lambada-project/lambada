@@ -14,7 +14,7 @@ import { enums } from '@pulumi/aws/types';
 import { QueueResultItem } from '../queue';
 import { BucketResultItem } from '../buckets';
 import { lift, lift2 } from '../inputs';
-import type { LogGroupResultItem } from '../logs';
+import type { RetentionDays } from '../logs';
 import { PoolResultItem } from '../auth/pools';
 //import { NotificationResult, NotificationResultItem } from '../notifications';
 
@@ -128,7 +128,8 @@ export type LambdaOptions = {
      */
     enableXRay?: pulumi.Input<boolean>
 
-    logGroup?: string | LogGroupResultItem
+    logRetention?: { days: RetentionDays }
+    logGroupPrefix?: string
 }
 
 /** What one granted resource costs in IAM and in environment. */
@@ -285,10 +286,12 @@ export const createLambda = <E, R>(
 
     description = description ?? `${name}-${environment}`
 
-    if (typeof options?.logGroup === 'string') {
-        throw new Error(`${name} names the log group '${options.logGroup}', which only a stack's lambda options resolve`)
-    }
-    const loggingConfig = options?.logGroup ? { logFormat: 'Text', logGroup: options.logGroup.awsLogGroup.name } : undefined
+    const logGroup = options?.logGroupPrefix === undefined ? undefined : new aws.cloudwatch.LogGroup(`${name}-${environment}-logs`, {
+        name: `${options.logGroupPrefix}/${name}-${environment}`,
+        retentionInDays: options.logRetention?.days,
+        tags,
+    })
+    const loggingConfig = logGroup ? { logFormat: 'Text', logGroup: logGroup.name } : undefined
 
     if (typeof definition === 'function') {
         const callbackDefinition = definition as LambdaHandler<E, R>

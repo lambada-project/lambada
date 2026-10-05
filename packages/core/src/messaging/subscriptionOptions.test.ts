@@ -1,7 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import * as pulumi from '@pulumi/pulumi'
 import { mergeOptions } from '../api/createEndpoint'
-import { createLogGroups } from '../logs'
 import { createMessaging } from '.'
 import { subscribeToTopic } from './createSubscription'
 
@@ -34,18 +33,18 @@ test("a subscription's own lambda options reach its function, over the caller's 
     const context = {
         environment,
         messaging: createMessaging(environment, { events: { name: 'events', envKeyName: 'EVENTS' } }),
-        logGroups: createLogGroups(environment, { jobs: { name: 'jobs', retention: { days: 30 } } }),
-        api: { apiPath: '/api', lambdaOptions: { memorySize: 256, timeout: 30 } },
+        api: { apiPath: '/api', lambdaOptions: { memorySize: 256, timeout: 30, logGroupPrefix: '/lambada/pets' } },
     }
 
     const subscription = subscribeToTopic(context as never, 'events', {
         name: 'onEvent',
         callback: { functionFolder: '.', handler: 'index.main' },
         resources: {} as never,
-        lambdaOptions: { memorySize: 1024, logGroup: 'jobs' },
+        lambdaOptions: { memorySize: 1024, logRetention: { days: 30 } },
     }, { memorySize: 512 })
     await settled(subscription.func.arn)
 
     const args = created.find(r => r.type === 'aws:lambda/function:Function' && r.name === 'onEvent-test')!.inputs
-    expect(args).toMatchObject({ memorySize: 1024, timeout: 30, loggingConfig: { logGroup: '/lambada/jobs-test' } })
+    expect(args).toMatchObject({ memorySize: 1024, timeout: 30, loggingConfig: { logGroup: '/lambada/pets/onEvent-test' } })
+    expect(created.find(r => r.type === 'aws:cloudwatch/logGroup:LogGroup' && r.name === 'onEvent-test-logs')!.inputs.retentionInDays).toBe(30)
 })

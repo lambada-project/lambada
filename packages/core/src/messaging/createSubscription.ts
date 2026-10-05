@@ -113,7 +113,7 @@ export const subscribeToTopic = (
         envVars,
         grants,
         overrideRole,
-        mergeOptions(mergeOptions(subscription.lambdaOptions, options), context.api?.lambdaOptions, { functionName: subscription.name, logGroups: context.logGroups }),
+        mergeOptions(mergeOptions(subscription.lambdaOptions, options), context.api?.lambdaOptions),
         `Handler for ${topic.definition.name} in ${environment} with subscription ${subscription.name}`,
         context.globalTags
 

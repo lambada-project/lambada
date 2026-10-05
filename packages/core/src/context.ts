@@ -1,5 +1,4 @@
 import { CognitoAuthorizer, LambdaAuthorizer } from "@pulumi/awsx/classic/apigateway";
-import type { LogGroupsResult } from './logs'
 import { DatabaseResult } from "./database";
 import { SecretsResult, SecurityResult } from "./security";
 import { MessagingResult } from "./messaging";
@@ -33,7 +32,6 @@ export type LambadaResources = {
     queues?: QueuesResult
     notifications?: NotificationResult
     databases?: DatabaseResult
-    logGroups?: LogGroupsResult
     buckets?: BucketsResult
     environment: string
     kmsKeys?: SecurityResult
