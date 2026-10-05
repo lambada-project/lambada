@@ -2,7 +2,6 @@ import * as aws from "@pulumi/aws";
 import * as awsx from "@pulumi/awsx/classic";
 import { DatabaseResultItem } from "../database";
 import { SecurityResult } from "../security";
-import { attachPolicies, createAuthLambdas } from "./authLambdas";
 
 type CreateUserPoolOptions = {
     useEmailAsUsername?: boolean
@@ -12,7 +11,6 @@ type CreateUserPoolOptions = {
 export default function createUserPool(poolName: string, environment: string, kmsKeys: SecurityResult, options?: CreateUserPoolOptions) {
 
     const name = `${poolName}-${environment}`
-    //const lambdas = createAuthLambdas(environment, userAccountTable)
     const cognitoUserPool = new aws.cognito.UserPool(name, {
         name: name,
         // emailConfiguration: {
@@ -23,9 +21,6 @@ export default function createUserPool(poolName: string, environment: string, km
         // adminCreateUserConfig: { 
         //     inviteMessageTemplate // THIS IS COOL WHEN A USER SENDS EMAIL FROM THE LANDING PAGE!!
         // }
-        // lambdaConfig: {
-        //     postConfirmation: lambdas.postConfirmation.callback.arn
-        // },
 
         // schemas: [
         //     {
@@ -52,7 +47,6 @@ export default function createUserPool(poolName: string, environment: string, km
         protect: typeof options?.protect === 'undefined' ? true : options?.protect
     })
 
-    //attachPolicies(environment, lambdas, cognitoUserPool, userAccountTable, kmsKeys)
     // const main = new aws.cognito.UserPoolDomain("main", {
     //     domain: "pruebasjca01",
     //     userPoolId: cognitoUserPool.id,
