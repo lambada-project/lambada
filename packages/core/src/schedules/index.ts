@@ -14,7 +14,6 @@ export type ScheduleCallback = LambdaHandler<ScheduleEvent, void>
 type Units = 'minutes' | 'hours' | 'days'
 type Every = { [U in Units]: { [K in U]: number } & { [K in Exclude<Units, U>]?: never } }[Units]
 
-
 type Minute = Numbers<`${Digit}` | `${1 | 2 | 3 | 4 | 5}${Digit}`>
 type Hour = Numbers<`${Digit}` | `1${Digit}` | `2${0 | 1 | 2 | 3}`>
 type Day = Numbers<`${Positive}` | `${1 | 2}${Digit}` | `3${0 | 1}`>
@@ -25,31 +24,40 @@ const WEEKDAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'] as const
 export type Month = typeof MONTHS[number]
 export type Weekday = typeof WEEKDAYS[number]
 
-/** A step is at most the field's highest value, months and weekdays counted from 1: the most EventBridge takes. */
-type Field<T, Step> = T | readonly [T, ...T[]] | { from: T, to: T } | { every: Step, from?: T }
+type FormKey = 'from' | 'to' | 'every' | 'last' | 'nth' | 'of' | 'nearestWeekdayTo'
+/** Each object form holds its own keys and none of another's, which a union alone would let it mix. */
+type Form<T> = T & { [K in Exclude<FormKey, keyof T>]?: never }
+/** A step is at most a cyclic field's highest value, months and weekdays counted from 1; a year's is not bounded. */
+type Field<T, Step> = T | readonly [T, ...T[]] | Form<{ from: T, to: T }> | Form<{ every: Step, from?: T }>
 
 export type Cron = {
     minute?: Field<Minute, Exclude<Minute, 0>>
     hour?: Field<Hour, Exclude<Hour, 0>>
     month?: Field<Month, Numbers<`${Positive}` | `1${0 | 1 | 2}`>>
-    year?: Field<Year, Numbers<`${Positive}` | `${Positive}${Digit}` | `${Positive}${Digit}${Digit}` | `1${Digit}${Digit}${Digit}` | `2${0 | 1}${Digit}${Digit}`>>
+    year?: Field<Year, number>
 } & (
-    | { dayOfMonth?: Field<Day, Day> | 'last' | { nearestWeekdayTo: Day }, dayOfWeek?: never }
-    | { dayOfMonth?: never, dayOfWeek: Field<Weekday, 1 | 2 | 3 | 4 | 5 | 6 | 7> | { last: Weekday } | { nth: 1 | 2 | 3 | 4 | 5, of: Weekday } }
+    | { dayOfMonth?: Field<Day, Day> | 'last' | Nearest, dayOfWeek?: never }
+    | { dayOfMonth?: never, dayOfWeek: Field<Weekday, 1 | 2 | 3 | 4 | 5 | 6 | 7> | Last | Nth }
 )
+type Nearest = Form<{ nearestWeekdayTo: Day }>
+type Last = Form<{ last: Weekday }>
+type Nth = Form<{ nth: 1 | 2 | 3 | 4 | 5, of: Weekday }>
 
 export type Schedule = { every: Every } | { cron: Cron }
 
 const range = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, i) => from + i)
 
-/** A range may run backwards only in a field that wraps around; years do not, and a type cannot order two years. */
-const fields: { [F in keyof Cron]-?: { values: readonly (number | string)[], wraps: boolean } } = {
-    minute: { values: range(0, 59), wraps: true },
-    hour: { values: range(0, 23), wraps: true },
-    dayOfMonth: { values: range(1, 31), wraps: true },
-    month: { values: MONTHS, wraps: true },
-    dayOfWeek: { values: WEEKDAYS, wraps: true },
-    year: { values: range(1970, 2199), wraps: false },
+/**
+ * A cyclic field's range may run backwards around the cycle, and its step is at most its highest value.
+ * Years are not a cycle: a range ascends, which a type cannot order, and no step is too long.
+ */
+const fields: { [F in keyof Cron]-?: { values: readonly (number | string)[], cyclic: boolean } } = {
+    minute: { values: range(0, 59), cyclic: true },
+    hour: { values: range(0, 23), cyclic: true },
+    dayOfMonth: { values: range(1, 31), cyclic: true },
+    month: { values: MONTHS, cyclic: true },
+    dayOfWeek: { values: WEEKDAYS, cyclic: true },
+    year: { values: range(1970, 2199), cyclic: false },
 }
 
 type Refuse = () => never
@@ -60,16 +68,20 @@ const isList = <T>(v: Field<T, number>): v is readonly [T, ...T[]] => Array.isAr
 const one = (field: keyof Cron, v: Value, refuse: Refuse): string =>
     fields[field].values.includes(v) ? String(v) : refuse()
 
+/** A form is told apart by the key only it holds; every form declares the others as absent. */
+const isForm = <F extends object>(v: unknown, key: FormKey): v is F => typeof v === 'object' && v !== null && (v as Record<string, unknown>)[key] !== undefined
+const holdsOnly = (v: object, ...keys: FormKey[]) => Object.keys(v).every(k => (keys as string[]).includes(k))
+
 const plain = (field: keyof Cron) => (v: Field<Value, number>, refuse: Refuse): string => {
-    const { values, wraps } = fields[field]
+    const { values, cyclic } = fields[field]
     const last = values[values.length - 1]
-    const highest = typeof last === 'number' ? last : values.length
+    const longest = !cyclic ? Infinity : typeof last === 'number' ? last : values.length
     if (typeof v !== 'object') return one(field, v, refuse)
     if (isList(v)) return v.map(x => one(field, x, refuse)).join(',')
-    if ('to' in v) return wraps || values.indexOf(v.from) <= values.indexOf(v.to)
+    if (v.to !== undefined && v.from !== undefined) return holdsOnly(v, 'from', 'to') && (cyclic || values.indexOf(v.from) <= values.indexOf(v.to))
         ? `${one(field, v.from, refuse)}-${one(field, v.to, refuse)}`
         : refuse()
-    if ('every' in v && Number.isInteger(v.every) && v.every >= 1 && v.every <= highest)
+    if (v.every !== undefined && holdsOnly(v, 'every', 'from') && Number.isInteger(v.every) && v.every >= 1 && v.every <= longest)
         return `${v.from === undefined ? '*' : one(field, v.from, refuse)}/${v.every}`
     return refuse()
 }
@@ -81,11 +93,11 @@ const render: { [F in keyof Cron]-?: (value: NonNullable<Cron[F]>, refuse: Refus
     year: plain('year'),
     dayOfMonth: (v, refuse) =>
         v === 'last' ? 'L'
-        : typeof v === 'object' && 'nearestWeekdayTo' in v ? `${one('dayOfMonth', v.nearestWeekdayTo, refuse)}W`
+        : isForm<Nearest>(v, 'nearestWeekdayTo') ? (holdsOnly(v, 'nearestWeekdayTo') ? `${one('dayOfMonth', v.nearestWeekdayTo, refuse)}W` : refuse())
         : plain('dayOfMonth')(v, refuse),
     dayOfWeek: (v, refuse) =>
-        typeof v === 'object' && 'last' in v ? `${one('dayOfWeek', v.last, refuse)}L`
-        : typeof v === 'object' && 'nth' in v ? ([1, 2, 3, 4, 5].includes(v.nth) ? `${one('dayOfWeek', v.of, refuse)}#${v.nth}` : refuse())
+        isForm<Last>(v, 'last') ? (holdsOnly(v, 'last') ? `${one('dayOfWeek', v.last, refuse)}L` : refuse())
+        : isForm<Nth>(v, 'nth') ? (holdsOnly(v, 'nth', 'of') && [1, 2, 3, 4, 5].includes(v.nth) ? `${one('dayOfWeek', v.of, refuse)}#${v.nth}` : refuse())
         : plain('dayOfWeek')(v, refuse),
 }
 

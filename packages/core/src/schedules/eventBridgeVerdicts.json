@@ -77,5 +77,14 @@
     {"schedule": {"every": {"minutes": 2147483647}}, "expression": "rate(2147483647 minutes)", "eventBridge": "accepts"},
     {"schedule": {"every": {"minutes": 2147483648}}, "expression": "rate(2147483648 minutes)", "eventBridge": "rejects"},
     {"schedule": {"every": {"hours": 100000}}, "expression": "rate(100000 hours)", "eventBridge": "accepts"},
-    {"schedule": {"every": {"days": 1000000}}, "expression": "rate(1000000 days)", "eventBridge": "accepts"}
+    {"schedule": {"every": {"days": 1000000}}, "expression": "rate(1000000 days)", "eventBridge": "accepts"},
+    {"schedule": {"cron": {"dayOfMonth": {"every": 32}}}, "expression": "cron(* * */32 * ? *)", "eventBridge": "rejects"},
+    {"schedule": {"cron": {"month": {"every": 13}}}, "expression": "cron(* * * */13 ? *)", "eventBridge": "rejects"},
+    {"schedule": {"cron": {"dayOfWeek": {"every": 8}}}, "expression": "cron(* * ? * */8 *)", "eventBridge": "rejects"},
+    {"schedule": {"cron": {"dayOfMonth": {"every": 31, "from": 1}}}, "expression": "cron(* * 1/31 * ? *)", "eventBridge": "accepts"},
+    {"schedule": {"cron": {"year": {"every": 60}}}, "expression": "cron(* * * * ? */60)", "eventBridge": "accepts"},
+    {"schedule": {"cron": {"year": {"every": 100}}}, "expression": "cron(* * * * ? */100)", "eventBridge": "accepts"},
+    {"schedule": {"cron": {"year": {"every": 2199}}}, "expression": "cron(* * * * ? */2199)", "eventBridge": "accepts"},
+    {"schedule": {"cron": {"year": {"every": 2200}}}, "expression": "cron(* * * * ? */2200)", "eventBridge": "accepts"},
+    {"schedule": {"cron": {"year": {"every": 229, "from": 2026}}}, "expression": "cron(* * * * ? 2026/229)", "eventBridge": "accepts"}
 ]

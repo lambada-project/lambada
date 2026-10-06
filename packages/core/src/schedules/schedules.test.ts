@@ -120,7 +120,7 @@ describe('a schedule expression', () => {
         const within: Cron[] = [
             { minute: 0 }, { minute: 59 }, { hour: 23 }, { dayOfMonth: 1 }, { dayOfMonth: 31 }, { year: 1970 }, { year: 2199 },
             { minute: { every: 59 } }, { hour: { every: 23 } }, { dayOfMonth: { every: 31 } }, { month: { every: 12 } },
-            { dayOfWeek: { every: 7 } }, { year: { every: 2199 } },
+            { dayOfWeek: { every: 7 } }, { year: { every: 2199 } }, { year: { every: 2200 } },
         ]
         const beyond: unknown[] = [
             // @ts-expect-error
@@ -147,11 +147,24 @@ describe('a schedule expression', () => {
             { month: { every: 13 } } satisfies Cron,
             // @ts-expect-error
             { dayOfWeek: { every: 8 } } satisfies Cron,
-            // @ts-expect-error
-            { year: { every: 2200 } } satisfies Cron,
         ]
         for (const cron of within) expect(() => scheduleExpression('s', { cron })).not.toThrow()
         for (const cron of beyond) expect(() => scheduleExpression('s', { cron } as never)).toThrow('which a cron does not take there')
+    })
+
+    test('takes one form of a field at a time', () => {
+        const typeOnly = () => {
+            // @ts-expect-error
+            ({ minute: { from: 5, to: 10, every: 2 } }) satisfies Cron;
+            // @ts-expect-error
+            ({ minute: 0, dayOfWeek: { last: 'FRI', nth: 2, of: 'MON' } }) satisfies Cron;
+            // @ts-expect-error
+            ({ dayOfMonth: { nearestWeekdayTo: 15, every: 2 } }) satisfies Cron
+        }
+        expect(typeOnly).toBeFunction()
+        expect(() => scheduleExpression('report', { cron: { minute: { from: 5, to: 10, every: 2 } } } as never)).toThrow('report sets minute to')
+        expect(() => scheduleExpression('report', { cron: { dayOfWeek: { last: 'FRI', nth: 2, of: 'MON' } } } as never)).toThrow('report sets dayOfWeek to')
+        expect(() => scheduleExpression('report', { cron: { dayOfMonth: { nearestWeekdayTo: 15, every: 2 } } } as never)).toThrow('report sets dayOfMonth to')
     })
 
     test('refuses what a field cannot hold when the types are bypassed', () => {
