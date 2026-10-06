@@ -7,13 +7,17 @@ import { createLambda, LambdaFolder, LambdaHandler, LambdaOptions, LambdaResourc
 import { QueueEvent, QueueEventSubscription, QueueEventSubscriptionArgs } from "@pulumi/aws/sqs";
 import { LambadaResourceRequest, LambadaGrantsShape, ResourceRef, resolveEnvironment, resolveGrants, resolveRef } from "../resources/grants";
 import { bundleOf, isLambdaFolder } from "../lambdas/bundles";
-import { BodyPolicy, requireFilter, StringAttributePolicy } from "../filters";
+import { BodyPolicy, Conditions, requireFilter, StringAttributePolicy } from "../filters";
 
 export type QueueHandlerEvent = QueueEvent
 export type QueueBatchResponse = { batchItemFailures: { itemIdentifier: string }[] }
 export type QueueHandlerCallback = LambdaHandler<QueueHandlerEvent, void | QueueBatchResponse>
 
-export type QueueHandlerFilter = { body: BodyPolicy } | { attributes: StringAttributePolicy }
+/** A body that is not JSON is matched by conditions on the whole string; a body and its attributes both must match. */
+type QueueBody = BodyPolicy | Conditions<string>
+export type QueueHandlerFilter =
+    | { body: QueueBody, attributes?: StringAttributePolicy }
+    | { body?: QueueBody, attributes: StringAttributePolicy }
 
 export type LambdaQueueHandler<TNames extends LambadaGrantsShape = LambadaGrantsShape> = {
     name: string
@@ -30,13 +34,16 @@ export type LambdaQueueHandler<TNames extends LambadaGrantsShape = LambadaGrants
     maximumConcurrency?: number
 }
 
-const filterPattern = (name: string, filter: QueueHandlerFilter) => {
-    if ('body' in filter) {
-        requireFilter.sqsBody(name, filter.body)
-        return { body: filter.body }
+const isPlain = (body: QueueBody): body is Conditions<string> => Array.isArray(body)
+
+const filterPattern = (name: string, { body, attributes }: QueueHandlerFilter) => {
+    if (body && isPlain(body)) requireFilter.sqsStrings(name, { body })
+    else if (body) requireFilter.sqsBody(name, body)
+    if (attributes) requireFilter.sqsStrings(name, attributes)
+    return {
+        ...(body && { body }),
+        ...(attributes && { messageAttributes: Object.fromEntries(Object.entries(attributes).map(([attribute, conditions]) => [attribute, { stringValue: conditions }])) }),
     }
-    requireFilter.sqsAttributes(name, filter.attributes)
-    return { messageAttributes: Object.fromEntries(Object.entries(filter.attributes).map(([attribute, conditions]) => [attribute, { stringValue: conditions }])) }
 }
 
 export const eventSourceMappingArgs = ({ name, filter, reportBatchItemFailures, maximumConcurrency }: LambdaQueueHandler<any>) => ({

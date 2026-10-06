@@ -21,14 +21,15 @@ const grammars = {
     snsAttributes: { nested: false, or: true, values: 'scalars', bounded: true },
     snsBody: { nested: true, or: true, values: 'scalars', bounded: true },
     sqsBody: { nested: true, or: true, values: 'scalars', bounded: false },
-    sqsAttributes: { nested: false, or: false, values: 'strings', bounded: false },
+    sqsStrings: { nested: false, or: false, values: 'strings', bounded: false },
 } as const satisfies Record<string, Grammar>
 type Grammars = typeof grammars
 
 type Value<G extends Grammar> = G['values'] extends 'strings' ? string : Scalar
 
-type Matches = { prefix: string, suffix: string, wildcard: string }
-type Exclusions = Matches & { 'equals-ignore-case': string | NonEmpty<string> }
+type IgnoringCase = { 'equals-ignore-case': string }
+type Matches = { prefix: string | IgnoringCase, suffix: string | IgnoringCase, wildcard: string }
+type Exclusions = Record<'prefix' | 'suffix' | 'wildcard' | 'equals-ignore-case', string | NonEmpty<string>>
 type Operators<V extends Scalar> = Matches & {
     'equals-ignore-case': string
     exists: boolean
@@ -53,7 +54,7 @@ type PolicyOf<G extends Grammar> = Policy<G['nested'], G['or'], Value<G>>
  */
 export type AttributePolicy = PolicyOf<Grammars['snsAttributes']>
 export type BodyPolicy = PolicyOf<Grammars['snsBody']>
-export type StringAttributePolicy = PolicyOf<Grammars['sqsAttributes']>
+export type StringAttributePolicy = PolicyOf<Grammars['sqsStrings']>
 type AnyPolicy = AttributePolicy | BodyPolicy | StringAttributePolicy
 type Entry = AnyPolicy[string]
 
@@ -85,10 +86,18 @@ const oneOf = <T extends object>(checks: Checks<T>, condition: { [K in keyof T]?
     return keys.length === 1 && keys[0] in checks && check(checks, keys[0], condition)
 }
 
-/** Both services reject consecutive wildcards. */
-const isPattern = (v: unknown): v is string => isString(v) && !v.includes('**')
-const matches: Checks<Matches> = { prefix: isString, suffix: isString, wildcard: isPattern }
-const exclusions: Checks<Exclusions> = { ...matches, 'equals-ignore-case': v => isString(v) || nonEmpty(v, isString) }
+/** `\\*` and `\\\\` are a literal star and backslash; both services reject two wildcards that meet. */
+const isPattern = (v: unknown): v is string => isString(v) && !v.replace(/\\[\\*]/g, '_').includes('**')
+const oneOrMany = (is: (v: unknown) => boolean) => (v: unknown) => is(v) || nonEmpty(v, (x): x is unknown => is(x))
+const ignoringCase: Checks<IgnoringCase> = { 'equals-ignore-case': isString }
+const caseless = (v: string | IgnoringCase) => isString(v) || oneOf(ignoringCase, v)
+const matches: Checks<Matches> = { prefix: caseless, suffix: caseless, wildcard: isPattern }
+const exclusions: Checks<Exclusions> = {
+    prefix: oneOrMany(isString),
+    suffix: oneOrMany(isString),
+    wildcard: oneOrMany(isPattern),
+    'equals-ignore-case': oneOrMany(isString),
+}
 const anythingBut = (numbers: boolean) => (v: Ops['anything-but']) => {
     if (isString(v)) return true
     if (isNumber(v)) return numbers
@@ -112,11 +121,16 @@ const isPolicy = (v: unknown): v is AnyPolicy => isRecord(v) && Object.keys(v).l
 const isBranches = (key: string, v: Entry): v is Extract<Entry, Branches<AnyPolicy>> => key === '$or' && isArray(v) && v.length >= 2
 const isConditions = (v: Entry): v is Conditions => isArray(v) && v.length > 0
 
-const stars = (c: Condition) => {
-    if (typeof c !== 'object' || c === null) return 0
-    const pattern = 'wildcard' in c ? c.wildcard : 'anything-but' in c && isRecord(c['anything-but']) ? c['anything-but'].wildcard : undefined
-    return isString(pattern) ? pattern.split('*').length - 1 : 0
+/** A condition's wildcard patterns; one without any is still a pattern of the field. */
+const patterns = (c: Condition): string[] => {
+    const p = typeof c !== 'object' || c === null ? undefined
+        : 'wildcard' in c ? c.wildcard
+        : 'anything-but' in c && isRecord(c['anything-but']) ? c['anything-but'].wildcard
+        : undefined
+    return isString(p) ? [p] : nonEmpty(p, isString) ? [...p] : ['']
 }
+/** SNS's three-per-pattern bound counts an escaped `\\*` too. */
+const stars = (pattern: string) => pattern.split('*').length - 1
 const points = (stars: number) => stars > 1 ? 3 * stars : stars
 
 type Bounds = { pairs: Set<string>, combinations: number, complexity: number, stars: number }
@@ -139,10 +153,10 @@ const bounds = (p: AnyPolicy, path = '', depth = 1): Bounds => {
             b.combinations *= branches.reduce((sum, m) => sum + m.combinations, 0)
         }
         else if (isConditions(v)) {
-            const counts = v.map(stars)
+            const counts = v.flatMap(patterns).map(stars)
             b.pairs.add(`${path}${key}=${JSON.stringify(v)}`)
             b.combinations *= v.length * depth
-            b.complexity += counts.reduce((sum, n) => sum + points(n), 0) * v.length
+            b.complexity += counts.reduce((sum, n) => sum + points(n), 0) * counts.length
             b.stars = Math.max(b.stars, ...counts)
         }
         else if (isPolicy(v)) {
@@ -186,5 +200,5 @@ export const requireFilter: { [G in keyof Grammars]: (name: string, policy: Poli
     snsAttributes: filterCheck(grammars.snsAttributes),
     snsBody: filterCheck(grammars.snsBody),
     sqsBody: filterCheck(grammars.sqsBody),
-    sqsAttributes: filterCheck(grammars.sqsAttributes),
+    sqsStrings: filterCheck(grammars.sqsStrings),
 }

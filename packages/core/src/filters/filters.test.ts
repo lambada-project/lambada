@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import verdicts from './awsVerdicts.json'
 import deliveries from './snsDeliveries.json'
+import lambdaDeliveries from './lambdaDeliveries.json'
 import { AttributePolicy, BodyPolicy, StringAttributePolicy } from '.'
 import { filterArgs } from '../messaging/createSubscription'
 import { eventSourceMappingArgs, LambdaQueueHandler } from '../queue/createQueueHandler'
@@ -110,4 +111,23 @@ describe('a filter, against what SNS delivered by it', () => {
         })
         expect(written).toEqual([])
     })
+})
+
+describe('a queue handler filter, against what Lambda delivered by it', () => {
+    test('is written as the pattern Lambda delivered by', () => {
+        expect(lambdaDeliveries.filter(d => eventSourceMappingArgs(queueHandler(d.filter as never)).filterCriteria?.filters[0].pattern !== d.pattern)).toEqual([])
+    })
+})
+
+test('takes a body as text or JSON, with or beside its attributes, and the case-insensitive and listed forms', () => {
+    const typeOnly = () => {
+        queueHandler({ body: [{ prefix: 'ERROR' }] })
+        queueHandler({ body: { type: ['order.created'] }, attributes: { kind: ['urgent'] } })
+        queueHandler({ body: { name: [{ prefix: { 'equals-ignore-case': 'ab' } }, { 'anything-but': { suffix: ['.tmp', '.bak'] } }] } })
+        // @ts-expect-error
+        queueHandler({})
+        // @ts-expect-error
+        queueHandler({ body: [1] })
+    }
+    expect(typeOnly).toBeFunction()
 })
