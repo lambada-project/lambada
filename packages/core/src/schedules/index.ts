@@ -5,6 +5,7 @@ import { createLambda, LambdaFolder, LambdaHandler, LambdaOptions } from "../lam
 import { AsyncFailures, asyncInvocationConfig, failureDestination } from "../lambdas/asyncFailures";
 import { bundleOf, isLambdaFolder } from "../lambdas/bundles";
 import { asCreator, LambadaDefinition } from "../resources/creators";
+import { Digit, Numbers, Positive } from "../numbers";
 import { LambadaGrantsShape, LambadaResourceRequest, resolveEnvironment, resolveGrants } from "../resources/grants";
 
 export type ScheduleEvent = EventRuleEvent
@@ -13,9 +14,6 @@ export type ScheduleCallback = LambdaHandler<ScheduleEvent, void>
 type Units = 'minutes' | 'hours' | 'days'
 type Every = { [U in Units]: { [K in U]: number } & { [K in Exclude<Units, U>]?: never } }[Units]
 
-type Digit = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
-type Positive = Exclude<Digit, 0>
-type Numbers<S> = S extends `${infer N extends number}` ? N : never
 
 type Minute = Numbers<`${Digit}` | `${1 | 2 | 3 | 4 | 5}${Digit}`>
 type Hour = Numbers<`${Digit}` | `1${Digit}` | `2${0 | 1 | 2 | 3}`>

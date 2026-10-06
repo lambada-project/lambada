@@ -68,7 +68,17 @@ describe('an async lambda that fails', () => {
     })
 
     test('keeps events between 1 minute and 6 hours', () => {
-        expect(() => createSchedules(context as never, [schedule('stale', { maximumEventAge: { hours: 7 } })]))
+        const typeOnly = () => {
+            // @ts-expect-error
+            schedule('stale', { maximumEventAge: { minutes: 0 } })
+            // @ts-expect-error
+            schedule('stale', { maximumEventAge: { minutes: 361 } })
+            // @ts-expect-error
+            schedule('stale', { maximumEventAge: { hours: 7 } })
+            schedule('fresh', { maximumEventAge: { minutes: 360 } })
+        }
+        expect(typeOnly).toBeFunction()
+        expect(() => createSchedules(context as never, [schedule('stale', { maximumEventAge: { hours: 7 } as never })]))
             .toThrow('stale keeps events for 25200 seconds; Lambda keeps them between 1 minute and 6 hours')
     })
 })

@@ -5,8 +5,10 @@ import type { MessagingResultItem } from "../messaging";
 import type { QueueResultItem } from "../queue";
 import { resolveRef, ResourceRef } from "../resources/grants";
 import type { LambdaResource } from ".";
+import type { Digit, Numbers, Positive } from "../numbers";
 
-type Age = ({ minutes: number, hours?: never } | { hours: number, minutes?: never })
+type Minutes = Numbers<`${Positive}` | `${Positive}${Digit}` | `${1 | 2}${Digit}${Digit}` | `3${0 | 1 | 2 | 3 | 4 | 5}${Digit}` | '360'>
+type Age = { minutes: Minutes, hours?: never } | { hours: 1 | 2 | 3 | 4 | 5 | 6, minutes?: never }
 
 export type AsyncFailures = {
     onFailure?: { queue: ResourceRef<QueueResultItem>, topic?: never } | { topic: ResourceRef<MessagingResultItem>, queue?: never }
