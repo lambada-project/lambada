@@ -161,9 +161,9 @@ describe('a schedule expression', () => {
         expect(() => scheduleExpression('report', { cron: { hour: [] } } as never)).toThrow('report sets hour to []')
     })
 
-    test('refuses a rate that is not a whole number of at least 1', () => {
+    test('refuses a rate that is not a whole number from 1 to 2147483647', () => {
         expect(() => scheduleExpression('purge', { every: { minutes: 0 } })).toThrow('purge runs every 0 minutes')
-        expect(() => scheduleExpression('purge', { every: { hours: 1.5 } })).toThrow('a rate takes a whole number of at least 1')
+        expect(() => scheduleExpression('purge', { every: { hours: 1.5 } })).toThrow('a rate takes a whole number from 1 to 2147483647')
     })
 
     test('takes one unit, and one day field', () => {
@@ -182,17 +182,17 @@ describe('a schedule expression', () => {
     })
 })
 
-describe('a cron, against what EventBridge said of it', () => {
-    const written = (cron: unknown) => { try { return scheduleExpression('s', { cron } as never) } catch { return undefined } }
+describe('a schedule, against what EventBridge said of it', () => {
+    const written = (schedule: unknown) => { try { return scheduleExpression('s', schedule as never) } catch { return undefined } }
 
     test('writes nothing EventBridge rejects', () => {
-        expect(verdicts.filter(v => v.eventBridge === 'rejects' && written(v.cron) !== undefined)).toEqual([])
+        expect(verdicts.filter(v => v.eventBridge === 'rejects' && written(v.schedule) !== undefined)).toEqual([])
     })
 
     test('writes what EventBridge accepts as EventBridge accepted it, refusing only what it does not document', () => {
         const accepted = verdicts.filter(v => v.eventBridge === 'accepts')
-        expect(accepted.filter(v => written(v.cron) !== undefined && written(v.cron) !== v.expression)).toEqual([])
-        expect(accepted.filter(v => written(v.cron) === undefined).map(v => v.expression)).toEqual([
+        expect(accepted.filter(v => written(v.schedule) !== undefined && written(v.schedule) !== v.expression)).toEqual([])
+        expect(accepted.filter(v => written(v.schedule) === undefined).map(v => v.expression)).toEqual([
             'cron(1.5 * * * ? *)',
             'cron(*/0 * * * ? *)',
             'cron(* * * jan ? *)',

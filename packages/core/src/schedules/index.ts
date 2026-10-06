@@ -89,10 +89,13 @@ const render: { [F in keyof Cron]-?: (value: NonNullable<Cron[F]>, refuse: Refus
         : plain('dayOfWeek')(v, refuse),
 }
 
+/** The most EventBridge takes. A field of plain data cannot refine its literal, so the bound is checked here. */
+const MAX_RATE = 2 ** 31 - 1
+
 export const scheduleExpression = (name: string, schedule: Schedule): string => {
     if ('every' in schedule) {
         const [unit, value] = Object.entries(schedule.every).find(([, v]) => v !== undefined) as [Units, number]
-        if (!Number.isInteger(value) || value < 1) throw new Error(`${name} runs every ${value} ${unit}; a rate takes a whole number of at least 1`)
+        if (!Number.isInteger(value) || value < 1 || value > MAX_RATE) throw new Error(`${name} runs every ${value} ${unit}; a rate takes a whole number from 1 to ${MAX_RATE}`)
         return `rate(${value} ${value === 1 ? unit.slice(0, -1) : unit})`
     }
     const cron = schedule.cron
