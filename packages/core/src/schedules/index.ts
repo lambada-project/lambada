@@ -25,6 +25,8 @@ const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', '
 const WEEKDAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'] as const
 export type Month = typeof MONTHS[number]
 export type Weekday = typeof WEEKDAYS[number]
+/** A list's positions counted from 1, as a named field ranks its values. */
+type Positions<T extends readonly unknown[]> = keyof [...T, unknown] extends infer K ? K extends `${infer I extends number}` ? Exclude<I, 0> : never : never
 
 type FormKey = 'from' | 'to' | 'every' | 'last' | 'nth' | 'of' | 'nearestWeekdayTo'
 /** Each object form holds its own keys and none of another's, which a union alone would let it mix. */
@@ -35,11 +37,11 @@ type Field<T, Step> = T | readonly [T, ...T[]] | Form<{ from: T, to: T, every?: 
 export type Cron = {
     minute?: Field<Minute, Exclude<Minute, 0>>
     hour?: Field<Hour, Exclude<Hour, 0>>
-    month?: Field<Month, Numbers<`${Positive}` | `1${0 | 1 | 2}`>>
+    month?: Field<Month, Positions<typeof MONTHS>>
     year?: Field<Year, number>
 } & (
     | { dayOfMonth?: Field<Day, Day> | 'last' | Nearest, dayOfWeek?: never }
-    | { dayOfMonth?: never, dayOfWeek: Field<Weekday, 1 | 2 | 3 | 4 | 5 | 6 | 7> | Last | Nth }
+    | { dayOfMonth?: never, dayOfWeek: Field<Weekday, Positions<typeof WEEKDAYS>> | Last | Nth }
 )
 type Nearest = Form<{ nearestWeekdayTo: Day }>
 type Last = Form<{ last: Weekday }>
