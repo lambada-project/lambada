@@ -123,9 +123,10 @@ const render: { [F in keyof Cron]-?: (value: NonNullable<Cron[F]>, refuse: Refus
 
 export const scheduleExpression = (name: string, schedule: Schedule): string => {
     if ('every' in schedule) {
-        const rates = UNITS.flatMap(unit => schedule.every[unit] === undefined ? [] : [[unit, schedule.every[unit]] as const])
-        if (!isOne(rates) || Object.keys(schedule.every).length !== 1)
-            throw new Error(`${name} runs every ${JSON.stringify(schedule.every)}; a rate takes one of ${UNITS.join(', ')}`)
+        const every = schedule.every
+        const rates = UNITS.flatMap(unit => every[unit] === undefined ? [] : [[unit, every[unit]] as const])
+        if (!isOne(rates) || Object.keys(every).length !== 1)
+            throw new Error(`${name} runs every ${JSON.stringify(every)}; a rate takes one of ${UNITS.join(', ')}`)
         const [[unit, value]] = rates
         if (!counts.has(value)) throw new Error(`${name} runs every ${value} ${unit}; a rate takes a whole number from 1 to ${counts.highest}`)
         return `rate(${value} ${value === 1 ? SINGULAR[unit] : unit})`
