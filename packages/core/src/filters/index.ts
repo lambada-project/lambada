@@ -47,6 +47,10 @@ type Policy<Nested extends boolean, Or extends boolean, V extends Scalar> = {
         | (Or extends true ? Branches<Policy<Nested, Or, V>> : never)
 }
 type PolicyOf<G extends Grammar> = Policy<G['nested'], G['or'], Value<G>>
+/**
+ * SNS matches a published attribute holding `"` or `\` only when the publisher escapes it as JSON
+ * would; the policy names the plain value.
+ */
 export type AttributePolicy = PolicyOf<Grammars['snsAttributes']>
 export type BodyPolicy = PolicyOf<Grammars['snsBody']>
 export type StringAttributePolicy = PolicyOf<Grammars['sqsAttributes']>

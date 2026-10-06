@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import verdicts from './awsVerdicts.json'
+import deliveries from './snsDeliveries.json'
 import { AttributePolicy, BodyPolicy, StringAttributePolicy } from '.'
 import { filterArgs } from '../messaging/createSubscription'
 import { eventSourceMappingArgs, LambdaQueueHandler } from '../queue/createQueueHandler'
@@ -98,4 +99,15 @@ test('takes only the conditions the grammar holds', () => {
 test('refuses a numeric range that holds nothing', () => {
     expect(() => filterArgs('onOrder', { body: { amount: [{ numeric: ['>', 5, '<', 1] }] } }))
         .toThrow('onOrder filters amount {"numeric":[">",5,"<",1]}, which a filter policy does not take there')
+})
+
+describe('a filter, against what SNS delivered by it', () => {
+    test('is written as the policy SNS delivered by, escaped once', () => {
+        const written = deliveries.filter(d => {
+            const policy = { value: d.condition }
+            const filter = d.scope === 'attributes' ? { attributes: policy } : { body: policy }
+            return filterArgs('s', filter as never).filterPolicy !== JSON.stringify(policy)
+        })
+        expect(written).toEqual([])
+    })
 })
