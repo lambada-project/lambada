@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import verdicts from './awsVerdicts.json'
 import deliveries from './snsDeliveries.json'
 import lambdaDeliveries from './lambdaDeliveries.json'
-import { AttributePolicy, BodyPolicy, StringAttributePolicy } from '.'
+import { AttributePolicy, BodyPolicy, operatorNames, StringAttributePolicy } from '.'
 import { filterArgs } from '../messaging/createSubscription'
 import { eventSourceMappingArgs, LambdaQueueHandler } from '../queue/createQueueHandler'
 
@@ -133,10 +133,44 @@ describe('a filter, against what SNS delivered by it', () => {
     })
 })
 
+/** A recorded pattern read back as the filter a queue handler declares. */
+const declaration = (pattern: Record<string, unknown>): object => ({
+    ...(pattern.body !== undefined && { body: pattern.body }),
+    ...(pattern.messageAttributes !== undefined && {
+        attributes: Object.fromEntries(Object.entries(pattern.messageAttributes as Record<string, { stringValue: unknown }>).map(([k, v]) => [k, v.stringValue])),
+    }),
+    ...(pattern.$or !== undefined && { anyOf: (pattern.$or as Record<string, unknown>[]).map(declaration) }),
+})
+
 describe('a queue handler filter, against what Lambda delivered by it', () => {
-    test('is written as the pattern Lambda delivered by', () => {
-        expect(lambdaDeliveries.filter(d => eventSourceMappingArgs(queueHandler(d.filter as never)).filterCriteria?.filters[0].pattern !== d.pattern)).toEqual([])
+    test('writes back every pattern Lambda delivered by, read as a declaration', () => {
+        expect(lambdaDeliveries.filter(d => eventSourceMappingArgs(queueHandler(declaration(JSON.parse(d.pattern)) as never)).filterCriteria?.filters[0].pattern !== d.pattern)).toEqual([])
     })
+})
+
+/** Taken by both services, but no delivery has yet shown them matching one message and not another. */
+const UNTRIED_ON_SNS = ['equals-ignore-case', 'exists', 'numeric']
+const UNTRIED_ON_LAMBDA = ['equals-ignore-case', 'exists']
+
+/** The operators a policy's conditions hold, anything-but's exclusions named under it; an operator's own argument is not searched. */
+const operatorsIn = (v: unknown, under?: string): string[] =>
+    typeof v !== 'object' || v === null ? []
+    : Array.isArray(v) ? v.flatMap(x => operatorsIn(x, under))
+    : Object.entries(v).flatMap(([k, x]) =>
+        under === 'anything-but' ? [`anything-but.${k}`]
+        : operatorNames().includes(k) ? [k, ...(k === 'anything-but' ? operatorsIn(x, k) : [])]
+        : operatorsIn(x))
+
+/** The operators of every condition that delivered one message and held back another. */
+const separating = (groups: Map<string, boolean[]>) =>
+    new Set([...groups].filter(([, delivered]) => delivered.includes(true) && delivered.includes(false)).flatMap(([condition]) => operatorsIn(JSON.parse(condition))))
+const grouped = <T>(rows: T[], key: (row: T) => string, delivered: (row: T) => boolean) =>
+    rows.reduce((m, r) => m.set(key(r), [...(m.get(key(r)) ?? []), delivered(r)]), new Map<string, boolean[]>())
+
+test('every operator lambada writes has delivered a message and held one back, or is listed as untried', () => {
+    const untried = (seen: Set<string>) => operatorNames().filter(op => !seen.has(op))
+    expect(untried(separating(grouped(deliveries, d => JSON.stringify(d.condition), d => d.delivered)))).toEqual(UNTRIED_ON_SNS)
+    expect(untried(separating(grouped(lambdaDeliveries, d => d.pattern, d => d.delivered)))).toEqual(UNTRIED_ON_LAMBDA)
 })
 
 test('takes a body as text or JSON, with or beside its attributes, and the case-insensitive and listed forms', () => {

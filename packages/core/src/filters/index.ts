@@ -109,6 +109,9 @@ const anythingBut = (numbers: boolean) => (v: Ops['anything-but']) => {
 }
 
 type Ops = Operators<Scalar>
+/** Every operator a condition may hold, and every form anything-but may exclude by. */
+export const operatorNames = () => [...Object.keys(operators(true)), ...Object.keys(exclusions).map(k => `anything-but.${k}`)]
+
 const operators = (numbers: boolean): Checks<Ops> => ({
     ...matches,
     'equals-ignore-case': isString,
