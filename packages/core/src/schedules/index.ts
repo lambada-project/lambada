@@ -46,9 +46,6 @@ type Nth = Form<{ nth: typeof NTHS[number], of: Weekday }>
 
 export type Schedule = { every: Every } | { cron: Cron }
 
-/** EventBridge's largest number, for a rate or a year's step. A field of plain data cannot refine its literal, so it is checked when written. */
-const LARGEST = 2 ** 31 - 1
-
 type Value = number | string
 /** All a field asks of its values: whether one is among them, where it falls, and the highest, months and weekdays counted from 1. */
 type Values = { has: (v: Value) => boolean, rank: (v: Value) => number, highest: number }
@@ -63,17 +60,21 @@ const named = (names: readonly string[]): Values => ({
     highest: names.length,
 })
 
-/**
- * A cyclic field's range may run backwards around the cycle, and its step is at most its highest value.
- * Years are not a cycle: a range ascends, which a type cannot order, and a step is bounded only by the largest number.
- */
-const fields: { [F in keyof Cron]-?: { values: Values, cyclic: boolean } } = {
-    minute: { values: span(0, 59), cyclic: true },
-    hour: { values: span(0, 23), cyclic: true },
-    dayOfMonth: { values: span(1, 31), cyclic: true },
-    month: { values: named(MONTHS), cyclic: true },
-    dayOfWeek: { values: named(WEEKDAYS), cyclic: true },
-    year: { values: span(1970, 2199), cyclic: false },
+/** EventBridge's largest number. A field of plain data cannot refine its literal, so it is checked when written. */
+const LARGEST = 2 ** 31 - 1
+/** A rate, or a year's step: a whole number up to the largest. */
+const counts = span(1, LARGEST)
+/** A cyclic field's range may run backwards around the cycle, and its step is at most its highest value. */
+const cycle = (values: Values) => ({ values, steps: span(1, values.highest), cyclic: true })
+
+/** Years are not a cycle: a range ascends, which a type cannot order, and a step is any count. */
+const fields: { [F in keyof Cron]-?: { values: Values, steps: Values, cyclic: boolean } } = {
+    minute: cycle(span(0, 59)),
+    hour: cycle(span(0, 23)),
+    dayOfMonth: cycle(span(1, 31)),
+    month: cycle(named(MONTHS)),
+    dayOfWeek: cycle(named(WEEKDAYS)),
+    year: { values: span(1970, 2199), steps: counts, cyclic: false },
 }
 
 type Refuse = () => never
@@ -88,9 +89,8 @@ const isForm = <F extends object>(v: unknown, key: FormKey): v is F => typeof v 
 const holdsOnly = (v: object, ...keys: FormKey[]) => Object.keys(v).every(k => (keys as string[]).includes(k))
 
 const plain = (field: keyof Cron) => (v: Field<Value, number>, refuse: Refuse): string => {
-    const { values, cyclic } = fields[field]
-    const longest = cyclic ? values.highest : LARGEST
-    const step = (every: number | undefined) => every === undefined ? '' : Number.isInteger(every) && every >= 1 && every <= longest ? `/${every}` : refuse()
+    const { values, steps, cyclic } = fields[field]
+    const step = (every: number | undefined) => every === undefined ? '' : steps.has(every) ? `/${every}` : refuse()
     if (typeof v !== 'object') return one(field, v, refuse)
     if (isList(v)) return v.map(x => one(field, x, refuse)).join(',')
     if (v.to !== undefined && v.from !== undefined) return holdsOnly(v, 'from', 'to', 'every') && (cyclic || values.rank(v.from) <= values.rank(v.to))
@@ -119,7 +119,7 @@ const render: { [F in keyof Cron]-?: (value: NonNullable<Cron[F]>, refuse: Refus
 export const scheduleExpression = (name: string, schedule: Schedule): string => {
     if ('every' in schedule) {
         const [unit, value] = Object.entries(schedule.every).find(([, v]) => v !== undefined) as [Units, number]
-        if (!Number.isInteger(value) || value < 1 || value > LARGEST) throw new Error(`${name} runs every ${value} ${unit}; a rate takes a whole number from 1 to ${LARGEST}`)
+        if (!counts.has(value)) throw new Error(`${name} runs every ${value} ${unit}; a rate takes a whole number from 1 to ${LARGEST}`)
         return `rate(${value} ${value === 1 ? unit.slice(0, -1) : unit})`
     }
     const cron = schedule.cron
