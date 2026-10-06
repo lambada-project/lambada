@@ -6,32 +6,20 @@ import { LambadaResources, EmbroideryEnvironmentVariables, mergeOptions } from "
 import { LambadaResourceRequest, LambadaGrantsShape, ResourceRef, resolveEnvironment, resolveGrants, resolveRef } from "../resources/grants";
 import { bundleOf, isLambdaFolder } from "../lambdas/bundles";
 import { AsyncFailures, asyncInvocationConfig, failureDestination } from "../lambdas/asyncFailures";
+import { AttributePolicy, BodyPolicy, grammars, requireFilter } from "../filters";
 
 export type SubscriptionEvent = TopicEvent
 export type SubscriptionCallback = LambdaHandler<SubscriptionEvent, void>
 
-type SnsFilterCondition =
-    | string
-    | number
-    | boolean
-    | null
-    | { prefix: string }
-    | { suffix: string }
-    | { 'equals-ignore-case': string }
-    | { 'anything-but': string | number | (string | number)[] | { prefix: string } | { suffix: string } }
-    | { numeric: (string | number)[] }
-    | { exists: boolean }
-    | { cidr: string }
-
-export type SnsFilterPolicy = { $or?: SnsFilterPolicy[] } & { [key: string]: SnsFilterCondition[] | SnsFilterPolicy | SnsFilterPolicy[] | undefined }
-
-export type SnsSubscriptionFilter = { attributes: SnsFilterPolicy } | { body: SnsFilterPolicy }
+export type SnsSubscriptionFilter = { attributes: AttributePolicy } | { body: BodyPolicy }
 
 export const filterArgs = (subscriptionName: string, filter: SnsSubscriptionFilter | undefined, args: TopicEventSubscriptionArgs = {}): TopicEventSubscriptionArgs => {
     if (!filter) return args
     if (args.filterPolicy !== undefined || args.filterPolicyScope !== undefined) {
         throw new Error(`${subscriptionName} sets both filter and subscriptionArgs.filterPolicy`)
     }
+    if ('attributes' in filter) requireFilter(subscriptionName, filter.attributes, grammars.attributes)
+    else requireFilter(subscriptionName, filter.body, grammars.body)
     return 'attributes' in filter
         ? { ...args, filterPolicy: JSON.stringify(filter.attributes), filterPolicyScope: 'MessageAttributes' }
         : { ...args, filterPolicy: JSON.stringify(filter.body), filterPolicyScope: 'MessageBody' }

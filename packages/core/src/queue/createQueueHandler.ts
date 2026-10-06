@@ -7,34 +7,13 @@ import { createLambda, LambdaFolder, LambdaHandler, LambdaOptions, LambdaResourc
 import { QueueEvent, QueueEventSubscription, QueueEventSubscriptionArgs } from "@pulumi/aws/sqs";
 import { LambadaResourceRequest, LambadaGrantsShape, ResourceRef, resolveEnvironment, resolveGrants, resolveRef } from "../resources/grants";
 import { bundleOf, isLambdaFolder } from "../lambdas/bundles";
+import { BodyPolicy, grammars, requireFilter, StringAttributePolicy } from "../filters";
 
 export type QueueHandlerEvent = QueueEvent
 export type QueueBatchResponse = { batchItemFailures: { itemIdentifier: string }[] }
 export type QueueHandlerCallback = LambdaHandler<QueueHandlerEvent, void | QueueBatchResponse>
 
-type EventCondition =
-    | string
-    | number
-    | boolean
-    | null
-    | { prefix: string }
-    | { suffix: string }
-    | { 'equals-ignore-case': string }
-    | { 'anything-but': string | number | (string | number)[] | { prefix: string } | { suffix: string } }
-    | { numeric: (string | number)[] }
-    | { exists: boolean }
-
-export type QueueEventPattern = { $or?: QueueEventPattern[] } & { [key: string]: EventCondition[] | QueueEventPattern | QueueEventPattern[] | undefined }
-
-type AttributeCondition =
-    | string
-    | { prefix: string }
-    | { suffix: string }
-    | { 'equals-ignore-case': string }
-    | { 'anything-but': string | string[] | { prefix: string } | { suffix: string } }
-    | { exists: boolean }
-
-export type QueueHandlerFilter = { body: QueueEventPattern } | { attributes: { [name: string]: AttributeCondition[] } }
+export type QueueHandlerFilter = { body: BodyPolicy } | { attributes: StringAttributePolicy }
 
 export type LambdaQueueHandler<TNames extends LambadaGrantsShape = LambadaGrantsShape> = {
     name: string
@@ -51,12 +30,17 @@ export type LambdaQueueHandler<TNames extends LambadaGrantsShape = LambadaGrants
     maximumConcurrency?: number
 }
 
-const filterPattern = (filter: QueueHandlerFilter) => 'body' in filter
-    ? { body: filter.body }
-    : { messageAttributes: Object.fromEntries(Object.entries(filter.attributes).map(([name, conditions]) => [name, { stringValue: conditions }])) }
+const filterPattern = (name: string, filter: QueueHandlerFilter) => {
+    if ('body' in filter) {
+        requireFilter(name, filter.body, grammars.body)
+        return { body: filter.body }
+    }
+    requireFilter(name, filter.attributes, grammars.stringAttributes)
+    return { messageAttributes: Object.fromEntries(Object.entries(filter.attributes).map(([attribute, conditions]) => [attribute, { stringValue: conditions }])) }
+}
 
-export const eventSourceMappingArgs = ({ filter, reportBatchItemFailures, maximumConcurrency }: LambdaQueueHandler<any>) => ({
-    ...(filter && { filterCriteria: { filters: [{ pattern: JSON.stringify(filterPattern(filter)) }] } }),
+export const eventSourceMappingArgs = ({ name, filter, reportBatchItemFailures, maximumConcurrency }: LambdaQueueHandler<any>) => ({
+    ...(filter && { filterCriteria: { filters: [{ pattern: JSON.stringify(filterPattern(name, filter)) }] } }),
     ...(reportBatchItemFailures && { functionResponseTypes: ['ReportBatchItemFailures'] }),
     ...(maximumConcurrency !== undefined && { scalingConfig: { maximumConcurrency } }),
 })
