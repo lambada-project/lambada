@@ -86,5 +86,9 @@
     {"schedule": {"cron": {"year": {"every": 100}}}, "expression": "cron(* * * * ? */100)", "eventBridge": "accepts"},
     {"schedule": {"cron": {"year": {"every": 2199}}}, "expression": "cron(* * * * ? */2199)", "eventBridge": "accepts"},
     {"schedule": {"cron": {"year": {"every": 2200}}}, "expression": "cron(* * * * ? */2200)", "eventBridge": "accepts"},
-    {"schedule": {"cron": {"year": {"every": 229, "from": 2026}}}, "expression": "cron(* * * * ? 2026/229)", "eventBridge": "accepts"}
+    {"schedule": {"cron": {"year": {"every": 229, "from": 2026}}}, "expression": "cron(* * * * ? 2026/229)", "eventBridge": "accepts"},
+    {"schedule": {"cron": {"minute": {"from": 5, "to": 10, "every": 2}}}, "expression": "cron(5-10/2 * * * ? *)", "eventBridge": "accepts"},
+    {"schedule": {"cron": {"year": {"every": 99999}}}, "expression": "cron(* * * * ? */99999)", "eventBridge": "accepts"},
+    {"schedule": {"cron": {"year": {"every": 2147483647}}}, "expression": "cron(* * * * ? */2147483647)", "eventBridge": "accepts"},
+    {"schedule": {"cron": {"year": {"every": 2147483648}}}, "expression": "cron(* * * * ? */2147483648)", "eventBridge": "rejects"}
 ]

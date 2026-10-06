@@ -152,17 +152,19 @@ describe('a schedule expression', () => {
         for (const cron of beyond) expect(() => scheduleExpression('s', { cron } as never)).toThrow('which a cron does not take there')
     })
 
+    test('steps through a range', () => {
+        expect(scheduleExpression('s', { cron: { minute: { from: 5, to: 10, every: 2 } } })).toBe('cron(5-10/2 * * * ? *)')
+    })
+
     test('takes one form of a field at a time', () => {
         const typeOnly = () => {
-            // @ts-expect-error
-            ({ minute: { from: 5, to: 10, every: 2 } }) satisfies Cron;
             // @ts-expect-error
             ({ minute: 0, dayOfWeek: { last: 'FRI', nth: 2, of: 'MON' } }) satisfies Cron;
             // @ts-expect-error
             ({ dayOfMonth: { nearestWeekdayTo: 15, every: 2 } }) satisfies Cron
         }
         expect(typeOnly).toBeFunction()
-        expect(() => scheduleExpression('report', { cron: { minute: { from: 5, to: 10, every: 2 } } } as never)).toThrow('report sets minute to')
+        expect(() => scheduleExpression('report', { cron: { minute: { from: 5, every: 2, last: 'FRI' } } } as never)).toThrow('report sets minute to')
         expect(() => scheduleExpression('report', { cron: { dayOfWeek: { last: 'FRI', nth: 2, of: 'MON' } } } as never)).toThrow('report sets dayOfWeek to')
         expect(() => scheduleExpression('report', { cron: { dayOfMonth: { nearestWeekdayTo: 15, every: 2 } } } as never)).toThrow('report sets dayOfMonth to')
     })

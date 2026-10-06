@@ -27,8 +27,8 @@ export type Weekday = typeof WEEKDAYS[number]
 type FormKey = 'from' | 'to' | 'every' | 'last' | 'nth' | 'of' | 'nearestWeekdayTo'
 /** Each object form holds its own keys and none of another's, which a union alone would let it mix. */
 type Form<T> = T & { [K in Exclude<FormKey, keyof T>]?: never }
-/** A step is at most a cyclic field's highest value, months and weekdays counted from 1; a year's is not bounded. */
-type Field<T, Step> = T | readonly [T, ...T[]] | Form<{ from: T, to: T }> | Form<{ every: Step, from?: T }>
+/** A step is at most a cyclic field's highest value, months and weekdays counted from 1; a year's, at most the largest number EventBridge takes. */
+type Field<T, Step> = T | readonly [T, ...T[]] | Form<{ from: T, to: T, every?: Step }> | Form<{ every: Step, from?: T }>
 
 export type Cron = {
     minute?: Field<Minute, Exclude<Minute, 0>>
@@ -41,15 +41,19 @@ export type Cron = {
 )
 type Nearest = Form<{ nearestWeekdayTo: Day }>
 type Last = Form<{ last: Weekday }>
-type Nth = Form<{ nth: 1 | 2 | 3 | 4 | 5, of: Weekday }>
+const NTHS = [1, 2, 3, 4, 5] as const
+type Nth = Form<{ nth: typeof NTHS[number], of: Weekday }>
 
 export type Schedule = { every: Every } | { cron: Cron }
+
+/** EventBridge's largest number, for a rate or a year's step. A field of plain data cannot refine its literal, so it is checked when written. */
+const LARGEST = 2 ** 31 - 1
 
 const range = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, i) => from + i)
 
 /**
  * A cyclic field's range may run backwards around the cycle, and its step is at most its highest value.
- * Years are not a cycle: a range ascends, which a type cannot order, and no step is too long.
+ * Years are not a cycle: a range ascends, which a type cannot order, and a step is bounded only by the largest number.
  */
 const fields: { [F in keyof Cron]-?: { values: readonly (number | string)[], cyclic: boolean } } = {
     minute: { values: range(0, 59), cyclic: true },
@@ -75,14 +79,15 @@ const holdsOnly = (v: object, ...keys: FormKey[]) => Object.keys(v).every(k => (
 const plain = (field: keyof Cron) => (v: Field<Value, number>, refuse: Refuse): string => {
     const { values, cyclic } = fields[field]
     const last = values[values.length - 1]
-    const longest = !cyclic ? Infinity : typeof last === 'number' ? last : values.length
+    const longest = !cyclic ? LARGEST : typeof last === 'number' ? last : values.length
+    const step = (every: number | undefined) => every === undefined ? '' : Number.isInteger(every) && every >= 1 && every <= longest ? `/${every}` : refuse()
     if (typeof v !== 'object') return one(field, v, refuse)
     if (isList(v)) return v.map(x => one(field, x, refuse)).join(',')
-    if (v.to !== undefined && v.from !== undefined) return holdsOnly(v, 'from', 'to') && (cyclic || values.indexOf(v.from) <= values.indexOf(v.to))
-        ? `${one(field, v.from, refuse)}-${one(field, v.to, refuse)}`
+    if (v.to !== undefined && v.from !== undefined) return holdsOnly(v, 'from', 'to', 'every') && (cyclic || values.indexOf(v.from) <= values.indexOf(v.to))
+        ? `${one(field, v.from, refuse)}-${one(field, v.to, refuse)}${step(v.every)}`
         : refuse()
-    if (v.every !== undefined && holdsOnly(v, 'every', 'from') && Number.isInteger(v.every) && v.every >= 1 && v.every <= longest)
-        return `${v.from === undefined ? '*' : one(field, v.from, refuse)}/${v.every}`
+    if (v.every !== undefined && holdsOnly(v, 'every', 'from'))
+        return `${v.from === undefined ? '*' : one(field, v.from, refuse)}${step(v.every)}`
     return refuse()
 }
 
@@ -97,17 +102,14 @@ const render: { [F in keyof Cron]-?: (value: NonNullable<Cron[F]>, refuse: Refus
         : plain('dayOfMonth')(v, refuse),
     dayOfWeek: (v, refuse) =>
         isForm<Last>(v, 'last') ? (holdsOnly(v, 'last') ? `${one('dayOfWeek', v.last, refuse)}L` : refuse())
-        : isForm<Nth>(v, 'nth') ? (holdsOnly(v, 'nth', 'of') && [1, 2, 3, 4, 5].includes(v.nth) ? `${one('dayOfWeek', v.of, refuse)}#${v.nth}` : refuse())
+        : isForm<Nth>(v, 'nth') ? (holdsOnly(v, 'nth', 'of') && NTHS.includes(v.nth) ? `${one('dayOfWeek', v.of, refuse)}#${v.nth}` : refuse())
         : plain('dayOfWeek')(v, refuse),
 }
-
-/** The most EventBridge takes. A field of plain data cannot refine its literal, so the bound is checked here. */
-const MAX_RATE = 2 ** 31 - 1
 
 export const scheduleExpression = (name: string, schedule: Schedule): string => {
     if ('every' in schedule) {
         const [unit, value] = Object.entries(schedule.every).find(([, v]) => v !== undefined) as [Units, number]
-        if (!Number.isInteger(value) || value < 1 || value > MAX_RATE) throw new Error(`${name} runs every ${value} ${unit}; a rate takes a whole number from 1 to ${MAX_RATE}`)
+        if (!Number.isInteger(value) || value < 1 || value > LARGEST) throw new Error(`${name} runs every ${value} ${unit}; a rate takes a whole number from 1 to ${LARGEST}`)
         return `rate(${value} ${value === 1 ? unit.slice(0, -1) : unit})`
     }
     const cron = schedule.cron
