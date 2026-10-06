@@ -2,6 +2,7 @@ import { expect, test } from 'bun:test'
 import * as path from 'path'
 import ts from 'typescript'
 import filterVerdicts from './filters/awsVerdicts.json'
+import documented from './filters/documentedPolicies.json'
 import scheduleVerdicts from './schedules/eventBridgeVerdicts.json'
 import { filterArgs } from './messaging/createSubscription'
 import { eventSourceMappingArgs } from './queue/createQueueHandler'
@@ -20,8 +21,12 @@ const targets: Record<string, { type: string, write: (policy: unknown) => unknow
     'sqs:attributes': { type: 'StringAttributePolicy', write: p => eventSourceMappingArgs(queueHandler({ attributes: p })) },
 }
 
-/** A state is legal when AWS took it and lambada writes it; every other is one lambada must not let a type build. */
+/** A state is legal when AWS took it, or documents it, and lambada writes it; every other is one lambada must not let a type build. */
 const states: State[] = [
+    ...documented.map(({ name, target, policy }) => {
+        const { type, write } = targets[target]
+        return { name: `${target} documented ${name}`, type, value: policy, legal: writes(() => write(policy)), refusal: refusal(() => write(policy)) }
+    }),
     ...filterVerdicts.flatMap(v => Object.entries(targets).flatMap(([target, { type, write }]) => {
         const aws = (v as Record<string, unknown>)[target]
         return aws === undefined ? [] : [{ name: `${target} ${v.name}`, type, value: v.policy, legal: aws === 'accepts' && writes(() => write(v.policy)), refusal: refusal(() => write(v.policy)) }]
