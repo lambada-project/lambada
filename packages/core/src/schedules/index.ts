@@ -49,28 +49,39 @@ export type Schedule = { every: Every } | { cron: Cron }
 /** EventBridge's largest number, for a rate or a year's step. A field of plain data cannot refine its literal, so it is checked when written. */
 const LARGEST = 2 ** 31 - 1
 
-const range = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, i) => from + i)
+type Value = number | string
+/** All a field asks of its values: whether one is among them, where it falls, and the highest, months and weekdays counted from 1. */
+type Values = { has: (v: Value) => boolean, rank: (v: Value) => number, highest: number }
+const span = (lowest: number, highest: number): Values => ({
+    has: v => typeof v === 'number' && Number.isInteger(v) && v >= lowest && v <= highest,
+    rank: v => typeof v === 'number' ? v : NaN,
+    highest,
+})
+const named = (names: readonly string[]): Values => ({
+    has: v => typeof v === 'string' && names.includes(v),
+    rank: v => typeof v === 'string' && names.includes(v) ? names.indexOf(v) + 1 : NaN,
+    highest: names.length,
+})
 
 /**
  * A cyclic field's range may run backwards around the cycle, and its step is at most its highest value.
  * Years are not a cycle: a range ascends, which a type cannot order, and a step is bounded only by the largest number.
  */
-const fields: { [F in keyof Cron]-?: { values: readonly (number | string)[], cyclic: boolean } } = {
-    minute: { values: range(0, 59), cyclic: true },
-    hour: { values: range(0, 23), cyclic: true },
-    dayOfMonth: { values: range(1, 31), cyclic: true },
-    month: { values: MONTHS, cyclic: true },
-    dayOfWeek: { values: WEEKDAYS, cyclic: true },
-    year: { values: range(1970, 2199), cyclic: false },
+const fields: { [F in keyof Cron]-?: { values: Values, cyclic: boolean } } = {
+    minute: { values: span(0, 59), cyclic: true },
+    hour: { values: span(0, 23), cyclic: true },
+    dayOfMonth: { values: span(1, 31), cyclic: true },
+    month: { values: named(MONTHS), cyclic: true },
+    dayOfWeek: { values: named(WEEKDAYS), cyclic: true },
+    year: { values: span(1970, 2199), cyclic: false },
 }
 
 type Refuse = () => never
-type Value = number | string
 
 const isList = <T>(v: Field<T, number>): v is readonly [T, ...T[]] => Array.isArray(v) && v.length > 0
 
 const one = (field: keyof Cron, v: Value, refuse: Refuse): string =>
-    fields[field].values.includes(v) ? String(v) : refuse()
+    fields[field].values.has(v) ? String(v) : refuse()
 
 /** A form is told apart by the key only it holds; every form declares the others as absent. */
 const isForm = <F extends object>(v: unknown, key: FormKey): v is F => typeof v === 'object' && v !== null && (v as Record<string, unknown>)[key] !== undefined
@@ -78,12 +89,11 @@ const holdsOnly = (v: object, ...keys: FormKey[]) => Object.keys(v).every(k => (
 
 const plain = (field: keyof Cron) => (v: Field<Value, number>, refuse: Refuse): string => {
     const { values, cyclic } = fields[field]
-    const last = values[values.length - 1]
-    const longest = !cyclic ? LARGEST : typeof last === 'number' ? last : values.length
+    const longest = cyclic ? values.highest : LARGEST
     const step = (every: number | undefined) => every === undefined ? '' : Number.isInteger(every) && every >= 1 && every <= longest ? `/${every}` : refuse()
     if (typeof v !== 'object') return one(field, v, refuse)
     if (isList(v)) return v.map(x => one(field, x, refuse)).join(',')
-    if (v.to !== undefined && v.from !== undefined) return holdsOnly(v, 'from', 'to', 'every') && (cyclic || values.indexOf(v.from) <= values.indexOf(v.to))
+    if (v.to !== undefined && v.from !== undefined) return holdsOnly(v, 'from', 'to', 'every') && (cyclic || values.rank(v.from) <= values.rank(v.to))
         ? `${one(field, v.from, refuse)}-${one(field, v.to, refuse)}${step(v.every)}`
         : refuse()
     if (v.every !== undefined && holdsOnly(v, 'every', 'from'))
