@@ -61,6 +61,7 @@ const values: { [V in Grammar['values']]: (v: unknown) => boolean } = { scalars:
 const isLower = among(LOWER)
 const isUpper = among(UPPER)
 const cidr = /^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$|^[0-9a-f:]*:[0-9a-f:]*\/\d{1,3}$/i
+/** A range's bounds are two values the user writes, which a type cannot order. */
 const numeric = (v: Numeric) => {
     if (!isArray(v)) return false
     if (v.length === 2) return (v[0] === '=' || isLower(v[0]) || isUpper(v[0])) && isNumber(v[1])
@@ -95,6 +96,7 @@ const operators = (numbers: boolean): Checks<Ops> => ({
     numeric: v => numbers && numeric(v),
 })
 
+/** An index signature cannot require a key, so an empty policy is refused here. */
 const isPolicy = (v: unknown): v is AnyPolicy => isRecord(v) && Object.keys(v).length > 0
 const isBranches = (key: string, v: Entry): v is Extract<Entry, Branches<AnyPolicy>> => key === '$or' && isArray(v) && v.length >= 2
 const isConditions = (v: Entry): v is Conditions => isArray(v) && v.length > 0

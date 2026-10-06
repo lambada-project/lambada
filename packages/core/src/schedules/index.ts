@@ -42,7 +42,7 @@ export type Schedule = { every: Every } | { cron: Cron }
 
 const range = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, i) => from + i)
 
-/** A range may run backwards only in a field that wraps around; years do not. */
+/** A range may run backwards only in a field that wraps around; years do not, and a type cannot order two years. */
 const fields: { [F in keyof Cron]-?: { values: readonly (number | string)[], wraps: boolean } } = {
     minute: { values: range(0, 59), wraps: true },
     hour: { values: range(0, 23), wraps: true },
