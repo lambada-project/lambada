@@ -8,6 +8,7 @@ import { asCreator, LambadaDefinition } from "../resources/creators";
 import { Digit, Numbers, Positive } from "../numbers";
 import { Exclusive } from "../exclusive";
 import { LambadaGrantsShape, LambadaResourceRequest, resolveEnvironment, resolveGrants } from "../resources/grants";
+import { unknown } from "zod";
 
 export type ScheduleEvent = EventRuleEvent
 export type ScheduleCallback = LambdaHandler<ScheduleEvent, void>
@@ -96,20 +97,29 @@ const isList = <T>(v: Field<T, number>): v is readonly [T, ...T[]] => Array.isAr
 const one = (field: keyof Fields, v: Value, refuse: Refuse): string =>
     fields[field].values.has(v) ? String(v) : refuse()
 
-/** A form is told apart by the key only it holds; every form declares the others as absent. */
-const isForm = <F extends object>(v: unknown, key: keyof F & string): v is F => typeof v === 'object' && v !== null && (v as Record<string, unknown>)[key] !== undefined
-const holdsOnly = (v: object, ...keys: string[]) => Object.keys(v).every(k => keys.includes(k))
+/** Each key of form F, and whether F requires it, read from F's own type: a shape that misses a key, adds one or misreads one is a type error. */
+type Shape<F> = { [K in keyof F]-?: {} extends Pick<F, K> ? 'optional' : 'required' }
+/** v is form F: it holds every key F requires, and no key F lacks. */
+const isForm = <F extends object>(v: unknown, shape: Shape<F>): v is F =>
+    typeof v === 'object' && v !== null && !Array.isArray(v)
+    && Object.entries(shape).every(([key, need]) => need === 'optional' || (v as Record<string, unknown>)[key] !== undefined)
+    && Object.keys(v).every(key => Object.keys(shape).includes(key))
+
+const RANGE: Shape<Range<Value, number>> = { from: 'required', to: 'required', every: 'optional' }
+const STEPPED: Shape<Stepped<Value, number>> = { every: 'required', from: 'optional' }
+const NEAREST: Shape<Nearest> = { nearestWeekdayTo: 'required' }
+const LAST: Shape<Last> = { last: 'required' }
+const NTH: Shape<Nth> = { nth: 'required', of: 'required' }
 
 const plain = (field: keyof Fields) => (v: Field<Value, number>, refuse: Refuse): string => {
     const { values, steps, cyclic } = fields[field]
     const step = (every: number | undefined) => every === undefined ? '' : steps.has(every) ? `/${every}` : refuse()
     if (typeof v !== 'object') return one(field, v, refuse)
     if (isList(v)) return v.map(x => one(field, x, refuse)).join(',')
-    if (v.to !== undefined && v.from !== undefined) return holdsOnly(v, 'from', 'to', 'every') && (cyclic || values.rank(v.from) <= values.rank(v.to))
+    if (isForm<Range<Value, number>>(v, RANGE)) return cyclic || values.rank(v.from) <= values.rank(v.to)
         ? `${one(field, v.from, refuse)}-${one(field, v.to, refuse)}${step(v.every)}`
         : refuse()
-    if (v.every !== undefined && holdsOnly(v, 'every', 'from'))
-        return `${v.from === undefined ? '*' : one(field, v.from, refuse)}${step(v.every)}`
+    if (isForm<Stepped<Value, number>>(v, STEPPED)) return `${v.from === undefined ? '*' : one(field, v.from, refuse)}${step(v.every)}`
     return refuse()
 }
 
@@ -120,11 +130,11 @@ const render: { [F in keyof Fields]: (value: Fields[F], refuse: Refuse) => strin
     year: plain('year'),
     dayOfMonth: (v, refuse) =>
         v === 'last' ? 'L'
-        : isForm<Nearest>(v, 'nearestWeekdayTo') ? (holdsOnly(v, 'nearestWeekdayTo') ? `${one('dayOfMonth', v.nearestWeekdayTo, refuse)}W` : refuse())
+        : isForm<Nearest>(v, NEAREST) ? `${one('dayOfMonth', v.nearestWeekdayTo, refuse)}W`
         : plain('dayOfMonth')(v, refuse),
     dayOfWeek: (v, refuse) =>
-        isForm<Last>(v, 'last') ? (holdsOnly(v, 'last') ? `${one('dayOfWeek', v.last, refuse)}L` : refuse())
-        : isForm<Nth>(v, 'nth') ? (holdsOnly(v, 'nth', 'of') && NTHS.includes(v.nth) ? `${one('dayOfWeek', v.of, refuse)}#${v.nth}` : refuse())
+        isForm<Last>(v, LAST) ? `${one('dayOfWeek', v.last, refuse)}L`
+        : isForm<Nth>(v, NTH) ? (NTHS.includes(v.nth) ? `${one('dayOfWeek', v.of, refuse)}#${v.nth}` : refuse())
         : plain('dayOfWeek')(v, refuse),
 }
 
