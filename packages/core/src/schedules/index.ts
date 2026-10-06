@@ -75,19 +75,6 @@ const named = (names: readonly string[]): Values => ({
 const LARGEST = 2 ** 31 - 1
 /** A rate, or a year's step: a whole number up to the largest. */
 const counts = span(1, LARGEST)
-/** A cyclic field's range may run backwards around the cycle, and its step is at most its highest value. */
-const cycle = (values: Values) => ({ values, steps: span(1, values.highest), cyclic: true })
-
-/** Years are not a cycle: a range ascends, which a type cannot order, and a step is any count. */
-const fields: { [F in keyof Fields]: { values: Values, steps: Values, cyclic: boolean } } = {
-    minute: cycle(span(0, 59)),
-    hour: cycle(span(0, 23)),
-    dayOfMonth: cycle(span(1, 31)),
-    month: cycle(named(MONTHS)),
-    dayOfWeek: cycle(named(WEEKDAYS)),
-    year: { values: span(1970, 2199), steps: counts, cyclic: false },
-}
-
 type Refuse = () => never
 
 const isOne = <T>(xs: readonly T[]): xs is readonly [T] => xs.length === 1
@@ -95,15 +82,12 @@ const isList = <T>(v: Field<T, number>): v is readonly [T, ...T[]] => Array.isAr
 
 /** All a form needs of its field: to write a value or a step, to know whether a range ascends, and to refuse. */
 type Writer = { value: (v: Value) => string, step: (every: number | undefined) => string, ascends: (from: Value, to: Value) => boolean, refuse: Refuse }
-const writer = (field: keyof Fields, refuse: Refuse): Writer => {
-    const { values, steps, cyclic } = fields[field]
-    return {
-        value: v => values.has(v) ? String(v) : refuse(),
-        step: every => every === undefined ? '' : steps.has(every) ? `/${every}` : refuse(),
-        ascends: (from, to) => cyclic || values.rank(from) <= values.rank(to),
-        refuse,
-    }
-}
+const writerOf = ({ values, steps, cyclic }: Pick<Codec<keyof Fields>, 'values' | 'steps' | 'cyclic'>, refuse: Refuse): Writer => ({
+    value: v => values.has(v) ? String(v) : refuse(),
+    step: every => every === undefined ? '' : steps.has(every) ? `/${every}` : refuse(),
+    ascends: (from, to) => cyclic || values.rank(from) <= values.rank(to),
+    refuse,
+})
 
 /** Each key of form F, and whether F requires it, read from F's own type: a shape that misses a key, adds one or misreads one is a type error. */
 type Shape<F> = { [K in keyof F]-?: {} extends Pick<F, K> ? 'optional' : 'required' }
@@ -128,13 +112,26 @@ const plain = (v: Field<Value, number>, w: Writer): string => {
     return w.refuse()
 }
 
-const render: { [F in keyof Fields]: (value: Fields[F], w: Writer) => string } = {
-    minute: plain,
-    hour: plain,
-    dayOfMonth: (v, w) => v === 'last' ? 'L' : isForm(v, NEAREST) ? `${w.value(v.nearestWeekdayTo)}W` : plain(v, w),
-    month: plain,
-    dayOfWeek: (v, w) => isForm(v, LAST) ? `${w.value(v.last)}L` : isForm(v, NTH) ? (NTHS.includes(v.nth) ? `${w.value(v.of)}#${v.nth}` : w.refuse()) : plain(v, w),
-    year: plain,
+/**
+ * All lambada knows of one cron field: its values and steps, whether it is a cycle, what EventBridge
+ * writes when it is not given, and how its forms are written.
+ */
+type Codec<F extends keyof Fields> = { values: Values, steps: Values, cyclic: boolean, unset: '*' | '?', write: (value: Fields[F], w: Writer) => string }
+/** A cyclic field's range may run backwards around the cycle, and its step is at most its highest value. */
+const cycle = (values: Values) => ({ values, steps: span(1, values.highest), cyclic: true, unset: '*' as const })
+
+/** In EventBridge's order. Years are not a cycle: a range ascends, which a type cannot order, and a step is any count. */
+const fields: { [F in keyof Fields]: Codec<F> } = {
+    minute: { ...cycle(span(0, 59)), write: plain },
+    hour: { ...cycle(span(0, 23)), write: plain },
+    dayOfMonth: { ...cycle(span(1, 31)), write: (v, w) => v === 'last' ? 'L' : isForm(v, NEAREST) ? `${w.value(v.nearestWeekdayTo)}W` : plain(v, w) },
+    month: { ...cycle(named(MONTHS)), write: plain },
+    dayOfWeek: {
+        ...cycle(named(WEEKDAYS)),
+        unset: '?',
+        write: (v, w) => isForm(v, LAST) ? `${w.value(v.last)}L` : isForm(v, NTH) ? (NTHS.includes(v.nth) ? `${w.value(v.of)}#${v.nth}` : w.refuse()) : plain(v, w),
+    },
+    year: { values: span(1970, 2199), steps: counts, cyclic: false, unset: '*', write: plain },
 }
 
 export const scheduleExpression = (name: string, schedule: Schedule): string => {
@@ -154,17 +151,18 @@ export const scheduleExpression = (name: string, schedule: Schedule): string => 
     const keys = Object.keys(cron), known = Object.keys(fields)
     if (keys.length === 0 || !keys.every(k => known.includes(k)) || (cron.dayOfMonth !== undefined && cron.dayOfWeek !== undefined))
         throw new Error(`${name} sets ${JSON.stringify(cron)}; a cron takes one or more of ${known.join(', ')}, with dayOfMonth or dayOfWeek, not both`)
-    const field = <V>(f: keyof Fields, value: V | undefined, write: (value: V, w: Writer) => string, unset: string) =>
-        value === undefined ? unset : write(value, writer(f, () => {
+    /** TypeScript cannot pair a field's codec with a value read by a generic name (TS2590), so each field passes its own value. */
+    const field = <K extends keyof Fields>(f: K, value: Fields[K] | undefined, unset = fields[f].unset): string =>
+        value === undefined ? unset : fields[f].write(value, writerOf(fields[f], () => {
             throw new Error(`${name} sets ${f} to ${JSON.stringify(value)}, which a cron does not take there`)
         }))
     return `cron(${[
-        field('minute', cron.minute, render.minute, '*'),
-        field('hour', cron.hour, render.hour, '*'),
-        field('dayOfMonth', cron.dayOfMonth, render.dayOfMonth, cron.dayOfWeek === undefined ? '*' : '?'),
-        field('month', cron.month, render.month, '*'),
-        field('dayOfWeek', cron.dayOfWeek, render.dayOfWeek, '?'),
-        field('year', cron.year, render.year, '*'),
+        field('minute', cron.minute),
+        field('hour', cron.hour),
+        field('dayOfMonth', cron.dayOfMonth, cron.dayOfWeek === undefined ? '*' : '?'),
+        field('month', cron.month),
+        field('dayOfWeek', cron.dayOfWeek),
+        field('year', cron.year),
     ].join(' ')})`
 }
 
