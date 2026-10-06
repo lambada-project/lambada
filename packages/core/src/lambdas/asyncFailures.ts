@@ -17,9 +17,9 @@ export type AsyncFailures = {
 }
 
 const ageInSeconds = (name: string, age: Age) => {
-    const seconds = 'minutes' in age && age.minutes !== undefined ? age.minutes * 60 : (age.hours ?? 0) * 3600
-    if (!Number.isInteger(seconds) || seconds < 60 || seconds > 21600) {
-        throw new Error(`${name} keeps events for ${seconds} seconds; Lambda keeps them between 1 minute and 6 hours`)
+    const [count, seconds] = age.minutes !== undefined ? [age.minutes, age.minutes * 60] : [age.hours, age.hours * 3600]
+    if (!Number.isInteger(count) || seconds < 60 || seconds > 21600) {
+        throw new Error(`${name} keeps events for ${seconds} seconds; Lambda keeps them between 1 minute and 6 hours, in whole minutes or hours`)
     }
     return seconds
 }

@@ -80,5 +80,15 @@ describe('an async lambda that fails', () => {
         expect(typeOnly).toBeFunction()
         expect(() => createSchedules(context as never, [schedule('stale', { maximumEventAge: { hours: 7 } as never })]))
             .toThrow('stale keeps events for 25200 seconds; Lambda keeps them between 1 minute and 6 hours')
+        expect(() => createSchedules(context as never, [schedule('stale', { maximumEventAge: { minutes: 0 } as never })])).toThrow('stale keeps events for 0 seconds')
+        expect(() => createSchedules(context as never, [schedule('stale', { maximumEventAge: { minutes: 361 } as never })])).toThrow('stale keeps events for 21660 seconds')
+        expect(() => createSchedules(context as never, [schedule('stale', { maximumEventAge: { minutes: 1.5 } as never })])).toThrow('stale keeps events for 90 seconds')
+    })
+
+    test('keeps events for its edges, a minute and six hours', async () => {
+        for (const [age, seconds] of [[{ minutes: 1 }, 60], [{ hours: 6 }, 21600], [{ minutes: 360 }, 21600]] as const) {
+            const { config } = await built(schedule(`edge${seconds}${'minutes' in age ? 'm' : 'h'}`, { maximumEventAge: age }))
+            expect(config!.inputs).toMatchObject({ maximumEventAgeInSeconds: seconds })
+        }
     })
 })
