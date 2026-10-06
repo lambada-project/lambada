@@ -7,7 +7,7 @@ import { createLambda, LambdaFolder, LambdaHandler, LambdaOptions, LambdaResourc
 import { QueueEvent, QueueEventSubscription, QueueEventSubscriptionArgs } from "@pulumi/aws/sqs";
 import { LambadaResourceRequest, LambadaGrantsShape, ResourceRef, resolveEnvironment, resolveGrants, resolveRef } from "../resources/grants";
 import { bundleOf, isLambdaFolder } from "../lambdas/bundles";
-import { BodyPolicy, grammars, requireFilter, StringAttributePolicy } from "../filters";
+import { BodyPolicy, requireFilter, StringAttributePolicy } from "../filters";
 
 export type QueueHandlerEvent = QueueEvent
 export type QueueBatchResponse = { batchItemFailures: { itemIdentifier: string }[] }
@@ -32,10 +32,10 @@ export type LambdaQueueHandler<TNames extends LambadaGrantsShape = LambadaGrants
 
 const filterPattern = (name: string, filter: QueueHandlerFilter) => {
     if ('body' in filter) {
-        requireFilter(name, filter.body, grammars.body)
+        requireFilter.body(name, filter.body)
         return { body: filter.body }
     }
-    requireFilter(name, filter.attributes, grammars.stringAttributes)
+    requireFilter.stringAttributes(name, filter.attributes)
     return { messageAttributes: Object.fromEntries(Object.entries(filter.attributes).map(([attribute, conditions]) => [attribute, { stringValue: conditions }])) }
 }
 

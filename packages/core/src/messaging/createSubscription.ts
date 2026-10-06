@@ -6,7 +6,7 @@ import { LambadaResources, EmbroideryEnvironmentVariables, mergeOptions } from "
 import { LambadaResourceRequest, LambadaGrantsShape, ResourceRef, resolveEnvironment, resolveGrants, resolveRef } from "../resources/grants";
 import { bundleOf, isLambdaFolder } from "../lambdas/bundles";
 import { AsyncFailures, asyncInvocationConfig, failureDestination } from "../lambdas/asyncFailures";
-import { AttributePolicy, BodyPolicy, grammars, requireFilter } from "../filters";
+import { AttributePolicy, BodyPolicy, requireFilter } from "../filters";
 
 export type SubscriptionEvent = TopicEvent
 export type SubscriptionCallback = LambdaHandler<SubscriptionEvent, void>
@@ -18,8 +18,8 @@ export const filterArgs = (subscriptionName: string, filter: SnsSubscriptionFilt
     if (args.filterPolicy !== undefined || args.filterPolicyScope !== undefined) {
         throw new Error(`${subscriptionName} sets both filter and subscriptionArgs.filterPolicy`)
     }
-    if ('attributes' in filter) requireFilter(subscriptionName, filter.attributes, grammars.attributes)
-    else requireFilter(subscriptionName, filter.body, grammars.body)
+    if ('attributes' in filter) requireFilter.attributes(subscriptionName, filter.attributes)
+    else requireFilter.body(subscriptionName, filter.body)
     return 'attributes' in filter
         ? { ...args, filterPolicy: JSON.stringify(filter.attributes), filterPolicyScope: 'MessageAttributes' }
         : { ...args, filterPolicy: JSON.stringify(filter.body), filterPolicyScope: 'MessageBody' }
