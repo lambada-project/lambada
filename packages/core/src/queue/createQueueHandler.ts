@@ -13,11 +13,13 @@ export type QueueHandlerEvent = QueueEvent
 export type QueueBatchResponse = { batchItemFailures: { itemIdentifier: string }[] }
 export type QueueHandlerCallback = LambdaHandler<QueueHandlerEvent, void | QueueBatchResponse>
 
-/** A body that is not JSON is matched by conditions on the whole string; a body and its attributes both must match. */
 type QueueBody = BodyPolicy | Conditions<string>
-export type QueueHandlerFilter =
-    | { body: QueueBody, attributes?: StringAttributePolicy }
-    | { body?: QueueBody, attributes: StringAttributePolicy }
+type QueueFilterParts = { body: QueueBody, attributes: StringAttributePolicy, $or: readonly [QueueHandlerFilter, QueueHandlerFilter, ...QueueHandlerFilter[]] }
+/**
+ * A body that is not JSON is matched by conditions on the whole string. Every part given must
+ * match; `$or` takes two filters or more, any of which may.
+ */
+export type QueueHandlerFilter = { [K in keyof QueueFilterParts]: Pick<QueueFilterParts, K> & Partial<Omit<QueueFilterParts, K>> }[keyof QueueFilterParts]
 
 export type LambdaQueueHandler<TNames extends LambadaGrantsShape = LambadaGrantsShape> = {
     name: string
@@ -36,13 +38,17 @@ export type LambdaQueueHandler<TNames extends LambadaGrantsShape = LambadaGrants
 
 const isPlain = (body: QueueBody): body is Conditions<string> => Array.isArray(body)
 
-const filterPattern = (name: string, { body, attributes }: QueueHandlerFilter) => {
+const filterPattern = (name: string, filter: QueueHandlerFilter): object => {
+    const { body, attributes, $or } = filter
     if (body && isPlain(body)) requireFilter.sqsStrings(name, { body })
     else if (body) requireFilter.sqsBody(name, body)
     if (attributes) requireFilter.sqsStrings(name, attributes)
+    if (($or && !($or.length >= 2)) || (!body && !attributes && !$or))
+        throw new Error(`${name} filters by ${JSON.stringify(filter)}; a filter takes a body, attributes or a $or of two filters or more`)
     return {
         ...(body && { body }),
         ...(attributes && { messageAttributes: Object.fromEntries(Object.entries(attributes).map(([attribute, conditions]) => [attribute, { stringValue: conditions }])) }),
+        ...($or && { $or: $or.map(branch => filterPattern(name, branch)) }),
     }
 }
 
