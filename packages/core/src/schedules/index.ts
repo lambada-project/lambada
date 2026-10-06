@@ -112,13 +112,10 @@ const plain = (v: Field<Value, number>, w: Writer): string => {
     return w.refuse()
 }
 
-/**
- * All lambada knows of one cron field: its values and steps, whether it is a cycle, what EventBridge
- * writes when it is not given, and how its forms are written.
- */
-type Codec<F extends keyof Fields> = { values: Values, steps: Values, cyclic: boolean, unset: '*' | '?', write: (value: Fields[F], w: Writer) => string }
+/** All lambada knows of one cron field: its values and steps, whether it is a cycle, and how its forms are written. */
+type Codec<F extends keyof Fields> = { values: Values, steps: Values, cyclic: boolean, write: (value: Fields[F], w: Writer) => string }
 /** A cyclic field's range may run backwards around the cycle, and its step is at most its highest value. */
-const cycle = (values: Values) => ({ values, steps: span(1, values.highest), cyclic: true, unset: '*' as const })
+const cycle = (values: Values) => ({ values, steps: span(1, values.highest), cyclic: true })
 
 /** In EventBridge's order. Years are not a cycle: a range ascends, which a type cannot order, and a step is any count. */
 const fields: { [F in keyof Fields]: Codec<F> } = {
@@ -128,10 +125,9 @@ const fields: { [F in keyof Fields]: Codec<F> } = {
     month: { ...cycle(named(MONTHS)), write: plain },
     dayOfWeek: {
         ...cycle(named(WEEKDAYS)),
-        unset: '?',
         write: (v, w) => isForm(v, LAST) ? `${w.value(v.last)}L` : isForm(v, NTH) ? (NTHS.includes(v.nth) ? `${w.value(v.of)}#${v.nth}` : w.refuse()) : plain(v, w),
     },
-    year: { values: span(1970, 2199), steps: counts, cyclic: false, unset: '*', write: plain },
+    year: { values: span(1970, 2199), steps: counts, cyclic: false, write: plain },
 }
 
 export const scheduleExpression = (name: string, schedule: Schedule): string => {
@@ -152,18 +148,13 @@ export const scheduleExpression = (name: string, schedule: Schedule): string => 
     if (keys.length === 0 || !keys.every(k => known.includes(k)) || (cron.dayOfMonth !== undefined && cron.dayOfWeek !== undefined))
         throw new Error(`${name} sets ${JSON.stringify(cron)}; a cron takes one or more of ${known.join(', ')}, with dayOfMonth or dayOfWeek, not both`)
     /** TypeScript cannot pair a field's codec with a value read by a generic name (TS2590), so each field passes its own value. */
-    const field = <K extends keyof Fields>(f: K, value: Fields[K] | undefined, unset = fields[f].unset): string =>
-        value === undefined ? unset : fields[f].write(value, writerOf(fields[f], () => {
+    const field = <K extends keyof Fields>(f: K, value: Fields[K] | undefined): string =>
+        value === undefined ? '*' : fields[f].write(value, writerOf(fields[f], () => {
             throw new Error(`${name} sets ${f} to ${JSON.stringify(value)}, which a cron does not take there`)
         }))
-    return `cron(${[
-        field('minute', cron.minute),
-        field('hour', cron.hour),
-        field('dayOfMonth', cron.dayOfMonth, cron.dayOfWeek === undefined ? '*' : '?'),
-        field('month', cron.month),
-        field('dayOfWeek', cron.dayOfWeek),
-        field('year', cron.year),
-    ].join(' ')})`
+    /** EventBridge writes `?` for the day field not chosen; a cron that chooses neither runs every day of the month. */
+    const [dayOfMonth, dayOfWeek] = cron.dayOfWeek === undefined ? [field('dayOfMonth', cron.dayOfMonth), '?'] : ['?', field('dayOfWeek', cron.dayOfWeek)]
+    return `cron(${[field('minute', cron.minute), field('hour', cron.hour), dayOfMonth, field('month', cron.month), dayOfWeek, field('year', cron.year)].join(' ')})`
 }
 
 export type LambdaSchedule<TNames extends LambadaGrantsShape = LambadaGrantsShape> = AsyncFailures & {
