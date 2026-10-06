@@ -33,8 +33,7 @@ type Value<G extends Grammar> = G['values'] extends 'strings' ? string : Scalar
 type IgnoringCase = { 'equals-ignore-case': string }
 type Matches = { prefix: string | IgnoringCase, suffix: string | IgnoringCase, wildcard: string }
 type Exclusions = Record<'prefix' | 'suffix' | 'wildcard' | 'equals-ignore-case', string | NonEmpty<string>>
-type Operators<V extends Scalar> = Matches & {
-    'equals-ignore-case': string
+type Operators<V extends Scalar> = Matches & IgnoringCase & {
     exists: boolean
     cidr: Cidr
     'anything-but': string | NonEmpty<string> | (number extends V ? number | NonEmpty<number> : never) | OneOf<Exclusions>
@@ -122,7 +121,7 @@ export const operatorNames = () => [...Object.keys(operators(true)), ...Object.k
 
 const operators = (numbers: boolean): Checks<Ops> => ({
     ...matches,
-    'equals-ignore-case': isString,
+    ...ignoringCase,
     exists: v => typeof v === 'boolean',
     cidr: isCidr,
     'anything-but': anythingBut(numbers),
@@ -131,7 +130,7 @@ const operators = (numbers: boolean): Checks<Ops> => ({
 
 /** An index signature cannot require a key, so an empty policy is refused here. */
 const isPolicy = (v: unknown): v is AnyPolicy => isRecord(v) && Object.keys(v).length > 0
-const isBranches = (key: string, v: Entry): v is Extract<Entry, Branches<AnyPolicy>> => key === '$or' && isArray(v) && v.length >= 2
+const isBranches = (v: Entry): v is Extract<Entry, Branches<AnyPolicy>> => isArray(v) && v.length >= 2
 const isConditions = (v: Entry): v is Conditions => isArray(v) && v.length > 0
 
 /** A condition's wildcard patterns. */
@@ -147,7 +146,13 @@ const stars = (pattern: string) => pattern.split('*').length - 1
 const points = (stars: number) => stars > 1 ? 3 * stars : stars
 
 type Bounds = { pairs: Set<string>, combinations: number, complexity: number, stars: number }
-const LIMITS = { keys: 5, combinations: 150, complexity: 100, stars: 3 }
+/** Each bound SNS sets on a policy: the most it takes, what it measures, and what to call it. */
+const LIMITS: { most: number, of: (b: Bounds) => number, called: string }[] = [
+    { most: 5, of: b => b.pairs.size, called: 'keys' },
+    { most: 150, of: b => b.combinations, called: 'combinations' },
+    { most: 100, of: b => b.complexity, called: 'wildcard complexity' },
+    { most: 3, of: b => b.stars, called: 'wildcards in a pattern' },
+]
 
 /**
  * Refuses what SNS and Lambda reject, and what they take but never match. Where SNS bounds a
@@ -176,7 +181,7 @@ const filterCheck = (grammar: Grammar) => (name: string, policy: AnyPolicy): voi
         for (const [key, v] of Object.entries(p)) {
             const here = at ? `${at}.${key}` : key
             if (key === '$or') {
-                if (!(grammar.or && isBranches(key, v))) return refuse(here, v)
+                if (!(grammar.or && isBranches(v))) return refuse(here, v)
                 const branches = v.map((branch, i) => walk(`${here}[${i}]`, keys, branch, depth))
                 branches.forEach(take)
                 b.combinations *= branches.reduce((sum, m) => sum + m.combinations, 0)
@@ -200,9 +205,8 @@ const filterCheck = (grammar: Grammar) => (name: string, policy: AnyPolicy): voi
     }
     const b = walk('', '', policy, 1)
     if (!grammar.bounded) return
-    const measured = { keys: b.pairs.size, combinations: b.combinations, complexity: b.complexity, stars: b.stars }
-    for (const [what, limit] of Object.entries(LIMITS) as [keyof typeof LIMITS, number][])
-        if (measured[what] > limit) throw new Error(`${name} filters with ${measured[what]} ${what === 'stars' ? 'wildcards in a pattern' : what === 'complexity' ? 'wildcard complexity' : what}, past the ${limit} SNS takes`)
+    for (const { most, of, called } of LIMITS)
+        if (of(b) > most) throw new Error(`${name} filters with ${of(b)} ${called}, past the ${most} SNS takes`)
 }
 
 export const requireFilter = Object.fromEntries(Object.entries(grammars).map(([key, grammar]) => [key, filterCheck(grammar)])) as
