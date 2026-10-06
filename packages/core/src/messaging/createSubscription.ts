@@ -18,8 +18,8 @@ export const filterArgs = (subscriptionName: string, filter: SnsSubscriptionFilt
     if (args.filterPolicy !== undefined || args.filterPolicyScope !== undefined) {
         throw new Error(`${subscriptionName} sets both filter and subscriptionArgs.filterPolicy`)
     }
-    if ('attributes' in filter) requireFilter.attributes(subscriptionName, filter.attributes)
-    else requireFilter.body(subscriptionName, filter.body)
+    if ('attributes' in filter) requireFilter.snsAttributes(subscriptionName, filter.attributes)
+    else requireFilter.snsBody(subscriptionName, filter.body)
     return 'attributes' in filter
         ? { ...args, filterPolicy: JSON.stringify(filter.attributes), filterPolicyScope: 'MessageAttributes' }
         : { ...args, filterPolicy: JSON.stringify(filter.body), filterPolicyScope: 'MessageBody' }

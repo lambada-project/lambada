@@ -32,10 +32,10 @@ export type LambdaQueueHandler<TNames extends LambadaGrantsShape = LambadaGrants
 
 const filterPattern = (name: string, filter: QueueHandlerFilter) => {
     if ('body' in filter) {
-        requireFilter.body(name, filter.body)
+        requireFilter.sqsBody(name, filter.body)
         return { body: filter.body }
     }
-    requireFilter.stringAttributes(name, filter.attributes)
+    requireFilter.sqsAttributes(name, filter.attributes)
     return { messageAttributes: Object.fromEntries(Object.entries(filter.attributes).map(([attribute, conditions]) => [attribute, { stringValue: conditions }])) }
 }
 

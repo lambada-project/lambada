@@ -26,8 +26,8 @@ const sent: { [T in Target]: (policy: Record<string, unknown>) => unknown } = {
 const cases = verdicts.flatMap(v => (Object.keys(targets) as Target[]).map(target => {
     let written: unknown
     try { written = targets[target](v.policy) } catch { written = undefined }
-    return { target, name: v.name, policy: v.policy as Record<string, unknown>, aws: v[target], written }
-}))
+    return { target, name: v.name, policy: v.policy as Record<string, unknown>, aws: (v as Record<string, unknown>)[target], written }
+})).filter(c => c.aws !== undefined)
 
 describe('a filter, against what SNS and Lambda said of it', () => {
     test('is never written where AWS rejects it, or fails on it', () => {
@@ -53,6 +53,18 @@ describe('a filter, against what SNS and Lambda said of it', () => {
             'sqs:attributes nested',
             'sns:attributes emptyPolicy',
             'sns:body emptyPolicy',
+            'sqs:attributes nestedLeafKeys5',
+            'sqs:attributes nestedLeafKeys6',
+            'sqs:attributes depth3x50',
+            'sqs:attributes depth3x51',
+            'sqs:attributes numEqMax',
+            'sqs:attributes numEqOver',
+            'sqs:attributes numEqMin',
+            'sqs:attributes numEqUnder',
+            'sqs:attributes num5Decimals',
+            'sqs:attributes num6Decimals',
+            'sqs:attributes numValueOver',
+            'sqs:attributes butNumberOver',
         ])
     })
 })

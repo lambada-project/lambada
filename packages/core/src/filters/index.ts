@@ -12,12 +12,16 @@ type Upper = typeof UPPER[number]
 type Numeric = readonly ['=', number] | readonly [Lower | Upper, number] | readonly [Lower, number, Upper, number]
 type Cidr = `${number}.${number}.${number}.${number}/${number}` | `${string}:${string}/${number}`
 
-/** SQS attributes are compared as strings, so a condition there can only match a string. */
-type Grammar = { nested: boolean, or: boolean, values: 'scalars' | 'strings' }
+/**
+ * SQS attributes are compared as strings, so a condition there can only match a string.
+ * SNS bounds a policy's keys, combinations and wildcards; Lambda takes past each bound.
+ */
+type Grammar = { nested: boolean, or: boolean, values: 'scalars' | 'strings', bounded: boolean }
 const grammars = {
-    attributes: { nested: false, or: true, values: 'scalars' },
-    body: { nested: true, or: true, values: 'scalars' },
-    stringAttributes: { nested: false, or: false, values: 'strings' },
+    snsAttributes: { nested: false, or: true, values: 'scalars', bounded: true },
+    snsBody: { nested: true, or: true, values: 'scalars', bounded: true },
+    sqsBody: { nested: true, or: true, values: 'scalars', bounded: false },
+    sqsAttributes: { nested: false, or: false, values: 'strings', bounded: false },
 } as const satisfies Record<string, Grammar>
 type Grammars = typeof grammars
 
@@ -36,15 +40,16 @@ export type Condition<V extends Scalar = Scalar> = V | OneOf<Operators<V>>
 export type Conditions<V extends Scalar = Scalar> = NonEmpty<Condition<V>>
 
 /** An index signature cannot single out `$or`: the types take branches under any key, the check only under `$or`. */
-type Policy<G extends Grammar> = {
+type Policy<Nested extends boolean, Or extends boolean, V extends Scalar> = {
     [key: string]:
-        | Conditions<Value<G>>
-        | (G['nested'] extends true ? Policy<G> : never)
-        | (G['or'] extends true ? Branches<Policy<G>> : never)
+        | Conditions<V>
+        | (Nested extends true ? Policy<Nested, Or, V> : never)
+        | (Or extends true ? Branches<Policy<Nested, Or, V>> : never)
 }
-export type AttributePolicy = Policy<Grammars['attributes']>
-export type BodyPolicy = Policy<Grammars['body']>
-export type StringAttributePolicy = Policy<Grammars['stringAttributes']>
+type PolicyOf<G extends Grammar> = Policy<G['nested'], G['or'], Value<G>>
+export type AttributePolicy = PolicyOf<Grammars['snsAttributes']>
+export type BodyPolicy = PolicyOf<Grammars['snsBody']>
+export type StringAttributePolicy = PolicyOf<Grammars['sqsAttributes']>
 type AnyPolicy = AttributePolicy | BodyPolicy | StringAttributePolicy
 type Entry = AnyPolicy[string]
 
@@ -76,7 +81,9 @@ const oneOf = <T extends object>(checks: Checks<T>, condition: { [K in keyof T]?
     return keys.length === 1 && keys[0] in checks && check(checks, keys[0], condition)
 }
 
-const matches: Checks<Matches> = { prefix: isString, suffix: isString, wildcard: isString }
+/** Both services reject consecutive wildcards. */
+const isPattern = (v: unknown): v is string => isString(v) && !v.includes('**')
+const matches: Checks<Matches> = { prefix: isString, suffix: isString, wildcard: isPattern }
 const exclusions: Checks<Exclusions> = { ...matches, 'equals-ignore-case': v => isString(v) || nonEmpty(v, isString) }
 const anythingBut = (numbers: boolean) => (v: Ops['anything-but']) => {
     if (isString(v)) return true
@@ -101,6 +108,49 @@ const isPolicy = (v: unknown): v is AnyPolicy => isRecord(v) && Object.keys(v).l
 const isBranches = (key: string, v: Entry): v is Extract<Entry, Branches<AnyPolicy>> => key === '$or' && isArray(v) && v.length >= 2
 const isConditions = (v: Entry): v is Conditions => isArray(v) && v.length > 0
 
+const stars = (c: Condition) => {
+    if (typeof c !== 'object' || c === null) return 0
+    const pattern = 'wildcard' in c ? c.wildcard : 'anything-but' in c && isRecord(c['anything-but']) ? c['anything-but'].wildcard : undefined
+    return isString(pattern) ? pattern.split('*').length - 1 : 0
+}
+const points = (stars: number) => stars > 1 ? 3 * stars : stars
+
+type Bounds = { pairs: Set<string>, combinations: number, complexity: number, stars: number }
+/**
+ * What SNS counts, as its verdicts show: a key per distinct path and value list, `$or` included;
+ * combinations multiplying across keys, times each key's depth, and adding across branches;
+ * per field, its patterns' wildcard points times its pattern count, added across fields.
+ */
+const bounds = (p: AnyPolicy, path = '', depth = 1): Bounds => {
+    const b: Bounds = { pairs: new Set(), combinations: 1, complexity: 0, stars: 0 }
+    const take = (m: Bounds) => {
+        m.pairs.forEach(pair => b.pairs.add(pair))
+        b.complexity += m.complexity
+        b.stars = Math.max(b.stars, m.stars)
+    }
+    for (const [key, v] of Object.entries(p)) {
+        if (isBranches(key, v)) {
+            const branches = v.map(branch => bounds(branch, path, depth))
+            branches.forEach(take)
+            b.combinations *= branches.reduce((sum, m) => sum + m.combinations, 0)
+        }
+        else if (isConditions(v)) {
+            const counts = v.map(stars)
+            b.pairs.add(`${path}${key}=${JSON.stringify(v)}`)
+            b.combinations *= v.length * depth
+            b.complexity += counts.reduce((sum, n) => sum + points(n), 0) * v.length
+            b.stars = Math.max(b.stars, ...counts)
+        }
+        else if (isPolicy(v)) {
+            const m = bounds(v, `${path}${key}.`, depth + 1)
+            take(m)
+            b.combinations *= m.combinations
+        }
+    }
+    return b
+}
+const LIMITS = { keys: 5, combinations: 150, complexity: 100, stars: 3 }
+
 /** Refuses what SNS and Lambda reject, and what they take but never match. */
 const filterCheck = (grammar: Grammar) => (name: string, policy: AnyPolicy): void => {
     const refuse = (path: string, value: unknown): never => {
@@ -121,10 +171,16 @@ const filterCheck = (grammar: Grammar) => (name: string, policy: AnyPolicy): voi
         }
     }
     policyAt('', policy)
+    if (!grammar.bounded) return
+    const b = bounds(policy)
+    const measured = { keys: b.pairs.size, combinations: b.combinations, complexity: b.complexity, stars: b.stars }
+    for (const [what, limit] of Object.entries(LIMITS) as [keyof typeof LIMITS, number][])
+        if (measured[what] > limit) throw new Error(`${name} filters with ${measured[what]} ${what === 'stars' ? 'wildcards in a pattern' : what === 'complexity' ? 'wildcard complexity' : what}, past the ${limit} SNS takes`)
 }
 
-export const requireFilter: { [G in keyof Grammars]: (name: string, policy: Policy<Grammars[G]>) => void } = {
-    attributes: filterCheck(grammars.attributes),
-    body: filterCheck(grammars.body),
-    stringAttributes: filterCheck(grammars.stringAttributes),
+export const requireFilter: { [G in keyof Grammars]: (name: string, policy: PolicyOf<Grammars[G]>) => void } = {
+    snsAttributes: filterCheck(grammars.snsAttributes),
+    snsBody: filterCheck(grammars.snsBody),
+    sqsBody: filterCheck(grammars.sqsBody),
+    sqsAttributes: filterCheck(grammars.sqsAttributes),
 }
