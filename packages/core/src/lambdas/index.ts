@@ -13,7 +13,8 @@ import { EmbroideryEnvironmentVariables } from '..';
 import { enums } from '@pulumi/aws/types';
 import { QueueResultItem } from '../queue';
 import { BucketResultItem } from '../buckets';
-import { lift } from '../inputs';
+import { lift, lift2 } from '../inputs';
+import type { LogsResult, RetentionDays } from '../logs';
 import { PoolResultItem } from '../auth/pools';
 //import { NotificationResult, NotificationResultItem } from '../notifications';
 
@@ -126,6 +127,9 @@ export type LambdaOptions = {
      * Enables XRay access from this lambda
      */
     enableXRay?: pulumi.Input<boolean>
+
+    /** Read only when the stack declares `logs`. */
+    logRetention?: { days: RetentionDays }
 }
 
 /** What one granted resource costs in IAM and in environment. */
@@ -200,22 +204,50 @@ const grantedResource = (
  */
 export type LambdaHandler<E, R> = (event: E, context: Context) => Promise<R> | void
 
-export const createLambda = <E, R>(
-    name: string,
-    environment: string,
-    definition: LambdaHandler<E, R> | LambdaFolder,
-    policyStatements: aws.iam.PolicyStatement[],
-    environmentVariables: EmbroideryEnvironmentVariables,
-    resources: LambdaResource[],
-    overrideRole?: aws.iam.Role,
-    options?: LambdaOptions,
-    description?: string,
+export const tableKeyStatements = (tables: { name: string, kmsKeyArn: string }[]): PolicyStatement[] => {
+    const tablesByKey = new Map<string, string[]>()
+    for (const { name, kmsKeyArn } of tables) {
+        if (kmsKeyArn) tablesByKey.set(kmsKeyArn, [...(tablesByKey.get(kmsKeyArn) ?? []), name])
+    }
+    return [...tablesByKey].map(([key, names]) => ({
+        Effect: 'Allow',
+        Action: ['kms:Decrypt'],
+        Resource: key,
+        Condition: {
+            StringLike: { 'kms:ViaService': 'dynamodb.*.amazonaws.com' },
+            StringEquals: { 'kms:EncryptionContext:aws:dynamodb:tableName': names },
+        },
+    }))
+}
+
+export type LambdaArgs<E, R> = {
+    name: string
+    environment: string
+    definition: LambdaHandler<E, R> | LambdaFolder
+    policyStatements?: aws.iam.PolicyStatement[]
+    environmentVariables?: EmbroideryEnvironmentVariables
+    resources?: LambdaResource[]
+    /** Used as given, in place of the role its grants would build. */
+    role?: aws.iam.Role
+    options?: LambdaOptions
+    description?: string
     tags?: pulumi.Input<{ [key: string]: pulumi.Input<string> }>
-): aws.lambda.EventHandler<E, R> => {
+    logs?: LogsResult
+}
 
-    if (!policyStatements) policyStatements = []
-    if (!environmentVariables) environmentVariables = {}
-
+export const createLambda = <E, R>({
+    name,
+    environment,
+    definition,
+    policyStatements = [],
+    environmentVariables = {},
+    resources = [],
+    role,
+    options,
+    description = `${name}-${environment}`,
+    tags,
+    logs,
+}: LambdaArgs<E, R>): aws.lambda.EventHandler<E, R> => {
     const granted = [...policyStatements]
 
     var envVarsFromResources: EmbroideryEnvironmentVariables = {}
@@ -232,10 +264,11 @@ export const createLambda = <E, R>(
 
     // enableXRay may be an Input, and an Input tested directly is an object: `false` would read as
     // true. The statement is added where the value is known, so the document becomes an Output.
-    const statements = lift(options?.enableXRay ?? false, enabled =>
-        enabled ? [...granted, AWSXRayDaemonWriteAccess] : granted)
+    const tables = pulumi.all(resources.flatMap(r => r.table ? [r.table.ref] : []))
+    const statements = lift2(options?.enableXRay ?? false, tables, (enabled, refs) =>
+        [...granted, ...tableKeyStatements(refs), ...(enabled ? [AWSXRayDaemonWriteAccess] : [])])
 
-    const roleArn = overrideRole?.arn ??
+    const roleArn = role?.arn ??
         roleFor(name, environment, statements, grantsKey(environment, policyStatements, resources, options))
 
     const variables = {
@@ -263,7 +296,12 @@ export const createLambda = <E, R>(
         subnetIds: []
     }
 
-    description = description ?? `${name}-${environment}`
+    const logGroup = logs && new aws.cloudwatch.LogGroup(`${name}-${environment}-logs`, {
+        name: `${logs.prefix}/${name}-${environment}`,
+        retentionInDays: (options?.logRetention ?? logs.retention)?.days,
+        tags,
+    })
+    const loggingConfig = logGroup ? { logFormat: 'Text', logGroup: logGroup.name } : undefined
 
     if (typeof definition === 'function') {
         const callbackDefinition = definition as LambdaHandler<E, R>
@@ -279,7 +317,8 @@ export const createLambda = <E, R>(
             architectures: architectures,
             vpcConfig: _vpcConfig,
             tags: tags,
-            layers: layers
+            layers: layers,
+            loggingConfig: loggingConfig
         })
     }
     else if ((definition as LambdaFolder).functionFolder) {
@@ -305,7 +344,8 @@ export const createLambda = <E, R>(
             environment: functionEnvironment, // TODO:
             reservedConcurrentExecutions: reservedConcurrentExecutions,
             vpcConfig: _vpcConfig,
-            tags: tags
+            tags: tags,
+            loggingConfig: loggingConfig
         });
     }
     else {

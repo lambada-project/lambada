@@ -16,6 +16,8 @@ import { createKMSKeys, createSecrets, SecurityKeys, SecurityKeysRef, Embroidery
 import { UserPool } from "@pulumi/aws/cognito/userPool";
 import { LambdaAuthorizer } from "@pulumi/awsx/classic/apigateway";
 import { createQueueHandlers, createQueues, LambadaQueueHandlerDefinition, LambadaQueues, QueuesResult } from "./queue";
+import { createSchedules, LambadaScheduleDefinition } from "./schedules";
+import { LambadaLogs } from "./logs";
 import { OpenAPIObjectConfigV31 } from "@asteasolutions/zod-to-openapi/dist/v3.1/openapi-generator";
 import { LambdaOptions } from "./lambdas";
 import { BundleSource } from "./lambdas/bundles";
@@ -35,6 +37,8 @@ export * from './extra'
 export * from './test_utils'
 export * from './messaging'
 export * from './queue'
+export * from './schedules'
+export * from './logs'
 export * from './auth/pools'
 export * from './buckets'
 export * from './resources'
@@ -95,10 +99,14 @@ export type LambadaRunArguments = {
     queues?: LambadaQueues,
     queuesRef?: LambadaQueues | QueuesResult,
     queueHandlerDefinitions?: readonly LambadaQueueHandlerDefinition[]
+    scheduleDefinitions?: readonly LambadaScheduleDefinition[]
+
+    /** Without it, every lambda keeps the log group Lambda gives it. */
+    logs?: LambadaLogs
 
     /**
      * Pre-built artifacts by function name, for a definition carrying no `useBundle` of its own.
-     * Endpoints, subscriptions and queue handlers; not webhooks, whose queue lambda is lambada's
+     * Endpoints, subscriptions, queue handlers and schedules; not webhooks, whose queue lambda is lambada's
      * glue rather than the declaration's callback.
      */
     bundles?: BundleSource
@@ -239,6 +247,7 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
         notifications: notifications,
         databases: databases,
         buckets: buckets,
+        logs: args.logs && { prefix: `/lambada/${projectName}`, ...args.logs },
         environment: environment,
         kmsKeys: encryptionKeys,
         environmentVariables: args.environmentVariables || {},
@@ -255,11 +264,13 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
     preflight(lambadaContext, diagnostics, [
         args.messageHandlerDefinitions,
         args.queueHandlerDefinitions,
+        args.scheduleDefinitions,
         args.api?.endpointDefinitions,
     ])
 
     createSubscriptions(lambadaContext, args.messageHandlerDefinitions)
     createQueueHandlers(lambadaContext, args.queueHandlerDefinitions)
+    createSchedules(lambadaContext, args.scheduleDefinitions)
 
     const api = createApi({
         projectName,

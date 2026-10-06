@@ -130,7 +130,12 @@ export const encryptionKeyFor = (
     diagnostics?: LambadaDiagnostics
 ): aws.kms.Key | undefined => {
     if (ask.encryptionKeyName === undefined) {
-        return ask.legacyDynamodbFallback ? kmsKeys?.dynamodb?.awsKmsKey : undefined
+        const fallback = ask.legacyDynamodbFallback ? kmsKeys?.dynamodb?.awsKmsKey : undefined
+        if (fallback) {
+            pulumi.log.warn(`${ask.kind} ${ask.owner} names no encryptionKeyName, so it takes the key named 'dynamodb'. ` +
+                `Set encryptionKeyName: 'dynamodb' to keep it: a later version stops choosing it.`)
+        }
+        return fallback
     }
 
     const item = kmsKeys?.[ask.encryptionKeyName]

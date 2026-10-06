@@ -22,8 +22,8 @@ const table = (name: string) => ({
 })
 
 const lambda = async (name: string, resources: LambdaResource[], extra: { statements?: any[], xray?: pulumi.Input<boolean> } = {}) => {
-    const fn = createLambda(name, 'test', { functionFolder: '.', handler: 'index.main' }, extra.statements ?? [], {}, resources,
-        undefined, { enableXRay: extra.xray }) as unknown as { arn: pulumi.Output<string> }
+    const fn = createLambda({ name, environment: 'test', definition: { functionFolder: '.', handler: 'index.main' },
+        policyStatements: extra.statements, resources, options: { enableXRay: extra.xray } }) as unknown as { arn: pulumi.Output<string> }
     await settled(fn.arn)
     return created.find(r => r.type === 'aws:lambda/function:Function' && r.name === `${name}-test`)!.inputs.role as string
 }

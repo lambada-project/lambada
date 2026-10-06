@@ -74,19 +74,6 @@ export function createWebhook(
 
 
     const handlerResources: LambdaResource[] = resolveGrants(context, { name: endpointParams.name, resources: endpointParams.resources })
-    if (context.kmsKeys && context.kmsKeys.dynamodb) {
-        handlerResources.push(
-            {
-                kmsKey: context.kmsKeys.dynamodb,
-                access: [
-                    "kms:Encrypt",
-                    "kms:Decrypt",
-                    "kms:ReEncrypt*",
-                    "kms:GenerateDataKey*",
-                    "kms:DescribeKey"
-                ],
-            })
-    }
 
     handlerResources.push({
         // queue: {
@@ -116,19 +103,18 @@ export function createWebhook(
     }
 
 
-    const queueHandler = createLambda<any, any>(
-        endpointParams.name + '-handler',
-        context.environment,
-        handlerCallback,
-        [],
-        handlerEnvVars,
-        handlerResources,
-        undefined,
-        {
+    const queueHandler = createLambda<any, any>({
+        name: endpointParams.name + '-handler',
+        environment: context.environment,
+        definition: handlerCallback,
+        environmentVariables: handlerEnvVars,
+        resources: handlerResources,
+        options: {
             ...mergeOptions(endpointParams.options, context.api?.lambdaOptions),
             timeout: endpointOptions.timeout,
-        }
-    )
+        },
+        logs: context.logs,
+    })
 
     queue.onEvent(queueName, queueHandler, {
         batchSize: 1,

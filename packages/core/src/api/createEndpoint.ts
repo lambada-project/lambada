@@ -213,34 +213,21 @@ export const createEndpoint = <E, R>(
         policyStatements = []
     }
 
-    if (lambadaContext.kmsKeys && lambadaContext.kmsKeys.dynamodb) {
-        grants.push(
-            {
-                kmsKey: lambadaContext.kmsKeys.dynamodb,
-                access: [
-                    "kms:Encrypt",
-                    "kms:Decrypt",
-                    "kms:ReEncrypt*",
-                    "kms:GenerateDataKey*",
-                    "kms:DescribeKey"
-                ],
-            })
-    }
 
     const envVars = resolveEnvironment(lambadaContext, { name, resources, environmentVariables })
 
-    const callback = createLambda<E, R>(
+    const callback = createLambda<E, R>({
         name,
         environment,
-        callbackDefinition,
+        definition: callbackDefinition,
         policyStatements,
-        envVars,
-        grants,
-        undefined,
-        mergeOptions(options, lambadaContext.api?.lambdaOptions),
-        `${lambadaContext.projectName} ${method} ${path}`,
-        lambadaContext.globalTags
-    )
+        environmentVariables: envVars,
+        resources: grants,
+        options: mergeOptions(options, lambadaContext.api?.lambdaOptions),
+        description: `${lambadaContext.projectName} ${method} ${path}`,
+        tags: lambadaContext.globalTags,
+        logs: lambadaContext.logs,
+    })
 
     let auth: (CognitoAuthorizer | LambdaAuthorizer)[] = []
 
@@ -261,16 +248,7 @@ export const createEndpoint = <E, R>(
 
 
 export function mergeOptions(lambdaOptions: LambdaOptions | undefined, globalOptions: LambdaOptions | undefined): LambdaOptions {
-    return {
-        memorySize: lambdaOptions?.memorySize ?? globalOptions?.memorySize,
-        vpcConfig: lambdaOptions?.vpcConfig ?? globalOptions?.vpcConfig,
-        architecture: lambdaOptions?.architecture ?? globalOptions?.architecture,
-        callbackWaitsForEmptyEventLoop: lambdaOptions?.callbackWaitsForEmptyEventLoop ?? globalOptions?.callbackWaitsForEmptyEventLoop,
-        reservedConcurrentExecutions: lambdaOptions?.reservedConcurrentExecutions ?? globalOptions?.reservedConcurrentExecutions,
-        runtime: lambdaOptions?.runtime ?? globalOptions?.runtime,
-        timeout: lambdaOptions?.timeout ?? globalOptions?.timeout,
-        layers: lambdaOptions?.layers ?? globalOptions?.layers,
-        enableXRay: lambdaOptions?.enableXRay ?? globalOptions?.enableXRay,
-    }
+    const keys = new Set([...Object.keys(globalOptions ?? {}), ...Object.keys(lambdaOptions ?? {})]) as Set<keyof LambdaOptions>
+    return Object.fromEntries([...keys].map(key => [key, lambdaOptions?.[key] ?? globalOptions?.[key]]))
 }
 

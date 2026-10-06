@@ -5,11 +5,39 @@ import { TopicEvent, TopicEventSubscription, TopicEventSubscriptionArgs } from "
 import { LambadaResources, EmbroideryEnvironmentVariables, mergeOptions } from "..";
 import { LambadaResourceRequest, LambadaGrantsShape, ResourceRef, resolveEnvironment, resolveGrants, resolveRef } from "../resources/grants";
 import { bundleOf, isLambdaFolder } from "../lambdas/bundles";
+import { AsyncFailures, asyncInvocationConfig, failureDestination } from "../lambdas/asyncFailures";
 
 export type SubscriptionEvent = TopicEvent
 export type SubscriptionCallback = LambdaHandler<SubscriptionEvent, void>
 
-export type LambdaSubscription<TNames extends LambadaGrantsShape = LambadaGrantsShape> = {
+type SnsFilterCondition =
+    | string
+    | number
+    | boolean
+    | null
+    | { prefix: string }
+    | { suffix: string }
+    | { 'equals-ignore-case': string }
+    | { 'anything-but': string | number | (string | number)[] | { prefix: string } | { suffix: string } }
+    | { numeric: (string | number)[] }
+    | { exists: boolean }
+    | { cidr: string }
+
+export type SnsFilterPolicy = { $or?: SnsFilterPolicy[] } & { [key: string]: SnsFilterCondition[] | SnsFilterPolicy | SnsFilterPolicy[] | undefined }
+
+export type SnsSubscriptionFilter = { attributes: SnsFilterPolicy } | { body: SnsFilterPolicy }
+
+export const filterArgs = (subscriptionName: string, filter: SnsSubscriptionFilter | undefined, args: TopicEventSubscriptionArgs = {}): TopicEventSubscriptionArgs => {
+    if (!filter) return args
+    if (args.filterPolicy !== undefined || args.filterPolicyScope !== undefined) {
+        throw new Error(`${subscriptionName} sets both filter and subscriptionArgs.filterPolicy`)
+    }
+    return 'attributes' in filter
+        ? { ...args, filterPolicy: JSON.stringify(filter.attributes), filterPolicyScope: 'MessageAttributes' }
+        : { ...args, filterPolicy: JSON.stringify(filter.body), filterPolicyScope: 'MessageBody' }
+}
+
+export type LambdaSubscription<TNames extends LambadaGrantsShape = LambadaGrantsShape> = AsyncFailures & {
     name: string
     /** A `FolderLambda` deploys a pre-built bundle instead of a serialized closure. */
     callback: SubscriptionCallback | LambdaFolder
@@ -17,6 +45,8 @@ export type LambdaSubscription<TNames extends LambadaGrantsShape = LambadaGrants
     environmentVariables?: EmbroideryEnvironmentVariables
     resources: LambadaResourceRequest<TNames>
     subscriptionArgs?: TopicEventSubscriptionArgs
+    lambdaOptions?: LambdaOptions
+    filter?: SnsSubscriptionFilter
 }
 
 export type LambadaSubscriptionHandler<TNames extends LambadaGrantsShape = LambadaGrantsShape> =
@@ -61,20 +91,9 @@ export const subscribeToTopic = (
     //     Effect: "Allow"
     // })
     const grants = resolveGrants(context, { name: subscription.name, resources: subscription.resources })
+    const destination = failureDestination(context, subscription.name, subscription)
+    if (destination) grants.push(destination.grant)
 
-    if (context.kmsKeys && context.kmsKeys.dynamodb) {
-        grants.push(
-            {
-                kmsKey: context.kmsKeys.dynamodb,
-                access: [
-                    "kms:Encrypt",
-                    "kms:Decrypt",
-                    "kms:ReEncrypt*",
-                    "kms:GenerateDataKey*",
-                    "kms:DescribeKey"
-                ],
-            })
-    }
 
     const envVars = resolveEnvironment(context, {
         name: subscription.name,
@@ -86,21 +105,24 @@ export const subscribeToTopic = (
         ? subscription.callback
         : bundleOf(context.bundles, subscription.name)
 
-    const callback = createLambda<TopicEvent, void>(
-        subscription.name,
+    const callback = createLambda<TopicEvent, void>({
+        name: subscription.name,
         environment,
-        artifact ?? subscription.callback,
-        subscription.policyStatements ?? [],
-        envVars,
-        grants,
-        overrideRole,
-        mergeOptions(options, context.api?.lambdaOptions),
-        `Handler for ${topic.definition.name} in ${environment} with subscription ${subscription.name}`,
-        context.globalTags
+        definition: artifact ?? subscription.callback,
+        policyStatements: subscription.policyStatements,
+        environmentVariables: envVars,
+        resources: grants,
+        role: overrideRole,
+        options: mergeOptions(mergeOptions(subscription.lambdaOptions, options), context.api?.lambdaOptions),
+        description: `Handler for ${topic.definition.name} in ${environment} with subscription ${subscription.name}`,
+        tags: context.globalTags,
+        logs: context.logs,
+    })
+    asyncInvocationConfig(subscription.name, environment, (callback as aws.lambda.Function).name, subscription, destination?.arn)
 
-    )
     if (topic.awsTopic)
-        return topic.awsTopic.onEvent(`${topicName}_${subscription.name}_${environment}`, callback, subscription.subscriptionArgs)
+        return topic.awsTopic.onEvent(`${topicName}_${subscription.name}_${environment}`, callback,
+            filterArgs(subscription.name, subscription.filter, subscription.subscriptionArgs))
     else
         throw `Cannot subscribe to this topic: ${topic.definition.name}`
 }
