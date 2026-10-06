@@ -7,22 +7,27 @@ import { LambadaResourceRequest, LambadaGrantsShape, ResourceRef, resolveEnviron
 import { bundleOf, isLambdaFolder } from "../lambdas/bundles";
 import { AsyncFailures, asyncInvocationConfig, failureDestination } from "../lambdas/asyncFailures";
 import { AttributePolicy, BodyPolicy, requireFilter } from "../filters";
+import { isOneOf, OneOf } from "../types/forms";
 
 export type SubscriptionEvent = TopicEvent
 export type SubscriptionCallback = LambdaHandler<SubscriptionEvent, void>
 
-export type SnsSubscriptionFilter = { attributes: AttributePolicy } | { body: BodyPolicy }
+type Scopes = { attributes: AttributePolicy, body: BodyPolicy }
+export type SnsSubscriptionFilter = OneOf<Scopes>
 
 export const filterArgs = (subscriptionName: string, filter: SnsSubscriptionFilter | undefined, args: TopicEventSubscriptionArgs = {}): TopicEventSubscriptionArgs => {
     if (!filter) return args
     if (args.filterPolicy !== undefined || args.filterPolicyScope !== undefined) {
         throw new Error(`${subscriptionName} sets both filter and subscriptionArgs.filterPolicy`)
     }
-    if ('attributes' in filter) requireFilter.snsAttributes(subscriptionName, filter.attributes)
-    else requireFilter.snsBody(subscriptionName, filter.body)
-    return 'attributes' in filter
-        ? { ...args, filterPolicy: JSON.stringify(filter.attributes), filterPolicyScope: 'MessageAttributes' }
-        : { ...args, filterPolicy: JSON.stringify(filter.body), filterPolicyScope: 'MessageBody' }
+    if (!isOneOf<Scopes>(filter, { attributes: true, body: true }))
+        throw new Error(`${subscriptionName} filters by ${JSON.stringify(filter)}; a filter takes attributes or body, one of them`)
+    if (filter.attributes !== undefined) {
+        requireFilter.snsAttributes(subscriptionName, filter.attributes)
+        return { ...args, filterPolicy: JSON.stringify(filter.attributes), filterPolicyScope: 'MessageAttributes' }
+    }
+    requireFilter.snsBody(subscriptionName, filter.body)
+    return { ...args, filterPolicy: JSON.stringify(filter.body), filterPolicyScope: 'MessageBody' }
 }
 
 export type LambdaSubscription<TNames extends LambadaGrantsShape = LambadaGrantsShape> = AsyncFailures & {

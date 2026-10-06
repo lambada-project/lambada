@@ -85,6 +85,20 @@ describe('an async lambda that fails', () => {
         expect(() => createSchedules(context as never, [schedule('stale', { maximumEventAge: { minutes: 1.5 } as never })])).toThrow('stale keeps events for 90 seconds')
     })
 
+    test('takes one unit of age and one destination, rather than drop the other', () => {
+        const typeOnly = () => {
+            // @ts-expect-error
+            schedule('both', { maximumEventAge: { minutes: 5, hours: 1 } })
+            // @ts-expect-error
+            schedule('both', { onFailure: { queue: 'failed', topic: 'alerts' } })
+        }
+        expect(typeOnly).toBeFunction()
+        expect(() => createSchedules(context as never, [schedule('both', { maximumEventAge: { minutes: 5, hours: 1 } as never })]))
+            .toThrow('an age takes minutes or hours, one of them')
+        expect(() => createSchedules(context as never, [schedule('both', { onFailure: { queue: 'failed', topic: 'alerts' } as never })]))
+            .toThrow('a destination takes a queue or a topic, one of them')
+    })
+
     test('keeps events for its edges, a minute and six hours', async () => {
         for (const [age, seconds] of [[{ minutes: 1 }, 60], [{ hours: 6 }, 21600], [{ minutes: 360 }, 21600]] as const) {
             const { config } = await built(schedule(`edge${seconds}${'minutes' in age ? 'm' : 'h'}`, { maximumEventAge: age }))

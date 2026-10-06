@@ -102,6 +102,17 @@ test('refuses a queue filter with nothing to match, or anyOf one', () => {
     expect(() => eventSourceMappingArgs(queueHandler({ anyOf: [{ body: { k: ['a'] } }] } as never))).toThrow('anyOf two filters or more')
 })
 
+test('refuses a filter holding a key it does not take, or two scopes for SNS, rather than drop one', () => {
+    const typeOnly = () => {
+        // @ts-expect-error
+        filterArgs('onOrder', { attributes: { a: ['x'] }, body: { b: ['y'] } })
+    }
+    expect(typeOnly).toBeFunction()
+    expect(() => filterArgs('onOrder', { attributes: { a: ['x'] }, body: { b: ['y'] } } as never)).toThrow('a filter takes attributes or body, one of them')
+    expect(() => filterArgs('onOrder', { attribute: { a: ['x'] } } as never)).toThrow('a filter takes attributes or body, one of them')
+    expect(() => eventSourceMappingArgs(queueHandler({ body: { b: ['y'] }, attribute: { a: ['x'] } } as never))).toThrow('a filter takes a body, attributes or anyOf')
+})
+
 test('refuses a range whose bottom is not below its top, even both inclusive', () => {
     expect(() => filterArgs('onOrder', { body: { amount: [{ numeric: ['>=', 5, '<=', 5] }] } })).toThrow('onOrder filters amount')
     expect(() => filterArgs('onOrder', { body: { amount: [{ numeric: ['>', 5, '<=', 5] }] } })).toThrow('onOrder filters amount')

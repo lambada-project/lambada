@@ -1,10 +1,6 @@
 import { isIPv4, isIPv6 } from 'net'
-import { Exclusive } from '../exclusive'
-
-/** One key of T, the others absent: an object holding two operators is refused. */
-type OneOf<T> = Exclusive<{ [K in keyof T]: Pick<T, K> }[keyof T]>
-type NonEmpty<T> = readonly [T, ...T[]]
-type Branches<P> = readonly [P, P, ...P[]]
+import { OneOf } from '../types/forms'
+import { NonEmpty, Several } from '../types/lists'
 
 export type Scalar = string | number | boolean | null
 
@@ -47,7 +43,7 @@ type Policy<Nested extends boolean, Or extends boolean, V extends Scalar> = {
     [key: string]:
         | Conditions<V>
         | (Nested extends true ? Policy<Nested, Or, V> : never)
-        | (Or extends true ? Branches<Policy<Nested, Or, V>> : never)
+        | (Or extends true ? Several<Policy<Nested, Or, V>> : never)
 }
 type PolicyOf<G extends Grammar> = Policy<G['nested'], G['or'], Value<G>>
 /**
@@ -130,7 +126,7 @@ const operators = (numbers: boolean): Checks<Ops> => ({
 
 /** An index signature cannot require a key, so an empty policy is refused here. */
 const isPolicy = (v: unknown): v is AnyPolicy => isRecord(v) && Object.keys(v).length > 0
-const isBranches = (v: Entry): v is Extract<Entry, Branches<AnyPolicy>> => isArray(v) && v.length >= 2
+const isBranches = (v: Entry): v is Extract<Entry, Several<AnyPolicy>> => isArray(v) && v.length >= 2
 const isConditions = (v: Entry): v is Conditions => isArray(v) && v.length > 0
 
 /** A condition's wildcard patterns. */
