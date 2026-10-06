@@ -1,3 +1,4 @@
+import verdicts from './eventBridgeVerdicts.json'
 import { describe, expect, test } from 'bun:test'
 import * as pulumi from '@pulumi/pulumi'
 import { createDynamoDbTables } from '../database'
@@ -84,8 +85,47 @@ describe('a schedule expression', () => {
     })
 
     test('puts ? in the day field it does not use', () => {
-        expect(scheduleExpression('s', { cron: { minute: 0, hour: 9, dayOfWeek: 'MON-FRI' } })).toBe('cron(0 9 ? * MON-FRI *)')
-        expect(scheduleExpression('s', { cron: { minute: 0, hour: 0, dayOfMonth: 'L' } })).toBe('cron(0 0 L * ? *)')
+        expect(scheduleExpression('s', { cron: { minute: 0, hour: 9, dayOfWeek: { from: 'MON', to: 'FRI' } } })).toBe('cron(0 9 ? * MON-FRI *)')
+        expect(scheduleExpression('s', { cron: { minute: 0, hour: 0, dayOfMonth: 'last' } })).toBe('cron(0 0 L * ? *)')
+    })
+
+    test('writes lists, ranges and steps, with months and weekdays by name', () => {
+        expect(scheduleExpression('s', { cron: { minute: [0, 30], hour: { every: 2 }, month: ['JAN', 'JUL'] } })).toBe('cron(0,30 */2 * JAN,JUL ? *)')
+        expect(scheduleExpression('s', { cron: { minute: { every: 15, from: 5 }, month: { from: 'JAN', to: 'JUN' }, year: [2026, 2027] } }))
+            .toBe('cron(5/15 * * JAN-JUN ? 2026,2027)')
+    })
+
+    test('writes the last, the nth and the nearest weekday', () => {
+        expect(scheduleExpression('s', { cron: { minute: 0, hour: 0, dayOfWeek: { nth: 3, of: 'FRI' } } })).toBe('cron(0 0 ? * 6#3 *)')
+        expect(scheduleExpression('s', { cron: { minute: 0, hour: 0, dayOfWeek: { last: 'FRI' } } })).toBe('cron(0 0 ? * 6L *)')
+        expect(scheduleExpression('s', { cron: { minute: 0, hour: 0, dayOfMonth: { nearestWeekdayTo: 15 } } })).toBe('cron(0 0 15W * ? *)')
+    })
+
+    test('takes only what each field can hold', () => {
+        const typeOnly = () => {
+            // @ts-expect-error
+            scheduleExpression('s', { cron: { minute: 60 } })
+            // @ts-expect-error
+            scheduleExpression('s', { cron: { hour: 24 } })
+            // @ts-expect-error
+            scheduleExpression('s', { cron: { dayOfMonth: 0 } })
+            // @ts-expect-error
+            scheduleExpression('s', { cron: { month: 1 } })
+            // @ts-expect-error
+            scheduleExpression('s', { cron: { dayOfWeek: 'MONDAY' } })
+            // @ts-expect-error
+            scheduleExpression('s', { cron: { dayOfMonth: '?' } })
+            // @ts-expect-error
+            scheduleExpression('s', { cron: { dayOfWeek: { every: 2 } } })
+        }
+        expect(typeOnly).toBeFunction()
+    })
+
+    test('refuses what a field cannot hold when the types are bypassed', () => {
+        expect(() => scheduleExpression('report', { cron: { dayOfMonth: '?' } } as never)).toThrow('report sets dayOfMonth to "?"')
+        expect(() => scheduleExpression('report', { cron: { minute: 60 } } as never)).toThrow('report sets minute to 60')
+        expect(() => scheduleExpression('report', { cron: { minute: '0 12' } } as never)).toThrow('report sets minute to "0 12"')
+        expect(() => scheduleExpression('report', { cron: { hour: [] } } as never)).toThrow('report sets hour to []')
     })
 
     test('refuses a rate that is not a whole number of at least 1', () => {
@@ -106,5 +146,27 @@ describe('a schedule expression', () => {
     test('refuses both day fields when the types are bypassed', () => {
         expect(() => scheduleExpression('report', { cron: { dayOfMonth: 1, dayOfWeek: 'MON' } } as never))
             .toThrow('report sets both dayOfMonth and dayOfWeek')
+    })
+})
+
+describe('a cron, against what EventBridge said of it', () => {
+    const written = (cron: unknown) => { try { return scheduleExpression('s', { cron } as never) } catch { return undefined } }
+
+    test('writes nothing EventBridge rejects', () => {
+        expect(verdicts.filter(v => v.eventBridge === 'rejects' && written(v.cron) !== undefined)).toEqual([])
+    })
+
+    test('writes what EventBridge accepts as EventBridge accepted it, refusing only what it does not document', () => {
+        const accepted = verdicts.filter(v => v.eventBridge === 'accepts')
+        expect(accepted.filter(v => written(v.cron) !== undefined && written(v.cron) !== v.expression)).toEqual([])
+        expect(accepted.filter(v => written(v.cron) === undefined).map(v => v.expression)).toEqual([
+            'cron(1.5 * * * ? *)',
+            'cron(*/0 * * * ? *)',
+            'cron(* * * jan ? *)',
+            'cron(* * * 1 ? *)',
+            'cron(* * ? * */2 *)',
+            'cron(* * * * ? 1969)',
+            'cron(* * * * ? 2200)',
+        ])
     })
 })
