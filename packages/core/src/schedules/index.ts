@@ -40,7 +40,7 @@ export type Cron = {
     year?: Field<Year, Exclude<Minute, 0>>
 } & (
     | { dayOfMonth?: Field<Day, Day> | 'last' | { nearestWeekdayTo: Day }, dayOfWeek?: never }
-    | { dayOfMonth?: never, dayOfWeek: Field<Weekday> | { last: Weekday } | { nth: 1 | 2 | 3 | 4 | 5, of: Weekday } }
+    | { dayOfMonth?: never, dayOfWeek: Field<Weekday, 1 | 2 | 3 | 4 | 5 | 6 | 7> | { last: Weekday } | { nth: 1 | 2 | 3 | 4 | 5, of: Weekday } }
 )
 
 export type Schedule = { every: Every } | { cron: Cron }
@@ -51,7 +51,7 @@ const atoms: { [F in keyof Cron]-?: Atom } = {
     hour: { kind: 'number', min: 0, max: 23, maxStep: 23 },
     dayOfMonth: { kind: 'number', min: 1, max: 31, maxStep: 31 },
     month: { kind: 'name', names: MONTHS, maxStep: 12 },
-    dayOfWeek: { kind: 'name', names: WEEKDAYS, maxStep: 0 },
+    dayOfWeek: { kind: 'name', names: WEEKDAYS, maxStep: 7 },
     year: { kind: 'number', min: 1970, max: 2199, maxStep: 59 },
 }
 
@@ -64,7 +64,6 @@ const cronField = (name: string, field: keyof Cron, value: unknown): string => {
             : kind.names.includes(v as string)
         return valid ? String(v) : refuse()
     }
-    const weekday = (v: unknown) => WEEKDAYS.indexOf(v as Weekday) + 1 || refuse()
 
     if (Array.isArray(value)) return value.length ? value.map(atom).join(',') : refuse()
     if (typeof value !== 'object' || value === null) return field === 'dayOfMonth' && value === 'last' ? 'L' : atom(value)
@@ -74,14 +73,14 @@ const cronField = (name: string, field: keyof Cron, value: unknown): string => {
         if (field === 'year' && (v.from as number) > (v.to as number)) refuse()
         return `${atom(v.from)}-${atom(v.to)}`
     }
-    if ('every' in v && atoms[field].maxStep > 0) {
+    if ('every' in v) {
         const every = v.every as number
         if (!Number.isInteger(every) || every < 1 || every > atoms[field].maxStep) refuse()
         return `${v.from === undefined ? '*' : atom(v.from)}/${every}`
     }
     if ('nearestWeekdayTo' in v && field === 'dayOfMonth') return `${atom(v.nearestWeekdayTo)}W`
-    if ('last' in v && field === 'dayOfWeek') return `${weekday(v.last)}L`
-    if ('nth' in v && field === 'dayOfWeek' && [1, 2, 3, 4, 5].includes(v.nth as number)) return `${weekday(v.of)}#${v.nth}`
+    if ('last' in v && field === 'dayOfWeek') return `${atom(v.last)}L`
+    if ('nth' in v && field === 'dayOfWeek' && [1, 2, 3, 4, 5].includes(v.nth as number)) return `${atom(v.of)}#${v.nth}`
     return refuse()
 }
 

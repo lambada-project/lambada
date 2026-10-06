@@ -91,13 +91,14 @@ describe('a schedule expression', () => {
 
     test('writes lists, ranges and steps, with months and weekdays by name', () => {
         expect(scheduleExpression('s', { cron: { minute: [0, 30], hour: { every: 2 }, month: ['JAN', 'JUL'] } })).toBe('cron(0,30 */2 * JAN,JUL ? *)')
+        expect(scheduleExpression('s', { cron: { minute: 0, hour: 0, dayOfWeek: { every: 2, from: 'MON' } } })).toBe('cron(0 0 ? * MON/2 *)')
         expect(scheduleExpression('s', { cron: { minute: { every: 15, from: 5 }, month: { from: 'JAN', to: 'JUN' }, year: [2026, 2027] } }))
             .toBe('cron(5/15 * * JAN-JUN ? 2026,2027)')
     })
 
     test('writes the last, the nth and the nearest weekday', () => {
-        expect(scheduleExpression('s', { cron: { minute: 0, hour: 0, dayOfWeek: { nth: 3, of: 'FRI' } } })).toBe('cron(0 0 ? * 6#3 *)')
-        expect(scheduleExpression('s', { cron: { minute: 0, hour: 0, dayOfWeek: { last: 'FRI' } } })).toBe('cron(0 0 ? * 6L *)')
+        expect(scheduleExpression('s', { cron: { minute: 0, hour: 0, dayOfWeek: { nth: 3, of: 'FRI' } } })).toBe('cron(0 0 ? * FRI#3 *)')
+        expect(scheduleExpression('s', { cron: { minute: 0, hour: 0, dayOfWeek: { last: 'FRI' } } })).toBe('cron(0 0 ? * FRIL *)')
         expect(scheduleExpression('s', { cron: { minute: 0, hour: 0, dayOfMonth: { nearestWeekdayTo: 15 } } })).toBe('cron(0 0 15W * ? *)')
     })
 
@@ -116,7 +117,7 @@ describe('a schedule expression', () => {
             // @ts-expect-error
             scheduleExpression('s', { cron: { dayOfMonth: '?' } })
             // @ts-expect-error
-            scheduleExpression('s', { cron: { dayOfWeek: { every: 2 } } })
+            scheduleExpression('s', { cron: { dayOfWeek: { every: 8 } } })
         }
         expect(typeOnly).toBeFunction()
     })
@@ -164,7 +165,6 @@ describe('a cron, against what EventBridge said of it', () => {
             'cron(*/0 * * * ? *)',
             'cron(* * * jan ? *)',
             'cron(* * * 1 ? *)',
-            'cron(* * ? * */2 *)',
             'cron(* * * * ? 1969)',
             'cron(* * * * ? 2200)',
         ])
