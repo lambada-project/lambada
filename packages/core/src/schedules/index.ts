@@ -6,7 +6,7 @@ import { AsyncFailures, asyncInvocationConfig, failureDestination } from "../lam
 import { bundleOf, isLambdaFolder } from "../lambdas/bundles";
 import { asCreator, LambadaDefinition } from "../resources/creators";
 import { Digit, Numbers, Positions, Positive } from "../types/numbers";
-import { Exclusive, isForm, isOneOf, isSome, OneOf, Shape, Some } from "../types/forms";
+import { Exclusive, hasShape, isOneOf, isSomeOf, OneOf, Shape, SomeOf } from "../types/forms";
 import { isOne, NonEmpty, OneOrMany } from "../types/lists";
 import { LambadaGrantsShape, LambadaResourceRequest, resolveEnvironment, resolveGrants } from "../resources/grants";
 
@@ -50,7 +50,7 @@ type Fields = {
     year: Field<Year, number>
 }
 /** One or more fields, and of the two day fields one at most: EventBridge writes the other as `?`. */
-export type Cron = Exclusive<Some<Omit<Fields, 'dayOfWeek'>> | Some<Omit<Fields, 'dayOfMonth'>>>
+export type Cron = Exclusive<SomeOf<Omit<Fields, 'dayOfWeek'>> | SomeOf<Omit<Fields, 'dayOfMonth'>>>
 
 type Kinds = { every: Every, cron: Cron }
 export type Schedule = OneOf<Kinds>
@@ -95,8 +95,8 @@ const NTH: Shape<Nth> = { nth: 'required', of: 'required' }
 const plain = (v: Field<Value, number>, w: Writer): string => {
     if (typeof v === 'number' || typeof v === 'string') return w.value(v)
     if (isList(v)) return v.map(w.value).join(',')
-    if (isForm(v, RANGE)) return w.ascends(v.from, v.to) ? `${w.value(v.from)}-${w.value(v.to)}${w.step(v.every)}` : w.refuse()
-    if (isForm(v, STEPPED)) return `${v.from === undefined ? '*' : w.value(v.from)}${w.step(v.every)}`
+    if (hasShape(v, RANGE)) return w.ascends(v.from, v.to) ? `${w.value(v.from)}-${w.value(v.to)}${w.step(v.every)}` : w.refuse()
+    if (hasShape(v, STEPPED)) return `${v.from === undefined ? '*' : w.value(v.from)}${w.step(v.every)}`
     v satisfies never
     return w.refuse()
 }
@@ -110,11 +110,11 @@ const cycle = (values: Values) => ({ values, steps: span(1, values.highest), cyc
 const fields: { [F in keyof Fields]: Codec<F> } = {
     minute: { ...cycle(span(0, 59)), write: plain },
     hour: { ...cycle(span(0, 23)), write: plain },
-    dayOfMonth: { ...cycle(span(1, 31)), write: (v, w) => v === 'last' ? 'L' : isForm(v, NEAREST) ? `${w.value(v.nearestWeekdayTo)}W` : plain(v, w) },
+    dayOfMonth: { ...cycle(span(1, 31)), write: (v, w) => v === 'last' ? 'L' : hasShape(v, NEAREST) ? `${w.value(v.nearestWeekdayTo)}W` : plain(v, w) },
     month: { ...cycle(named(MONTHS)), write: plain },
     dayOfWeek: {
         ...cycle(named(WEEKDAYS)),
-        write: (v, w) => isForm(v, LAST) ? `${w.value(v.last)}L` : isForm(v, NTH) ? (NTHS.includes(v.nth) ? `${w.value(v.of)}#${v.nth}` : w.refuse()) : plain(v, w),
+        write: (v, w) => hasShape(v, LAST) ? `${w.value(v.last)}L` : hasShape(v, NTH) ? (NTHS.includes(v.nth) ? `${w.value(v.of)}#${v.nth}` : w.refuse()) : plain(v, w),
     },
     year: { values: span(1970, 2199), steps: counts, cyclic: false, write: plain },
 }
@@ -132,7 +132,7 @@ export const scheduleExpression = (name: string, schedule: Schedule): string => 
         return `rate(${value} ${value === 1 ? SINGULAR[unit] : unit})`
     }
     const cron = schedule.cron
-    if (!isSome<Fields>(cron, fields) || (cron.dayOfMonth !== undefined && cron.dayOfWeek !== undefined))
+    if (!isSomeOf<Fields>(cron, fields) || (cron.dayOfMonth !== undefined && cron.dayOfWeek !== undefined))
         throw new Error(`${name} sets ${JSON.stringify(cron)}; a cron takes one or more of ${Object.keys(fields).join(', ')}, with dayOfMonth or dayOfWeek, not both`)
     /** TypeScript cannot pair a field's codec with a value read by a generic name (TS2590), so each field passes its own value. */
     const field = <K extends keyof Fields>(f: K, value: Fields[K] | undefined): string =>

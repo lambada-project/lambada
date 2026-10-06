@@ -1,5 +1,5 @@
 import { isIPv4, isIPv6 } from 'net'
-import { Checks, isRecord, OneOf, oneOf } from '../types/forms'
+import { Checks, isRecord, OneOf, passesOneOf } from '../types/forms'
 import { among, isArray, NonEmpty, nonEmpty, OneOrMany, oneOrMany, Several } from '../types/lists'
 import { isNumber, isString } from '../types/primitives'
 
@@ -80,7 +80,7 @@ const numeric = (v: Numeric) => {
 /** `\\*` and `\\\\` are a literal star and backslash; both services reject two wildcards that meet. */
 const isPattern = (v: unknown): v is string => isString(v) && !v.replace(/\\[\\*]/g, '_').includes('**')
 const ignoringCase: Checks<IgnoringCase> = { 'equals-ignore-case': isString }
-const caseless = (v: string | IgnoringCase) => isString(v) || oneOf(ignoringCase, v)
+const caseless = (v: string | IgnoringCase) => isString(v) || passesOneOf(v, ignoringCase)
 const matches: Checks<Matches> = { prefix: caseless, suffix: caseless, wildcard: isPattern }
 const exclusions: Checks<Exclusions> = {
     prefix: oneOrMany(isString),
@@ -93,7 +93,7 @@ const anythingBut = (numbers: boolean) => (v: Ops['anything-but']) => {
     if (isNumber(v)) return numbers
     if (nonEmpty(v, isString)) return true
     if (nonEmpty(v, isNumber)) return numbers
-    return oneOf(exclusions, v)
+    return passesOneOf(v, exclusions)
 }
 
 type Ops = Operators<Scalar>
@@ -147,9 +147,9 @@ const filterCheck = (grammar: Grammar) => (name: string, policy: AnyPolicy): voi
         throw new Error(`${name} filters ${at || 'by'} ${JSON.stringify(value)}, which a filter policy does not take there`)
     }
     const isValue = values[grammar.values]
-    const known = operators(isValue(0))
+    const checks = operators(isValue(0))
     const condition = (at: string, c: Condition) =>
-        (typeof c === 'object' && c !== null ? oneOf(known, c) : isValue(c)) || refuse(at, c)
+        (typeof c === 'object' && c !== null ? passesOneOf(c, checks) : isValue(c)) || refuse(at, c)
     /** `at` names a place for the user; `keys` is the path SNS counts by, which `$or` does not extend. */
     const walk = (at: string, keys: string, p: AnyPolicy, depth: number): Bounds => {
         if (!isPolicy(p)) return refuse(at, p)

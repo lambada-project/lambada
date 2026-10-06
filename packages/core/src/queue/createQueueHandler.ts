@@ -8,7 +8,7 @@ import { QueueEvent, QueueEventSubscription, QueueEventSubscriptionArgs } from "
 import { LambadaResourceRequest, LambadaGrantsShape, ResourceRef, resolveEnvironment, resolveGrants, resolveRef } from "../resources/grants";
 import { bundleOf, isLambdaFolder } from "../lambdas/bundles";
 import { BodyPolicy, Conditions, requireFilter, StringAttributePolicy } from "../filters";
-import { isSome, Some } from "../types/forms";
+import { isSomeOf, SomeOf } from "../types/forms";
 import { Several } from "../types/lists";
 
 export type QueueHandlerEvent = QueueEvent
@@ -21,7 +21,7 @@ type QueueFilterParts = { body: QueueBody, attributes: StringAttributePolicy, an
  * A body that is not JSON is matched by conditions on the whole string. Every part given must
  * match; `anyOf` takes two filters or more, and matches when one or more of them do.
  */
-export type QueueHandlerFilter = Some<QueueFilterParts>
+export type QueueHandlerFilter = SomeOf<QueueFilterParts>
 
 export type LambdaQueueHandler<TNames extends LambadaGrantsShape = LambadaGrantsShape> = {
     name: string
@@ -45,7 +45,7 @@ const filterPattern = (name: string, filter: QueueHandlerFilter): object => {
     if (body && isPlain(body)) requireFilter.sqsStrings(name, { body })
     else if (body) requireFilter.sqsBody(name, body)
     if (attributes) requireFilter.sqsStrings(name, attributes)
-    if (!isSome<QueueFilterParts>(filter, { body: true, attributes: true, anyOf: true }) || (anyOf && !(anyOf.length >= 2)))
+    if (!isSomeOf<QueueFilterParts>(filter, { body: true, attributes: true, anyOf: true }) || (anyOf && !(anyOf.length >= 2)))
         throw new Error(`${name} filters by ${JSON.stringify(filter)}; a filter takes a body, attributes or anyOf two filters or more`)
     return {
         ...(body && { body }),
