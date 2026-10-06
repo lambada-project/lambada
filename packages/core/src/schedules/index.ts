@@ -55,39 +55,39 @@ const fields: { [F in keyof Cron]-?: { values: readonly (number | string)[], wra
 }
 
 type Refuse = () => never
-type Render = (value: unknown, refuse: Refuse) => string
+type Value = number | string
 
-const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
+const isList = <T>(v: Field<T, number>): v is readonly [T, ...T[]] => Array.isArray(v) && v.length > 0
 
-const one = (field: keyof Cron, v: unknown, refuse: Refuse): string =>
-    fields[field].values.includes(v as never) ? String(v) : refuse()
+const one = (field: keyof Cron, v: Value, refuse: Refuse): string =>
+    fields[field].values.includes(v) ? String(v) : refuse()
 
-const plain = (field: keyof Cron): Render => (v, refuse) => {
+const plain = (field: keyof Cron) => (v: Field<Value, number>, refuse: Refuse): string => {
     const { values, wraps } = fields[field]
-    const highest = typeof values[values.length - 1] === 'number' ? values[values.length - 1] as number : values.length
-    if (Array.isArray(v)) return v.length ? v.map(x => one(field, x, refuse)).join(',') : refuse()
-    if (!isObject(v)) return one(field, v, refuse)
-    if ('to' in v) return wraps || values.indexOf(v.from as never) <= values.indexOf(v.to as never)
+    const last = values[values.length - 1]
+    const highest = typeof last === 'number' ? last : values.length
+    if (typeof v !== 'object') return one(field, v, refuse)
+    if (isList(v)) return v.map(x => one(field, x, refuse)).join(',')
+    if ('to' in v) return wraps || values.indexOf(v.from) <= values.indexOf(v.to)
         ? `${one(field, v.from, refuse)}-${one(field, v.to, refuse)}`
         : refuse()
-    if ('every' in v) return Number.isInteger(v.every) && (v.every as number) >= 1 && (v.every as number) <= highest
-        ? `${v.from === undefined ? '*' : one(field, v.from, refuse)}/${v.every}`
-        : refuse()
+    if ('every' in v && Number.isInteger(v.every) && v.every >= 1 && v.every <= highest)
+        return `${v.from === undefined ? '*' : one(field, v.from, refuse)}/${v.every}`
     return refuse()
 }
 
-const render: { [F in keyof Cron]-?: Render } = {
+const render: { [F in keyof Cron]-?: (value: NonNullable<Cron[F]>, refuse: Refuse) => string } = {
     minute: plain('minute'),
     hour: plain('hour'),
     month: plain('month'),
     year: plain('year'),
     dayOfMonth: (v, refuse) =>
         v === 'last' ? 'L'
-        : isObject(v) && 'nearestWeekdayTo' in v ? `${one('dayOfMonth', v.nearestWeekdayTo, refuse)}W`
+        : typeof v === 'object' && 'nearestWeekdayTo' in v ? `${one('dayOfMonth', v.nearestWeekdayTo, refuse)}W`
         : plain('dayOfMonth')(v, refuse),
     dayOfWeek: (v, refuse) =>
-        isObject(v) && 'last' in v ? `${one('dayOfWeek', v.last, refuse)}L`
-        : isObject(v) && 'nth' in v ? ([1, 2, 3, 4, 5].includes(v.nth as number) ? `${one('dayOfWeek', v.of, refuse)}#${v.nth}` : refuse())
+        typeof v === 'object' && 'last' in v ? `${one('dayOfWeek', v.last, refuse)}L`
+        : typeof v === 'object' && 'nth' in v ? ([1, 2, 3, 4, 5].includes(v.nth) ? `${one('dayOfWeek', v.of, refuse)}#${v.nth}` : refuse())
         : plain('dayOfWeek')(v, refuse),
 }
 
@@ -99,10 +99,18 @@ export const scheduleExpression = (name: string, schedule: Schedule): string => 
     }
     const cron = schedule.cron
     if (cron.dayOfMonth !== undefined && cron.dayOfWeek !== undefined) throw new Error(`${name} sets both dayOfMonth and dayOfWeek; EventBridge takes one`)
-    const field = (f: keyof Cron, unset: string) => cron[f] === undefined ? unset : render[f](cron[f], () => {
-        throw new Error(`${name} sets ${f} to ${JSON.stringify(cron[f])}, which a cron does not take there`)
-    })
-    return `cron(${field('minute', '*')} ${field('hour', '*')} ${field('dayOfMonth', cron.dayOfWeek === undefined ? '*' : '?')} ${field('month', '*')} ${field('dayOfWeek', '?')} ${field('year', '*')})`
+    const field = <V>(f: keyof Cron, value: V | undefined, write: (value: V, refuse: Refuse) => string, unset: string) =>
+        value === undefined ? unset : write(value, () => {
+            throw new Error(`${name} sets ${f} to ${JSON.stringify(value)}, which a cron does not take there`)
+        })
+    return `cron(${[
+        field('minute', cron.minute, render.minute, '*'),
+        field('hour', cron.hour, render.hour, '*'),
+        field('dayOfMonth', cron.dayOfMonth, render.dayOfMonth, cron.dayOfWeek === undefined ? '*' : '?'),
+        field('month', cron.month, render.month, '*'),
+        field('dayOfWeek', cron.dayOfWeek, render.dayOfWeek, '?'),
+        field('year', cron.year, render.year, '*'),
+    ].join(' ')})`
 }
 
 export type LambdaSchedule<TNames extends LambadaGrantsShape = LambadaGrantsShape> = AsyncFailures & {
