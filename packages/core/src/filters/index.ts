@@ -1,5 +1,5 @@
 import { isIPv4, isIPv6 } from 'net'
-import { OneOf } from '../types/forms'
+import { isOneOf, isRecord, OneOf } from '../types/forms'
 import { NonEmpty, Several } from '../types/lists'
 
 export type Scalar = string | number | boolean | null
@@ -57,7 +57,6 @@ type AnyPolicy = AttributePolicy | BodyPolicy | StringAttributePolicy
 type Entry = AnyPolicy[string]
 
 const isArray = (v: unknown): v is readonly unknown[] => Array.isArray(v)
-const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !isArray(v)
 const isString = (v: unknown): v is string => typeof v === 'string'
 const isNumber = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
 /** JSON writes a number that is not finite as null, which would match null instead. */
@@ -83,13 +82,11 @@ const numeric = (v: Numeric) => {
         && v[1] < v[3]
 }
 
-type Checks<T> = { [K in keyof T]: (arg: T[K]) => boolean }
+type Checks<T> = { [K in keyof T]-?: (arg: T[K]) => boolean }
 const check = <T, K extends keyof T>(checks: Checks<T>, op: K, condition: { [P in K]?: T[P] }) => checks[op](condition[op]!)
 /** An object holding exactly one of the operators checks knows, which holds its argument. */
-const oneOf = <T extends object>(checks: Checks<T>, condition: { [K in keyof T]?: T[K] }) => {
-    const keys = isRecord(condition) ? Object.keys(condition) as (keyof T)[] : []
-    return keys.length === 1 && keys[0] in checks && check(checks, keys[0], condition)
-}
+const oneOf = <T extends object>(checks: Checks<T>, condition: { [K in keyof T]?: T[K] }) =>
+    isOneOf<T>(condition, checks) && check(checks, Object.keys(condition)[0] as keyof T, condition)
 
 /** `\\*` and `\\\\` are a literal star and backslash; both services reject two wildcards that meet. */
 const isPattern = (v: unknown): v is string => isString(v) && !v.replace(/\\[\\*]/g, '_').includes('**')

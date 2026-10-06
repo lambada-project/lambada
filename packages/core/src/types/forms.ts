@@ -9,7 +9,7 @@ export type Some<T> = { [K in keyof T]: Pick<T, K> & Partial<T> }[keyof T]
 
 /** A table with an entry for each of T's keys, which is how the runtime knows them. */
 type Known<T> = { [K in keyof T]-?: unknown }
-const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
+export const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
 const holds = (v: unknown, known: object, count: (n: number) => boolean) =>
     isRecord(v) && count(Object.keys(v).length) && Object.keys(v).every(key => Object.keys(known).includes(key))
 /** v holds exactly one key, and known has it. */

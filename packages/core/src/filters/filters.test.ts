@@ -111,6 +111,8 @@ test('refuses a filter holding a key it does not take, or two scopes for SNS, ra
     expect(() => filterArgs('onOrder', { attributes: { a: ['x'] }, body: { b: ['y'] } } as never)).toThrow('a filter takes attributes or body, one of them')
     expect(() => filterArgs('onOrder', { attribute: { a: ['x'] } } as never)).toThrow('a filter takes attributes or body, one of them')
     expect(() => eventSourceMappingArgs(queueHandler({ body: { b: ['y'] }, attribute: { a: ['x'] } } as never))).toThrow('a filter takes a body, attributes or anyOf')
+    for (const op of ['toString', 'constructor', 'hasOwnProperty'])
+        expect(() => filterArgs('onOrder', { attributes: { k: [{ [op]: 'x' }] } } as never)).toThrow(`onOrder filters k {"${op}":"x"}`)
 })
 
 test('refuses a range whose bottom is not below its top, even both inclusive', () => {
