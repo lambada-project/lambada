@@ -2,7 +2,7 @@ import verdicts from './eventBridgeVerdicts.json'
 import { describe, expect, test } from 'bun:test'
 import * as pulumi from '@pulumi/pulumi'
 import { createDynamoDbTables } from '../database'
-import { createSchedules, LambdaSchedule, scheduleExpression } from '.'
+import { createSchedules, Cron, LambdaSchedule, scheduleExpression } from '.'
 
 const created: pulumi.runtime.MockResourceArgs[] = []
 
@@ -105,21 +105,53 @@ describe('a schedule expression', () => {
     test('takes only what each field can hold', () => {
         const typeOnly = () => {
             // @ts-expect-error
-            scheduleExpression('s', { cron: { minute: 60 } })
-            // @ts-expect-error
-            scheduleExpression('s', { cron: { hour: 24 } })
-            // @ts-expect-error
-            scheduleExpression('s', { cron: { dayOfMonth: 0 } })
-            // @ts-expect-error
             scheduleExpression('s', { cron: { month: 1 } })
             // @ts-expect-error
             scheduleExpression('s', { cron: { dayOfWeek: 'MONDAY' } })
             // @ts-expect-error
             scheduleExpression('s', { cron: { dayOfMonth: '?' } })
             // @ts-expect-error
-            scheduleExpression('s', { cron: { dayOfWeek: { every: 8 } } })
+            scheduleExpression('s', { cron: { dayOfWeek: { nth: 6, of: 'FRI' } } })
         }
         expect(typeOnly).toBeFunction()
+    })
+
+    test('holds the same edges in its types as when it writes the expression', () => {
+        const within: Cron[] = [
+            { minute: 0 }, { minute: 59 }, { hour: 23 }, { dayOfMonth: 1 }, { dayOfMonth: 31 }, { year: 1970 }, { year: 2199 },
+            { minute: { every: 59 } }, { hour: { every: 23 } }, { dayOfMonth: { every: 31 } }, { month: { every: 12 } },
+            { dayOfWeek: { every: 7 } }, { year: { every: 2199 } },
+        ]
+        const beyond: unknown[] = [
+            // @ts-expect-error
+            { minute: -1 } satisfies Cron,
+            // @ts-expect-error
+            { minute: 60 } satisfies Cron,
+            // @ts-expect-error
+            { hour: 24 } satisfies Cron,
+            // @ts-expect-error
+            { dayOfMonth: 0 } satisfies Cron,
+            // @ts-expect-error
+            { dayOfMonth: 32 } satisfies Cron,
+            // @ts-expect-error
+            { year: 1969 } satisfies Cron,
+            // @ts-expect-error
+            { year: 2200 } satisfies Cron,
+            // @ts-expect-error
+            { minute: { every: 60 } } satisfies Cron,
+            // @ts-expect-error
+            { hour: { every: 24 } } satisfies Cron,
+            // @ts-expect-error
+            { dayOfMonth: { every: 32 } } satisfies Cron,
+            // @ts-expect-error
+            { month: { every: 13 } } satisfies Cron,
+            // @ts-expect-error
+            { dayOfWeek: { every: 8 } } satisfies Cron,
+            // @ts-expect-error
+            { year: { every: 2200 } } satisfies Cron,
+        ]
+        for (const cron of within) expect(() => scheduleExpression('s', { cron })).not.toThrow()
+        for (const cron of beyond) expect(() => scheduleExpression('s', { cron } as never)).toThrow('which a cron does not take there')
     })
 
     test('refuses what a field cannot hold when the types are bypassed', () => {

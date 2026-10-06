@@ -14,30 +14,27 @@ type Units = 'minutes' | 'hours' | 'days'
 type Every = { [U in Units]: { [K in U]: number } & { [K in Exclude<Units, U>]?: never } }[Units]
 
 type Digit = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
+type Positive = Exclude<Digit, 0>
 type Numbers<S> = S extends `${infer N extends number}` ? N : never
 
 type Minute = Numbers<`${Digit}` | `${1 | 2 | 3 | 4 | 5}${Digit}`>
 type Hour = Numbers<`${Digit}` | `1${Digit}` | `2${0 | 1 | 2 | 3}`>
-type Day = Numbers<`${Exclude<Digit, 0>}` | `${1 | 2}${Digit}` | `3${0 | 1}`>
+type Day = Numbers<`${Positive}` | `${1 | 2}${Digit}` | `3${0 | 1}`>
 type Year = Numbers<`19${7 | 8 | 9}${Digit}` | `2${0 | 1}${Digit}${Digit}`>
-type MonthStep = Numbers<`${Exclude<Digit, 0>}` | `1${0 | 1 | 2}`>
 
 const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'] as const
 const WEEKDAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'] as const
 export type Month = typeof MONTHS[number]
 export type Weekday = typeof WEEKDAYS[number]
 
-type Field<T, Step = never> =
-    | T
-    | readonly [T, ...T[]]
-    | { from: T, to: T }
-    | ([Step] extends [never] ? never : { every: Step, from?: T })
+/** A step is at most the field's highest value, months and weekdays counted from 1: the most EventBridge takes. */
+type Field<T, Step> = T | readonly [T, ...T[]] | { from: T, to: T } | { every: Step, from?: T }
 
 export type Cron = {
     minute?: Field<Minute, Exclude<Minute, 0>>
     hour?: Field<Hour, Exclude<Hour, 0>>
-    month?: Field<Month, MonthStep>
-    year?: Field<Year, Exclude<Minute, 0>>
+    month?: Field<Month, Numbers<`${Positive}` | `1${0 | 1 | 2}`>>
+    year?: Field<Year, Numbers<`${Positive}` | `${Positive}${Digit}` | `${Positive}${Digit}${Digit}` | `1${Digit}${Digit}${Digit}` | `2${0 | 1}${Digit}${Digit}`>>
 } & (
     | { dayOfMonth?: Field<Day, Day> | 'last' | { nearestWeekdayTo: Day }, dayOfWeek?: never }
     | { dayOfMonth?: never, dayOfWeek: Field<Weekday, 1 | 2 | 3 | 4 | 5 | 6 | 7> | { last: Weekday } | { nth: 1 | 2 | 3 | 4 | 5, of: Weekday } }
@@ -45,43 +42,53 @@ export type Cron = {
 
 export type Schedule = { every: Every } | { cron: Cron }
 
-type Atom = ({ kind: 'number', min: number, max: number } | { kind: 'name', names: readonly string[] }) & { maxStep: number }
-const atoms: { [F in keyof Cron]-?: Atom } = {
-    minute: { kind: 'number', min: 0, max: 59, maxStep: 59 },
-    hour: { kind: 'number', min: 0, max: 23, maxStep: 23 },
-    dayOfMonth: { kind: 'number', min: 1, max: 31, maxStep: 31 },
-    month: { kind: 'name', names: MONTHS, maxStep: 12 },
-    dayOfWeek: { kind: 'name', names: WEEKDAYS, maxStep: 7 },
-    year: { kind: 'number', min: 1970, max: 2199, maxStep: 59 },
+const range = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, i) => from + i)
+
+/** A range may run backwards only in a field that wraps around; years do not. */
+const fields: { [F in keyof Cron]-?: { values: readonly (number | string)[], wraps: boolean } } = {
+    minute: { values: range(0, 59), wraps: true },
+    hour: { values: range(0, 23), wraps: true },
+    dayOfMonth: { values: range(1, 31), wraps: true },
+    month: { values: MONTHS, wraps: true },
+    dayOfWeek: { values: WEEKDAYS, wraps: true },
+    year: { values: range(1970, 2199), wraps: false },
 }
 
-const cronField = (name: string, field: keyof Cron, value: unknown): string => {
-    const refuse = (): never => { throw new Error(`${name} sets ${field} to ${JSON.stringify(value)}, which a cron does not take there`) }
-    const atom = (v: unknown): string => {
-        const kind = atoms[field]
-        const valid = kind.kind === 'number'
-            ? Number.isInteger(v) && (v as number) >= kind.min && (v as number) <= kind.max
-            : kind.names.includes(v as string)
-        return valid ? String(v) : refuse()
-    }
+type Refuse = () => never
+type Render = (value: unknown, refuse: Refuse) => string
 
-    if (Array.isArray(value)) return value.length ? value.map(atom).join(',') : refuse()
-    if (typeof value !== 'object' || value === null) return field === 'dayOfMonth' && value === 'last' ? 'L' : atom(value)
+const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
 
-    const v = value as Record<string, unknown>
-    if ('from' in v && 'to' in v) {
-        if (field === 'year' && (v.from as number) > (v.to as number)) refuse()
-        return `${atom(v.from)}-${atom(v.to)}`
-    }
-    if ('every' in v) {
-        const every = v.every as number
-        if (!Number.isInteger(every) || every < 1 || every > atoms[field].maxStep) refuse()
-        return `${v.from === undefined ? '*' : atom(v.from)}/${every}`
-    }
-    if ('nearestWeekdayTo' in v && field === 'dayOfMonth') return `${atom(v.nearestWeekdayTo)}W`
-    if ('last' in v && field === 'dayOfWeek') return `${atom(v.last)}L`
-    if ('nth' in v && field === 'dayOfWeek' && [1, 2, 3, 4, 5].includes(v.nth as number)) return `${atom(v.of)}#${v.nth}`
+const one = (field: keyof Cron, v: unknown, refuse: Refuse): string =>
+    fields[field].values.includes(v as never) ? String(v) : refuse()
+
+const plain = (field: keyof Cron): Render => (v, refuse) => {
+    const { values, wraps } = fields[field]
+    const highest = typeof values[values.length - 1] === 'number' ? values[values.length - 1] as number : values.length
+    if (Array.isArray(v)) return v.length ? v.map(x => one(field, x, refuse)).join(',') : refuse()
+    if (!isObject(v)) return one(field, v, refuse)
+    if ('to' in v) return wraps || values.indexOf(v.from as never) <= values.indexOf(v.to as never)
+        ? `${one(field, v.from, refuse)}-${one(field, v.to, refuse)}`
+        : refuse()
+    if ('every' in v) return Number.isInteger(v.every) && (v.every as number) >= 1 && (v.every as number) <= highest
+        ? `${v.from === undefined ? '*' : one(field, v.from, refuse)}/${v.every}`
+        : refuse()
     return refuse()
+}
+
+const render: { [F in keyof Cron]-?: Render } = {
+    minute: plain('minute'),
+    hour: plain('hour'),
+    month: plain('month'),
+    year: plain('year'),
+    dayOfMonth: (v, refuse) =>
+        v === 'last' ? 'L'
+        : isObject(v) && 'nearestWeekdayTo' in v ? `${one('dayOfMonth', v.nearestWeekdayTo, refuse)}W`
+        : plain('dayOfMonth')(v, refuse),
+    dayOfWeek: (v, refuse) =>
+        isObject(v) && 'last' in v ? `${one('dayOfWeek', v.last, refuse)}L`
+        : isObject(v) && 'nth' in v ? ([1, 2, 3, 4, 5].includes(v.nth as number) ? `${one('dayOfWeek', v.of, refuse)}#${v.nth}` : refuse())
+        : plain('dayOfWeek')(v, refuse),
 }
 
 export const scheduleExpression = (name: string, schedule: Schedule): string => {
@@ -92,9 +99,10 @@ export const scheduleExpression = (name: string, schedule: Schedule): string => 
     }
     const cron = schedule.cron
     if (cron.dayOfMonth !== undefined && cron.dayOfWeek !== undefined) throw new Error(`${name} sets both dayOfMonth and dayOfWeek; EventBridge takes one`)
-    const field = (f: keyof Cron, unset: string) => cron[f] === undefined ? unset : cronField(name, f, cron[f])
-    const dayOfMonth = field('dayOfMonth', cron.dayOfWeek === undefined ? '*' : '?')
-    return `cron(${field('minute', '*')} ${field('hour', '*')} ${dayOfMonth} ${field('month', '*')} ${field('dayOfWeek', '?')} ${field('year', '*')})`
+    const field = (f: keyof Cron, unset: string) => cron[f] === undefined ? unset : render[f](cron[f], () => {
+        throw new Error(`${name} sets ${f} to ${JSON.stringify(cron[f])}, which a cron does not take there`)
+    })
+    return `cron(${field('minute', '*')} ${field('hour', '*')} ${field('dayOfMonth', cron.dayOfWeek === undefined ? '*' : '?')} ${field('month', '*')} ${field('dayOfWeek', '?')} ${field('year', '*')})`
 }
 
 export type LambdaSchedule<TNames extends LambadaGrantsShape = LambadaGrantsShape> = AsyncFailures & {
