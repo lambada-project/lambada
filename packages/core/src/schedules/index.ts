@@ -7,7 +7,7 @@ import { bundleOf, isLambdaFolder } from "../lambdas/bundles";
 import { asCreator, LambadaDefinition } from "../resources/creators";
 import { Digit, Numbers, Positions, Positive } from "../types/numbers";
 import { Exclusive, isForm, isOneOf, isSome, OneOf, Shape, Some } from "../types/forms";
-import { isOne, NonEmpty } from "../types/lists";
+import { isOne, NonEmpty, OneOrMany } from "../types/lists";
 import { LambadaGrantsShape, LambadaResourceRequest, resolveEnvironment, resolveGrants } from "../resources/grants";
 
 export type ScheduleEvent = EventRuleEvent
@@ -34,7 +34,7 @@ type Stepped<T, Step> = { every: Step, from?: T }
  * A value, a list, or one object form: a range, a step, or a form of its own. A step is at most a cyclic
  * field's highest value, months and weekdays counted from 1; a year's, at most the largest number EventBridge takes.
  */
-type Field<T, Step, Own = never> = T | NonEmpty<T> | Exclusive<Range<T, Step> | Stepped<T, Step> | Own>
+type Field<T, Step, Own = never> = OneOrMany<T> | Exclusive<Range<T, Step> | Stepped<T, Step> | Own>
 
 type Nearest = { nearestWeekdayTo: Day }
 type Last = { last: Weekday }

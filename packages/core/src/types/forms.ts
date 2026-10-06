@@ -14,6 +14,14 @@ const holds = (v: unknown, known: object, count: (n: number) => boolean) =>
     isRecord(v) && count(Object.keys(v).length) && Object.keys(v).every(key => Object.keys(known).includes(key))
 /** v holds exactly one key, and known has it. */
 export const isOneOf = <T>(v: unknown, known: Known<T>): v is OneOf<T> => holds(v, known, n => n === 1)
+/** A check for each of T's keys, of the value it holds. */
+export type Checks<T> = { [K in keyof T]-?: (arg: T[K]) => boolean }
+/** v holds exactly one of the keys checks knows, and its value passes. */
+export const oneOf = <T extends object>(checks: Checks<T>, v: { [K in keyof T]?: T[K] }): boolean => {
+    if (!isOneOf<T>(v, checks)) return false
+    const key = Object.keys(v)[0] as keyof T
+    return checks[key](v[key]!)
+}
 /** v holds one key or more, and known has each. */
 export const isSome = <T>(v: unknown, known: Known<T>): v is Some<T> => holds(v, known, n => n > 0)
 

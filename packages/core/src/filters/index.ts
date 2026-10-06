@@ -1,6 +1,7 @@
 import { isIPv4, isIPv6 } from 'net'
-import { isOneOf, isRecord, OneOf } from '../types/forms'
-import { NonEmpty, Several } from '../types/lists'
+import { Checks, isRecord, OneOf, oneOf } from '../types/forms'
+import { among, isArray, NonEmpty, nonEmpty, OneOrMany, oneOrMany, Several } from '../types/lists'
+import { isNumber, isString } from '../types/primitives'
 
 export type Scalar = string | number | boolean | null
 
@@ -28,11 +29,11 @@ type Value<G extends Grammar> = G['values'] extends 'strings' ? string : Scalar
 
 type IgnoringCase = { 'equals-ignore-case': string }
 type Matches = { prefix: string | IgnoringCase, suffix: string | IgnoringCase, wildcard: string }
-type Exclusions = Record<'prefix' | 'suffix' | 'wildcard' | 'equals-ignore-case', string | NonEmpty<string>>
+type Exclusions = Record<'prefix' | 'suffix' | 'wildcard' | 'equals-ignore-case', OneOrMany<string>>
 type Operators<V extends Scalar> = Matches & IgnoringCase & {
     exists: boolean
     cidr: Cidr
-    'anything-but': string | NonEmpty<string> | (number extends V ? number | NonEmpty<number> : never) | OneOf<Exclusions>
+    'anything-but': OneOrMany<string> | (number extends V ? OneOrMany<number> : never) | OneOf<Exclusions>
 } & (number extends V ? { numeric: Numeric } : {})
 
 export type Condition<V extends Scalar = Scalar> = V | OneOf<Operators<V>>
@@ -56,13 +57,7 @@ export type StringAttributePolicy = PolicyOf<Grammars['sqsStrings']>
 type AnyPolicy = AttributePolicy | BodyPolicy | StringAttributePolicy
 type Entry = AnyPolicy[string]
 
-const isArray = (v: unknown): v is readonly unknown[] => Array.isArray(v)
-const isString = (v: unknown): v is string => typeof v === 'string'
-const isNumber = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
-/** JSON writes a number that is not finite as null, which would match null instead. */
 const isScalar = (v: unknown): v is Scalar => v === null || isString(v) || isNumber(v) || typeof v === 'boolean'
-const among = <T>(values: readonly T[]) => (v: unknown): v is T => (values as readonly unknown[]).includes(v)
-const nonEmpty = <T>(v: unknown, is: (x: unknown) => x is T): v is NonEmpty<T> => isArray(v) && v.length > 0 && v.every(is)
 
 const values: { [V in Grammar['values']]: (v: unknown) => boolean } = { scalars: isScalar, strings: isString }
 
@@ -82,15 +77,8 @@ const numeric = (v: Numeric) => {
         && v[1] < v[3]
 }
 
-type Checks<T> = { [K in keyof T]-?: (arg: T[K]) => boolean }
-const check = <T, K extends keyof T>(checks: Checks<T>, op: K, condition: { [P in K]?: T[P] }) => checks[op](condition[op]!)
-/** An object holding exactly one of the operators checks knows, which holds its argument. */
-const oneOf = <T extends object>(checks: Checks<T>, condition: { [K in keyof T]?: T[K] }) =>
-    isOneOf<T>(condition, checks) && check(checks, Object.keys(condition)[0] as keyof T, condition)
-
 /** `\\*` and `\\\\` are a literal star and backslash; both services reject two wildcards that meet. */
 const isPattern = (v: unknown): v is string => isString(v) && !v.replace(/\\[\\*]/g, '_').includes('**')
-const oneOrMany = (is: (v: unknown) => boolean) => (v: unknown) => is(v) || nonEmpty(v, (x): x is unknown => is(x))
 const ignoringCase: Checks<IgnoringCase> = { 'equals-ignore-case': isString }
 const caseless = (v: string | IgnoringCase) => isString(v) || oneOf(ignoringCase, v)
 const matches: Checks<Matches> = { prefix: caseless, suffix: caseless, wildcard: isPattern }
