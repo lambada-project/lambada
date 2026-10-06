@@ -8,7 +8,6 @@ import { asCreator, LambadaDefinition } from "../resources/creators";
 import { Digit, Numbers, Positive } from "../numbers";
 import { Exclusive } from "../exclusive";
 import { LambadaGrantsShape, LambadaResourceRequest, resolveEnvironment, resolveGrants } from "../resources/grants";
-import { unknown } from "zod";
 
 export type ScheduleEvent = EventRuleEvent
 export type ScheduleCallback = LambdaHandler<ScheduleEvent, void>
@@ -94,8 +93,17 @@ type Refuse = () => never
 const isOne = <T>(xs: readonly T[]): xs is readonly [T] => xs.length === 1
 const isList = <T>(v: Field<T, number>): v is readonly [T, ...T[]] => Array.isArray(v) && v.length > 0
 
-const one = (field: keyof Fields, v: Value, refuse: Refuse): string =>
-    fields[field].values.has(v) ? String(v) : refuse()
+/** All a form needs of its field: to write a value or a step, to know whether a range ascends, and to refuse. */
+type Writer = { value: (v: Value) => string, step: (every: number | undefined) => string, ascends: (from: Value, to: Value) => boolean, refuse: Refuse }
+const writer = (field: keyof Fields, refuse: Refuse): Writer => {
+    const { values, steps, cyclic } = fields[field]
+    return {
+        value: v => values.has(v) ? String(v) : refuse(),
+        step: every => every === undefined ? '' : steps.has(every) ? `/${every}` : refuse(),
+        ascends: (from, to) => cyclic || values.rank(from) <= values.rank(to),
+        refuse,
+    }
+}
 
 /** Each key of form F, and whether F requires it, read from F's own type: a shape that misses a key, adds one or misreads one is a type error. */
 type Shape<F> = { [K in keyof F]-?: {} extends Pick<F, K> ? 'optional' : 'required' }
@@ -111,32 +119,22 @@ const NEAREST: Shape<Nearest> = { nearestWeekdayTo: 'required' }
 const LAST: Shape<Last> = { last: 'required' }
 const NTH: Shape<Nth> = { nth: 'required', of: 'required' }
 
-const plain = (field: keyof Fields) => (v: Field<Value, number>, refuse: Refuse): string => {
-    const { values, steps, cyclic } = fields[field]
-    const step = (every: number | undefined) => every === undefined ? '' : steps.has(every) ? `/${every}` : refuse()
-    if (typeof v !== 'object') return one(field, v, refuse)
-    if (isList(v)) return v.map(x => one(field, x, refuse)).join(',')
-    if (isForm<Range<Value, number>>(v, RANGE)) return cyclic || values.rank(v.from) <= values.rank(v.to)
-        ? `${one(field, v.from, refuse)}-${one(field, v.to, refuse)}${step(v.every)}`
-        : refuse()
-    if (isForm<Stepped<Value, number>>(v, STEPPED)) return `${v.from === undefined ? '*' : one(field, v.from, refuse)}${step(v.every)}`
+const plain = (v: Field<Value, number>, w: Writer): string => {
+    if (typeof v === 'number' || typeof v === 'string') return w.value(v)
+    if (isList(v)) return v.map(w.value).join(',')
+    if (isForm(v, RANGE)) return w.ascends(v.from, v.to) ? `${w.value(v.from)}-${w.value(v.to)}${w.step(v.every)}` : w.refuse()
+    if (isForm(v, STEPPED)) return `${v.from === undefined ? '*' : w.value(v.from)}${w.step(v.every)}`
     v satisfies never
-    return refuse()
+    return w.refuse()
 }
 
-const render: { [F in keyof Fields]: (value: Fields[F], refuse: Refuse) => string } = {
-    minute: plain('minute'),
-    hour: plain('hour'),
-    month: plain('month'),
-    year: plain('year'),
-    dayOfMonth: (v, refuse) =>
-        v === 'last' ? 'L'
-        : isForm<Nearest>(v, NEAREST) ? `${one('dayOfMonth', v.nearestWeekdayTo, refuse)}W`
-        : plain('dayOfMonth')(v, refuse),
-    dayOfWeek: (v, refuse) =>
-        isForm<Last>(v, LAST) ? `${one('dayOfWeek', v.last, refuse)}L`
-        : isForm<Nth>(v, NTH) ? (NTHS.includes(v.nth) ? `${one('dayOfWeek', v.of, refuse)}#${v.nth}` : refuse())
-        : plain('dayOfWeek')(v, refuse),
+const render: { [F in keyof Fields]: (value: Fields[F], w: Writer) => string } = {
+    minute: plain,
+    hour: plain,
+    dayOfMonth: (v, w) => v === 'last' ? 'L' : isForm(v, NEAREST) ? `${w.value(v.nearestWeekdayTo)}W` : plain(v, w),
+    month: plain,
+    dayOfWeek: (v, w) => isForm(v, LAST) ? `${w.value(v.last)}L` : isForm(v, NTH) ? (NTHS.includes(v.nth) ? `${w.value(v.of)}#${v.nth}` : w.refuse()) : plain(v, w),
+    year: plain,
 }
 
 export const scheduleExpression = (name: string, schedule: Schedule): string => {
@@ -153,13 +151,13 @@ export const scheduleExpression = (name: string, schedule: Schedule): string => 
         return `rate(${value} ${value === 1 ? SINGULAR[unit] : unit})`
     }
     const cron = schedule.cron
-    const given = Object.keys(cron), known = Object.keys(fields)
-    if (given.length === 0 || !given.every(k => known.includes(k)) || (cron.dayOfMonth !== undefined && cron.dayOfWeek !== undefined))
+    const keys = Object.keys(cron), known = Object.keys(fields)
+    if (keys.length === 0 || !keys.every(k => known.includes(k)) || (cron.dayOfMonth !== undefined && cron.dayOfWeek !== undefined))
         throw new Error(`${name} sets ${JSON.stringify(cron)}; a cron takes one or more of ${known.join(', ')}, with dayOfMonth or dayOfWeek, not both`)
-    const field = <V>(f: keyof Fields, value: V | undefined, write: (value: V, refuse: Refuse) => string, unset: string) =>
-        value === undefined ? unset : write(value, () => {
+    const field = <V>(f: keyof Fields, value: V | undefined, write: (value: V, w: Writer) => string, unset: string) =>
+        value === undefined ? unset : write(value, writer(f, () => {
             throw new Error(`${name} sets ${f} to ${JSON.stringify(value)}, which a cron does not take there`)
-        })
+        }))
     return `cron(${[
         field('minute', cron.minute, render.minute, '*'),
         field('hour', cron.hour, render.hour, '*'),
