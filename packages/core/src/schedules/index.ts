@@ -11,7 +11,9 @@ import { LambadaGrantsShape, LambadaResourceRequest, resolveEnvironment, resolve
 export type ScheduleEvent = EventRuleEvent
 export type ScheduleCallback = LambdaHandler<ScheduleEvent, void>
 
-type Units = 'minutes' | 'hours' | 'days'
+const UNITS = ['minutes', 'hours', 'days'] as const
+type Units = typeof UNITS[number]
+const SINGULAR = { minutes: 'minute', hours: 'hour', days: 'day' } as const satisfies Record<Units, string>
 type Every = { [U in Units]: { [K in U]: number } & { [K in Exclude<Units, U>]?: never } }[Units]
 
 type Minute = Numbers<`${Digit}` | `${1 | 2 | 3 | 4 | 5}${Digit}`>
@@ -79,6 +81,7 @@ const fields: { [F in keyof Cron]-?: { values: Values, steps: Values, cyclic: bo
 
 type Refuse = () => never
 
+const isOne = <T>(xs: readonly T[]): xs is readonly [T] => xs.length === 1
 const isList = <T>(v: Field<T, number>): v is readonly [T, ...T[]] => Array.isArray(v) && v.length > 0
 
 const one = (field: keyof Cron, v: Value, refuse: Refuse): string =>
@@ -118,9 +121,12 @@ const render: { [F in keyof Cron]-?: (value: NonNullable<Cron[F]>, refuse: Refus
 
 export const scheduleExpression = (name: string, schedule: Schedule): string => {
     if ('every' in schedule) {
-        const [unit, value] = Object.entries(schedule.every).find(([, v]) => v !== undefined) as [Units, number]
-        if (!counts.has(value)) throw new Error(`${name} runs every ${value} ${unit}; a rate takes a whole number from 1 to ${LARGEST}`)
-        return `rate(${value} ${value === 1 ? unit.slice(0, -1) : unit})`
+        const rates = UNITS.flatMap(unit => schedule.every[unit] === undefined ? [] : [[unit, schedule.every[unit]] as const])
+        if (!isOne(rates) || Object.keys(schedule.every).length !== 1)
+            throw new Error(`${name} runs every ${JSON.stringify(schedule.every)}; a rate takes one of ${UNITS.join(', ')}`)
+        const [[unit, value]] = rates
+        if (!counts.has(value)) throw new Error(`${name} runs every ${value} ${unit}; a rate takes a whole number from 1 to ${counts.highest}`)
+        return `rate(${value} ${value === 1 ? SINGULAR[unit] : unit})`
     }
     const cron = schedule.cron
     if (cron.dayOfMonth !== undefined && cron.dayOfWeek !== undefined) throw new Error(`${name} sets both dayOfMonth and dayOfWeek; EventBridge takes one`)

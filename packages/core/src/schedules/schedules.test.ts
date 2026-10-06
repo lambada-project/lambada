@@ -181,6 +181,13 @@ describe('a schedule expression', () => {
         expect(() => scheduleExpression('purge', { every: { hours: 1.5 } })).toThrow('a rate takes a whole number from 1 to 2147483647')
     })
 
+    test('refuses a rate of no unit, an unknown one or two, when the types are bypassed', () => {
+        expect(() => scheduleExpression('purge', { every: {} } as never)).toThrow('purge runs every {}; a rate takes one of minutes, hours, days')
+        expect(() => scheduleExpression('purge', { every: { weeks: 2 } } as never)).toThrow('purge runs every {"weeks":2}')
+        expect(() => scheduleExpression('purge', { every: { hours: 1, minutes: 5 } } as never)).toThrow('purge runs every {"hours":1,"minutes":5}')
+        expect(() => scheduleExpression('purge', { every: { minutes: 5, weeks: 1 } } as never)).toThrow('purge runs every {"minutes":5,"weeks":1}')
+    })
+
     test('takes one unit, and one day field', () => {
         const typeOnly = () => {
             // @ts-expect-error
