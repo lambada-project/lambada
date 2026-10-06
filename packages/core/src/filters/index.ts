@@ -9,6 +9,8 @@ type Upper = '<' | '<='
 type Numeric = readonly ['=', number] | readonly [Lower | Upper, number] | readonly [Lower, number, Upper, number]
 type Cidr = `${number}.${number}.${number}.${number}/${number}` | `${string}:${string}/${number}`
 
+type Exclusions = { prefix: string, suffix: string, 'equals-ignore-case': string | NonEmpty<string>, wildcard: string }
+
 type Operators<V extends Scalar> = {
     prefix: string
     suffix: string
@@ -20,7 +22,7 @@ type Operators<V extends Scalar> = {
         | string
         | NonEmpty<string>
         | (number extends V ? number | NonEmpty<number> : never)
-        | OneOf<{ prefix: string, suffix: string, 'equals-ignore-case': string | NonEmpty<string>, wildcard: string }>
+        | OneOf<Exclusions>
 } & (number extends V ? { numeric: Numeric } : {})
 
 export type Condition<V extends Scalar = Scalar> = V | OneOf<Operators<V>>
@@ -42,31 +44,49 @@ export const grammars = {
     stringAttributes: { nested: false, or: false, numbers: false },
 } satisfies Record<string, Grammar>
 
-const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
+type Ops = Operators<Scalar>
+type Policy = AttributePolicy | BodyPolicy | StringAttributePolicy
+type Entry = Policy[string]
+
+const isArray = (v: unknown): v is readonly unknown[] => Array.isArray(v)
 const isString = (v: unknown): v is string => typeof v === 'string'
 const isNumber = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
-const listOf = (is: (v: unknown) => boolean) => (v: unknown) => Array.isArray(v) && v.length > 0 && v.every(is)
-const single = (v: unknown): [string, unknown] | undefined => {
-    const entries = isRecord(v) ? Object.entries(v) : []
-    return entries.length === 1 ? entries[0] : undefined
+const nonEmpty = <T>(v: unknown, is: (x: unknown) => x is T): v is NonEmpty<T> => isArray(v) && v.length > 0 && v.every(is)
+const onlyKey = <T extends object>(o: T) => {
+    const keys = Object.keys(o) as (keyof T)[]
+    return keys.length === 1 ? keys[0] : undefined
 }
 
 const cidr = /^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$|^[0-9a-f:]*:[0-9a-f:]*\/\d{1,3}$/i
-const numeric = (v: unknown) => {
-    if (!Array.isArray(v)) return false
-    const [op, a, upper, b] = v
-    if (v.length === 2) return ['=', '>', '>=', '<', '<='].includes(op) && isNumber(a)
-    return v.length === 4 && ['>', '>='].includes(op) && ['<', '<='].includes(upper) && isNumber(a) && isNumber(b) && a < b
+const numeric = (v: Numeric) => {
+    if (!isArray(v)) return false
+    if (v.length === 2) return ['=', '>', '>=', '<', '<='].includes(v[0]) && isNumber(v[1])
+    return v.length === 4 && ['>', '>='].includes(v[0]) && ['<', '<='].includes(v[2]) && isNumber(v[1]) && isNumber(v[3]) && v[1] < v[3]
 }
-const anythingBut = (numbers: boolean) => (v: unknown) => {
-    const [op, arg] = single(v) ?? []
-    return isString(v) || listOf(isString)(v)
-        || (numbers && (isNumber(v) || listOf(isNumber)(v)))
-        || (op === 'equals-ignore-case' && (isString(arg) || listOf(isString)(arg)))
-        || (['prefix', 'suffix', 'wildcard'].includes(op!) && isString(arg))
+type Checks<T> = { [K in keyof T]: (arg: T[K]) => boolean }
+const check = <T, K extends keyof T>(checks: Checks<T>, op: K, condition: { [P in K]?: T[P] }) => checks[op](condition[op]!)
+/** An object holding exactly one of the operators checks knows, which holds its argument. */
+const oneOf = <T extends object>(checks: Checks<T>, condition: { [K in keyof T]?: T[K] }) => {
+    if (typeof condition !== 'object' || condition === null || isArray(condition)) return false
+    const op = onlyKey(condition)
+    return op !== undefined && op in checks && check(checks, op, condition)
 }
 
-const operators = (numbers: boolean): Record<string, (arg: unknown) => boolean> => ({
+const exclusions: Checks<Exclusions> = {
+    prefix: isString,
+    suffix: isString,
+    'equals-ignore-case': v => isString(v) || nonEmpty(v, isString),
+    wildcard: isString,
+}
+const anythingBut = (numbers: boolean) => (v: Ops['anything-but']) => {
+    if (isString(v)) return true
+    if (isNumber(v)) return numbers
+    if (nonEmpty(v, isString)) return true
+    if (nonEmpty(v, isNumber)) return numbers
+    return oneOf(exclusions, v)
+}
+
+const operators = (numbers: boolean): Checks<Ops> => ({
     prefix: isString,
     suffix: isString,
     'equals-ignore-case': isString,
@@ -74,34 +94,37 @@ const operators = (numbers: boolean): Record<string, (arg: unknown) => boolean> 
     exists: v => typeof v === 'boolean',
     cidr: v => isString(v) && cidr.test(v),
     'anything-but': anythingBut(numbers),
-    ...(numbers && { numeric }),
+    numeric: v => numbers && numeric(v),
 })
 
+const isBranches = (key: string, v: Entry): v is Branches<Policy> => key === '$or' && isArray(v)
+const isConditions = (v: Entry): v is Conditions => isArray(v)
+const isNested = (v: Entry): v is BodyPolicy => typeof v === 'object' && v !== null && !isArray(v)
+
 /** Refuses what SNS and Lambda reject, and what they take but never match. */
-export const requireFilter = (name: string, policy: unknown, grammar: Grammar): void => {
+export const requireFilter = (name: string, policy: Policy, grammar: Grammar): void => {
     const refuse = (path: string, value: unknown): never => {
         throw new Error(`${name} filters ${path || 'by'} ${JSON.stringify(value)}, which a filter policy does not take there`)
     }
     const known = operators(grammar.numbers)
-    const scalar = (v: unknown) => grammar.numbers ? v === null || ['string', 'number', 'boolean'].includes(typeof v) : isString(v)
-    const condition = (path: string, c: unknown) => {
-        if (!isRecord(c)) return scalar(c) || refuse(path, c)
-        const [op, arg] = single(c) ?? []
-        return (op !== undefined && known[op]?.(arg)) || refuse(path, c)
+    const scalar = (v: Scalar) => grammar.numbers ? v === null || ['string', 'number', 'boolean'].includes(typeof v) : isString(v)
+    const condition = (path: string, c: Condition) => {
+        if (c === null || typeof c !== 'object') return scalar(c) || refuse(path, c)
+        return oneOf(known, c) || refuse(path, c)
     }
-    const policyAt = (path: string, p: unknown): void => {
-        if (!isRecord(p) || Object.keys(p).length === 0) return void refuse(path, p)
+    const policyAt = (path: string, p: Policy): void => {
+        if (p === null || typeof p !== 'object' || isArray(p) || Object.keys(p).length === 0) return void refuse(path, p)
         for (const [key, v] of Object.entries(p)) {
             const at = path ? `${path}.${key}` : key
-            if (key === '$or' && grammar.or) {
-                if (!Array.isArray(v) || v.length < 2) refuse(at, v)
-                ;(v as unknown[]).forEach((branch, i) => policyAt(`${at}[${i}]`, branch))
+            if (grammar.or && isBranches(key, v)) {
+                if (v.length < 2) refuse(at, v)
+                v.forEach((branch, i) => policyAt(`${at}[${i}]`, branch))
             }
-            else if (Array.isArray(v)) {
+            else if (isConditions(v)) {
                 if (v.length === 0) refuse(at, v)
                 v.forEach(c => condition(at, c))
             }
-            else if (grammar.nested && isRecord(v)) policyAt(at, v)
+            else if (grammar.nested && isNested(v)) policyAt(at, v)
             else refuse(at, v)
         }
     }
