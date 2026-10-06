@@ -62,7 +62,8 @@ const isArray = (v: unknown): v is readonly unknown[] => Array.isArray(v)
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !isArray(v)
 const isString = (v: unknown): v is string => typeof v === 'string'
 const isNumber = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
-const isScalar = (v: unknown): v is Scalar => v === null || ['string', 'number', 'boolean'].includes(typeof v)
+/** JSON writes a number that is not finite as null, which would match null instead. */
+const isScalar = (v: unknown): v is Scalar => v === null || isString(v) || isNumber(v) || typeof v === 'boolean'
 const among = <T>(values: readonly T[]) => (v: unknown): v is T => (values as readonly unknown[]).includes(v)
 const nonEmpty = <T>(v: unknown, is: (x: unknown) => x is T): v is NonEmpty<T> => isArray(v) && v.length > 0 && v.every(is)
 
@@ -71,11 +72,12 @@ const values: { [V in Grammar['values']]: (v: unknown) => boolean } = { scalars:
 const isLower = among(LOWER)
 const isUpper = among(UPPER)
 const cidr = /^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$|^[0-9a-f:]*:[0-9a-f:]*\/\d{1,3}$/i
-/** A range's bounds are two values the user writes, which a type cannot order. */
+/** A range holds a number: its bounds, two values the user writes, are ordered, or equal and both inclusive, which a type cannot say. */
 const numeric = (v: Numeric) => {
     if (!isArray(v)) return false
     if (v.length === 2) return (v[0] === '=' || isLower(v[0]) || isUpper(v[0])) && isNumber(v[1])
-    return v.length === 4 && isLower(v[0]) && isNumber(v[1]) && isUpper(v[2]) && isNumber(v[3]) && v[1] < v[3]
+    return v.length === 4 && isLower(v[0]) && isNumber(v[1]) && isUpper(v[2]) && isNumber(v[3])
+        && (v[1] < v[3] || (v[1] === v[3] && v[0] === '>=' && v[2] === '<='))
 }
 
 type Checks<T> = { [K in keyof T]: (arg: T[K]) => boolean }
@@ -182,7 +184,7 @@ const filterCheck = (grammar: Grammar) => (name: string, policy: AnyPolicy): voi
         if (!isPolicy(p)) return void refuse(path, p)
         for (const [key, v] of Object.entries(p)) {
             const at = path ? `${path}.${key}` : key
-            if (grammar.or && isBranches(key, v)) v.forEach((branch, i) => policyAt(`${at}[${i}]`, branch))
+            if (key === '$or') grammar.or && isBranches(key, v) ? v.forEach((branch, i) => policyAt(`${at}[${i}]`, branch)) : refuse(at, v)
             else if (isConditions(v)) v.forEach(c => condition(at, c))
             else if (grammar.nested && isPolicy(v)) policyAt(at, v)
             else refuse(at, v)

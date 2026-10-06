@@ -102,6 +102,21 @@ test('refuses a queue filter with nothing to match, or anyOf one', () => {
     expect(() => eventSourceMappingArgs(queueHandler({ anyOf: [{ body: { k: ['a'] } }] } as never))).toThrow('anyOf two filters or more')
 })
 
+test('takes a range of one number, both bounds inclusive', () => {
+    expect(filterArgs('onOrder', { body: { amount: [{ numeric: ['>=', 5, '<=', 5] }] } }).filterPolicy).toBe('{"amount":[{"numeric":[">=",5,"<=",5]}]}')
+    expect(() => filterArgs('onOrder', { body: { amount: [{ numeric: ['>', 5, '<=', 5] }] } })).toThrow('onOrder filters amount')
+})
+
+test('refuses a number JSON cannot write', () => {
+    expect(() => filterArgs('onOrder', { attributes: { amount: [NaN] } })).toThrow('onOrder filters amount null')
+    expect(() => filterArgs('onOrder', { body: { amount: [{ 'anything-but': Infinity }] } })).toThrow('onOrder filters amount')
+})
+
+test('takes $or only as branches, never as a field', () => {
+    expect(() => filterArgs('onOrder', { body: { $or: ['a'] } })).toThrow('onOrder filters $or ["a"]')
+    expect(() => filterArgs('onOrder', { body: { $or: [{ a: ['1'] }] } } as never)).toThrow('onOrder filters $or')
+})
+
 test('refuses a numeric range that holds nothing', () => {
     expect(() => filterArgs('onOrder', { body: { amount: [{ numeric: ['>', 5, '<', 1] }] } }))
         .toThrow('onOrder filters amount {"numeric":[">",5,"<",1]}, which a filter policy does not take there')
