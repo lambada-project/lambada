@@ -97,9 +97,9 @@ test('takes only the conditions the grammar holds', () => {
     expect(typeOnly).toBeFunction()
 })
 
-test('refuses a queue filter with nothing to match, or a $or of one', () => {
-    expect(() => eventSourceMappingArgs(queueHandler({} as never))).toThrow('a filter takes a body, attributes or a $or of two filters or more')
-    expect(() => eventSourceMappingArgs(queueHandler({ $or: [{ body: { k: ['a'] } }] } as never))).toThrow('a $or of two filters or more')
+test('refuses a queue filter with nothing to match, or anyOf one', () => {
+    expect(() => eventSourceMappingArgs(queueHandler({} as never))).toThrow('a filter takes a body, attributes or anyOf two filters or more')
+    expect(() => eventSourceMappingArgs(queueHandler({ anyOf: [{ body: { k: ['a'] } }] } as never))).toThrow('anyOf two filters or more')
 })
 
 test('refuses a numeric range that holds nothing', () => {
@@ -129,9 +129,9 @@ test('takes a body as text or JSON, with or beside its attributes, and the case-
         queueHandler({ body: [{ prefix: 'ERROR' }] })
         queueHandler({ body: { type: ['order.created'] }, attributes: { kind: ['urgent'] } })
         queueHandler({ body: { name: [{ prefix: { 'equals-ignore-case': 'ab' } }, { 'anything-but': { suffix: ['.tmp', '.bak'] } }] } })
-        queueHandler({ body: { case: ['beside'] }, $or: [{ body: { k: ['a'] } }, { attributes: { m: ['b'] } }] })
+        queueHandler({ body: { case: ['beside'] }, anyOf: [{ body: { k: ['a'] } }, { attributes: { m: ['b'] } }] })
         // @ts-expect-error
-        queueHandler({ $or: [{ body: { k: ['a'] } }] })
+        queueHandler({ anyOf: [{ body: { k: ['a'] } }] })
         // @ts-expect-error
         queueHandler({})
         // @ts-expect-error
