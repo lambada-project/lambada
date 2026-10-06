@@ -6,6 +6,7 @@ import { AsyncFailures, asyncInvocationConfig, failureDestination } from "../lam
 import { bundleOf, isLambdaFolder } from "../lambdas/bundles";
 import { asCreator, LambadaDefinition } from "../resources/creators";
 import { Digit, Numbers, Positive } from "../numbers";
+import { Exclusive } from "../exclusive";
 import { LambadaGrantsShape, LambadaResourceRequest, resolveEnvironment, resolveGrants } from "../resources/grants";
 
 export type ScheduleEvent = EventRuleEvent
@@ -14,7 +15,7 @@ export type ScheduleCallback = LambdaHandler<ScheduleEvent, void>
 const UNITS = ['minutes', 'hours', 'days'] as const
 type Units = typeof UNITS[number]
 const SINGULAR = { minutes: 'minute', hours: 'hour', days: 'day' } as const satisfies Record<Units, string>
-type Every = { [U in Units]: { [K in U]: number } & { [K in Exclude<Units, U>]?: never } }[Units]
+type Every = Exclusive<{ [U in Units]: Record<U, number> }[Units]>
 
 type Minute = Numbers<`${Digit}` | `${1 | 2 | 3 | 4 | 5}${Digit}`>
 type Hour = Numbers<`${Digit}` | `1${Digit}` | `2${0 | 1 | 2 | 3}`>
@@ -28,27 +29,33 @@ export type Weekday = typeof WEEKDAYS[number]
 /** A list's positions counted from 1, as a named field ranks its values. */
 type Positions<T extends readonly unknown[]> = keyof [...T, unknown] extends infer K ? K extends `${infer I extends number}` ? Exclude<I, 0> : never : never
 
-type FormKey = 'from' | 'to' | 'every' | 'last' | 'nth' | 'of' | 'nearestWeekdayTo'
-/** Each object form holds its own keys and none of another's, which a union alone would let it mix. */
-type Form<T> = T & { [K in Exclude<FormKey, keyof T>]?: never }
-/** A step is at most a cyclic field's highest value, months and weekdays counted from 1; a year's, at most the largest number EventBridge takes. */
-type Field<T, Step> = T | readonly [T, ...T[]] | Form<{ from: T, to: T, every?: Step }> | Form<{ every: Step, from?: T }>
+type Range<T, Step> = { from: T, to: T, every?: Step }
+type Stepped<T, Step> = { every: Step, from?: T }
+/**
+ * A value, a list, or one object form: a range, a step, or a form of its own. A step is at most a cyclic
+ * field's highest value, months and weekdays counted from 1; a year's, at most the largest number EventBridge takes.
+ */
+type Field<T, Step, Own = never> = T | readonly [T, ...T[]] | Exclusive<Range<T, Step> | Stepped<T, Step> | Own>
 
-export type Cron = {
-    minute?: Field<Minute, Exclude<Minute, 0>>
-    hour?: Field<Hour, Exclude<Hour, 0>>
-    month?: Field<Month, Positions<typeof MONTHS>>
-    year?: Field<Year, number>
-} & (
-    | { dayOfMonth?: Field<Day, Day> | 'last' | Nearest, dayOfWeek?: never }
-    | { dayOfMonth?: never, dayOfWeek: Field<Weekday, Positions<typeof WEEKDAYS>> | Last | Nth }
-)
-type Nearest = Form<{ nearestWeekdayTo: Day }>
-type Last = Form<{ last: Weekday }>
+type Nearest = { nearestWeekdayTo: Day }
+type Last = { last: Weekday }
 const NTHS = [1, 2, 3, 4, 5] as const
-type Nth = Form<{ nth: typeof NTHS[number], of: Weekday }>
+type Nth = { nth: typeof NTHS[number], of: Weekday }
 
-export type Schedule = { every: Every } | { cron: Cron }
+type Fields = {
+    minute: Field<Minute, Exclude<Minute, 0>>
+    hour: Field<Hour, Exclude<Hour, 0>>
+    dayOfMonth: Field<Day, Day, Nearest> | 'last'
+    month: Field<Month, Positions<typeof MONTHS>>
+    dayOfWeek: Field<Weekday, Positions<typeof WEEKDAYS>, Last | Nth>
+    year: Field<Year, number>
+}
+/** At least one of T's fields, any of the rest. */
+type Some<T> = { [K in keyof T]: Pick<T, K> & Partial<T> }[keyof T]
+/** One or more fields, and of the two day fields one at most: EventBridge writes the other as `?`. */
+export type Cron = Exclusive<Some<Omit<Fields, 'dayOfWeek'>> | Some<Omit<Fields, 'dayOfMonth'>>>
+
+export type Schedule = Exclusive<{ every: Every } | { cron: Cron }>
 
 type Value = number | string
 /** All a field asks of its values: whether one is among them, where it falls, and the highest, months and weekdays counted from 1. */
@@ -72,7 +79,7 @@ const counts = span(1, LARGEST)
 const cycle = (values: Values) => ({ values, steps: span(1, values.highest), cyclic: true })
 
 /** Years are not a cycle: a range ascends, which a type cannot order, and a step is any count. */
-const fields: { [F in keyof Cron]-?: { values: Values, steps: Values, cyclic: boolean } } = {
+const fields: { [F in keyof Fields]: { values: Values, steps: Values, cyclic: boolean } } = {
     minute: cycle(span(0, 59)),
     hour: cycle(span(0, 23)),
     dayOfMonth: cycle(span(1, 31)),
@@ -86,14 +93,14 @@ type Refuse = () => never
 const isOne = <T>(xs: readonly T[]): xs is readonly [T] => xs.length === 1
 const isList = <T>(v: Field<T, number>): v is readonly [T, ...T[]] => Array.isArray(v) && v.length > 0
 
-const one = (field: keyof Cron, v: Value, refuse: Refuse): string =>
+const one = (field: keyof Fields, v: Value, refuse: Refuse): string =>
     fields[field].values.has(v) ? String(v) : refuse()
 
 /** A form is told apart by the key only it holds; every form declares the others as absent. */
-const isForm = <F extends object>(v: unknown, key: FormKey): v is F => typeof v === 'object' && v !== null && (v as Record<string, unknown>)[key] !== undefined
-const holdsOnly = (v: object, ...keys: FormKey[]) => Object.keys(v).every(k => (keys as string[]).includes(k))
+const isForm = <F extends object>(v: unknown, key: keyof F & string): v is F => typeof v === 'object' && v !== null && (v as Record<string, unknown>)[key] !== undefined
+const holdsOnly = (v: object, ...keys: string[]) => Object.keys(v).every(k => keys.includes(k))
 
-const plain = (field: keyof Cron) => (v: Field<Value, number>, refuse: Refuse): string => {
+const plain = (field: keyof Fields) => (v: Field<Value, number>, refuse: Refuse): string => {
     const { values, steps, cyclic } = fields[field]
     const step = (every: number | undefined) => every === undefined ? '' : steps.has(every) ? `/${every}` : refuse()
     if (typeof v !== 'object') return one(field, v, refuse)
@@ -106,7 +113,7 @@ const plain = (field: keyof Cron) => (v: Field<Value, number>, refuse: Refuse): 
     return refuse()
 }
 
-const render: { [F in keyof Cron]-?: (value: NonNullable<Cron[F]>, refuse: Refuse) => string } = {
+const render: { [F in keyof Fields]: (value: Fields[F], refuse: Refuse) => string } = {
     minute: plain('minute'),
     hour: plain('hour'),
     month: plain('month'),
@@ -122,7 +129,10 @@ const render: { [F in keyof Cron]-?: (value: NonNullable<Cron[F]>, refuse: Refus
 }
 
 export const scheduleExpression = (name: string, schedule: Schedule): string => {
-    if ('every' in schedule) {
+    const kinds = Object.keys(schedule)
+    if (kinds.length !== 1 || !['every', 'cron'].includes(kinds[0]))
+        throw new Error(`${name} schedules by ${JSON.stringify(schedule)}; a schedule takes every or cron, one of them`)
+    if (schedule.every !== undefined) {
         const every = schedule.every
         const rates = UNITS.flatMap(unit => every[unit] === undefined ? [] : [[unit, every[unit]] as const])
         if (!isOne(rates) || Object.keys(every).length !== 1)
@@ -132,8 +142,10 @@ export const scheduleExpression = (name: string, schedule: Schedule): string => 
         return `rate(${value} ${value === 1 ? SINGULAR[unit] : unit})`
     }
     const cron = schedule.cron
-    if (cron.dayOfMonth !== undefined && cron.dayOfWeek !== undefined) throw new Error(`${name} sets both dayOfMonth and dayOfWeek; EventBridge takes one`)
-    const field = <V>(f: keyof Cron, value: V | undefined, write: (value: V, refuse: Refuse) => string, unset: string) =>
+    const given = Object.keys(cron), known = Object.keys(fields)
+    if (given.length === 0 || !given.every(k => known.includes(k)) || (cron.dayOfMonth !== undefined && cron.dayOfWeek !== undefined))
+        throw new Error(`${name} sets ${JSON.stringify(cron)}; a cron takes one or more of ${known.join(', ')}, with dayOfMonth or dayOfWeek, not both`)
+    const field = <V>(f: keyof Fields, value: V | undefined, write: (value: V, refuse: Refuse) => string, unset: string) =>
         value === undefined ? unset : write(value, () => {
             throw new Error(`${name} sets ${f} to ${JSON.stringify(value)}, which a cron does not take there`)
         })

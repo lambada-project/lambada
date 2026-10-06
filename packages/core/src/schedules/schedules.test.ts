@@ -2,7 +2,7 @@ import verdicts from './eventBridgeVerdicts.json'
 import { describe, expect, test } from 'bun:test'
 import * as pulumi from '@pulumi/pulumi'
 import { createDynamoDbTables } from '../database'
-import { createSchedules, Cron, LambdaSchedule, scheduleExpression } from '.'
+import { createSchedules, Cron, LambdaSchedule, Schedule, scheduleExpression } from '.'
 
 const created: pulumi.runtime.MockResourceArgs[] = []
 
@@ -198,9 +198,28 @@ describe('a schedule expression', () => {
         expect(typeOnly).toBeFunction()
     })
 
-    test('refuses both day fields when the types are bypassed', () => {
-        expect(() => scheduleExpression('report', { cron: { dayOfMonth: 1, dayOfWeek: 'MON' } } as never))
-            .toThrow('report sets both dayOfMonth and dayOfWeek')
+    test('takes a cron of one or more fields, with a day of the month or of the week, and nothing else', () => {
+        const typeOnly = () => {
+            // @ts-expect-error
+            ({}) satisfies Cron;
+            // @ts-expect-error
+            ({ minutes: 5 }) satisfies Cron;
+            // @ts-expect-error
+            ({ every: { minutes: 5 }, cron: { minute: 0 } }) satisfies Schedule;
+            ({ minute: 0, hour: 9, month: 'JAN', year: 2026, dayOfMonth: 1 }) satisfies Cron;
+            ({ minute: 0, hour: 9, month: 'JAN', year: 2026, dayOfWeek: 'MON' }) satisfies Cron
+        }
+        expect(typeOnly).toBeFunction()
+    })
+
+    test('refuses any other set of keys when the types are bypassed', () => {
+        const refused = (schedule: unknown) => () => scheduleExpression('report', schedule as never)
+        expect(refused({ cron: { dayOfMonth: 1, dayOfWeek: 'MON' } })).toThrow('report sets {"dayOfMonth":1,"dayOfWeek":"MON"}; a cron takes one or more of minute, hour, dayOfMonth, month, dayOfWeek, year, with dayOfMonth or dayOfWeek, not both')
+        expect(refused({ cron: {} })).toThrow('report sets {}')
+        expect(refused({ cron: { minutes: 5 } })).toThrow('report sets {"minutes":5}')
+        expect(refused({ cron: { minute: 0, seconds: 30 } })).toThrow('report sets {"minute":0,"seconds":30}')
+        expect(refused({ every: { minutes: 5 }, cron: { minute: 0 } })).toThrow('report schedules by {"every":{"minutes":5},"cron":{"minute":0}}; a schedule takes every or cron, one of them')
+        expect(refused({ at: '2026-01-01' })).toThrow('report schedules by {"at":"2026-01-01"}')
     })
 })
 

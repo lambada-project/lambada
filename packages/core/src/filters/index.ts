@@ -1,7 +1,8 @@
 import { isIPv4, isIPv6 } from 'net'
+import { Exclusive } from '../exclusive'
 
 /** One key of T, the others absent: an object holding two operators is refused. */
-type OneOf<T> = { [K in keyof T]: { [P in K]: T[P] } & { [P in Exclude<keyof T, K>]?: never } }[keyof T]
+type OneOf<T> = Exclusive<{ [K in keyof T]: Pick<T, K> }[keyof T]>
 type NonEmpty<T> = readonly [T, ...T[]]
 type Branches<P> = readonly [P, P, ...P[]]
 
