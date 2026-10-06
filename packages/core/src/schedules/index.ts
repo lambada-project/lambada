@@ -120,6 +120,7 @@ const plain = (field: keyof Fields) => (v: Field<Value, number>, refuse: Refuse)
         ? `${one(field, v.from, refuse)}-${one(field, v.to, refuse)}${step(v.every)}`
         : refuse()
     if (isForm<Stepped<Value, number>>(v, STEPPED)) return `${v.from === undefined ? '*' : one(field, v.from, refuse)}${step(v.every)}`
+    v satisfies never
     return refuse()
 }
 
