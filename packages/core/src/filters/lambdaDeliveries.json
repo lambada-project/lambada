@@ -61,5 +61,15 @@
     {"pattern": "{\"body\":{\"case\":[\"beside\"]},\"$or\":[{\"body\":{\"k\":[\"a\"]}},{\"messageAttributes\":{\"m\":{\"stringValue\":[\"b\"]}}}]}", "message": {"body": {"case": "beside", "k": "z"}, "attributes": {"m": "b"}}, "delivered": true},
     {"pattern": "{\"body\":{\"case\":[\"beside\"]},\"$or\":[{\"body\":{\"k\":[\"a\"]}},{\"messageAttributes\":{\"m\":{\"stringValue\":[\"b\"]}}}]}", "message": {"body": {"case": "other", "k": "a"}, "attributes": {"m": "b"}}, "delivered": false},
     {"pattern": "{\"$or\":[{\"body\":{\"k\":[\"a\"]}},{\"messageAttributes\":{\"m\":{\"stringValue\":[\"b\"]}}}]}", "message": {"body": {"k": "a"}, "attributes": {"m": "b"}}, "delivered": true},
-    {"pattern": "{\"body\":{\"$or\":[{\"k\":[\"a\"]},{\"j\":[\"c\"]}]}}", "message": {"body": {"k": "a", "j": "c"}}, "delivered": true}
+    {"pattern": "{\"body\":{\"$or\":[{\"k\":[\"a\"]},{\"j\":[\"c\"]}]}}", "message": {"body": {"k": "a", "j": "c"}}, "delivered": true},
+    {"pattern": "{\"body\":{\"case\":[\"lb-equalsIgnoreCase\"],\"v\":[{\"equals-ignore-case\":\"abc\"}]}}", "message": {"body": {"case": "lb-equalsIgnoreCase", "marker": "lb-equalsIgnoreCase:match", "v": "ABC"}}, "delivered": true},
+    {"pattern": "{\"body\":{\"case\":[\"lb-equalsIgnoreCase\"],\"v\":[{\"equals-ignore-case\":\"abc\"}]}}", "message": {"body": {"case": "lb-equalsIgnoreCase", "marker": "lb-equalsIgnoreCase:miss", "v": "abd"}}, "delivered": false},
+    {"pattern": "{\"body\":{\"case\":[\"lb-existsTrue\"],\"v\":[{\"exists\":true}]}}", "message": {"body": {"case": "lb-existsTrue", "marker": "lb-existsTrue:match", "v": "x"}}, "delivered": true},
+    {"pattern": "{\"body\":{\"case\":[\"lb-existsTrue\"],\"v\":[{\"exists\":true}]}}", "message": {"body": {"case": "lb-existsTrue", "marker": "lb-existsTrue:miss"}}, "delivered": false},
+    {"pattern": "{\"body\":{\"case\":[\"lb-existsFalse\"],\"v\":[{\"exists\":false}]}}", "message": {"body": {"case": "lb-existsFalse", "marker": "lb-existsFalse:match"}}, "delivered": true},
+    {"pattern": "{\"body\":{\"case\":[\"lb-existsFalse\"],\"v\":[{\"exists\":false}]}}", "message": {"body": {"case": "lb-existsFalse", "marker": "lb-existsFalse:miss", "v": "x"}}, "delivered": false},
+    {"pattern": "{\"body\":{\"case\":[\"lb-numeric\"],\"v\":[{\"numeric\":[\">\",5]}]}}", "message": {"body": {"case": "lb-numeric", "marker": "lb-numeric:match", "v": 7}}, "delivered": true},
+    {"pattern": "{\"body\":{\"case\":[\"lb-numeric\"],\"v\":[{\"numeric\":[\">\",5]}]}}", "message": {"body": {"case": "lb-numeric", "marker": "lb-numeric:miss", "v": 3}}, "delivered": false},
+    {"pattern": "{\"body\":{\"case\":[\"la-equalsIgnoreCase\"]},\"messageAttributes\":{\"v\":{\"stringValue\":[{\"equals-ignore-case\":\"abc\"}]}}}", "message": {"body": {"case": "la-equalsIgnoreCase", "marker": "la-equalsIgnoreCase:match"}, "attributes": {"v": "ABC"}}, "delivered": true},
+    {"pattern": "{\"body\":{\"case\":[\"la-equalsIgnoreCase\"]},\"messageAttributes\":{\"v\":{\"stringValue\":[{\"equals-ignore-case\":\"abc\"}]}}}", "message": {"body": {"case": "la-equalsIgnoreCase", "marker": "la-equalsIgnoreCase:miss"}, "attributes": {"v": "abd"}}, "delivered": false}
 ]

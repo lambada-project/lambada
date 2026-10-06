@@ -86,5 +86,21 @@
     {"scope": "attributes", "condition": [{"anything-but": {"suffix": ["y", "z"]}}], "published": "abc", "delivered": true},
     {"scope": "attributes", "condition": [{"anything-but": {"suffix": ["y", "z"]}}], "published": "abz", "delivered": false},
     {"scope": "attributes", "condition": [{"anything-but": {"wildcard": ["a*", "*z"]}}], "published": "bcd", "delivered": true},
-    {"scope": "attributes", "condition": [{"anything-but": {"wildcard": ["a*", "*z"]}}], "published": "xyz", "delivered": false}
+    {"scope": "attributes", "condition": [{"anything-but": {"wildcard": ["a*", "*z"]}}], "published": "xyz", "delivered": false},
+    {"scope": "body", "condition": [{"equals-ignore-case": "abc"}], "published": "ABC", "delivered": true},
+    {"scope": "body", "condition": [{"equals-ignore-case": "abc"}], "published": "abd", "delivered": false},
+    {"scope": "body", "condition": [{"exists": true}], "published": "x", "delivered": true},
+    {"scope": "body", "condition": [{"exists": true}], "delivered": false},
+    {"scope": "body", "condition": [{"exists": false}], "delivered": true},
+    {"scope": "body", "condition": [{"exists": false}], "published": "x", "delivered": false},
+    {"scope": "body", "condition": [{"numeric": [">", 5]}], "published": 7, "delivered": true},
+    {"scope": "body", "condition": [{"numeric": [">", 5]}], "published": 3, "delivered": false},
+    {"scope": "attributes", "condition": [{"equals-ignore-case": "abc"}], "published": "ABC", "delivered": true},
+    {"scope": "attributes", "condition": [{"equals-ignore-case": "abc"}], "published": "abd", "delivered": false},
+    {"scope": "attributes", "condition": [{"exists": true}], "published": "x", "delivered": true},
+    {"scope": "attributes", "condition": [{"exists": true}], "delivered": false},
+    {"scope": "attributes", "condition": [{"exists": false}], "delivered": true},
+    {"scope": "attributes", "condition": [{"exists": false}], "published": "x", "delivered": false},
+    {"scope": "attributes", "condition": [{"numeric": [">", 5]}], "published": 7, "delivered": true},
+    {"scope": "attributes", "condition": [{"numeric": [">", 5]}], "published": 3, "delivered": false}
 ]

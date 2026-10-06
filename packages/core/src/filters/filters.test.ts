@@ -102,8 +102,8 @@ test('refuses a queue filter with nothing to match, or anyOf one', () => {
     expect(() => eventSourceMappingArgs(queueHandler({ anyOf: [{ body: { k: ['a'] } }] } as never))).toThrow('anyOf two filters or more')
 })
 
-test('takes a range of one number, both bounds inclusive', () => {
-    expect(filterArgs('onOrder', { body: { amount: [{ numeric: ['>=', 5, '<=', 5] }] } }).filterPolicy).toBe('{"amount":[{"numeric":[">=",5,"<=",5]}]}')
+test('refuses a range whose bottom is not below its top, even both inclusive', () => {
+    expect(() => filterArgs('onOrder', { body: { amount: [{ numeric: ['>=', 5, '<=', 5] }] } })).toThrow('onOrder filters amount')
     expect(() => filterArgs('onOrder', { body: { amount: [{ numeric: ['>', 5, '<=', 5] }] } })).toThrow('onOrder filters amount')
 })
 
@@ -148,10 +148,6 @@ describe('a queue handler filter, against what Lambda delivered by it', () => {
     })
 })
 
-/** Taken by both services, but no delivery has yet shown them matching one message and not another. */
-const UNTRIED_ON_SNS = ['equals-ignore-case', 'exists', 'numeric']
-const UNTRIED_ON_LAMBDA = ['equals-ignore-case', 'exists']
-
 /** The operators a policy's conditions hold, anything-but's exclusions named under it; an operator's own argument is not searched. */
 const operatorsIn = (v: unknown, under?: string): string[] =>
     typeof v !== 'object' || v === null ? []
@@ -167,10 +163,10 @@ const separating = (groups: Map<string, boolean[]>) =>
 const grouped = <T>(rows: T[], key: (row: T) => string, delivered: (row: T) => boolean) =>
     rows.reduce((m, r) => m.set(key(r), [...(m.get(key(r)) ?? []), delivered(r)]), new Map<string, boolean[]>())
 
-test('every operator lambada writes has delivered a message and held one back, or is listed as untried', () => {
+test('every operator lambada writes has delivered a message and held one back, on each service', () => {
     const untried = (seen: Set<string>) => operatorNames().filter(op => !seen.has(op))
-    expect(untried(separating(grouped(deliveries, d => JSON.stringify(d.condition), d => d.delivered)))).toEqual(UNTRIED_ON_SNS)
-    expect(untried(separating(grouped(lambdaDeliveries, d => d.pattern, d => d.delivered)))).toEqual(UNTRIED_ON_LAMBDA)
+    expect(untried(separating(grouped(deliveries, d => JSON.stringify(d.condition), d => d.delivered)))).toEqual([])
+    expect(untried(separating(grouped(lambdaDeliveries, d => d.pattern, d => d.delivered)))).toEqual([])
 })
 
 test('takes a body as text or JSON, with or beside its attributes, and the case-insensitive and listed forms', () => {

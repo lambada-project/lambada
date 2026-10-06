@@ -52,8 +52,17 @@ const filterPattern = (name: string, filter: QueueHandlerFilter): object => {
     }
 }
 
+/** The longest pattern Lambda takes, as it answered: half what its documentation says. */
+const LONGEST_PATTERN = 2048
+
+const written = (name: string, filter: QueueHandlerFilter) => {
+    const pattern = JSON.stringify(filterPattern(name, filter))
+    if (pattern.length > LONGEST_PATTERN) throw new Error(`${name} filters by a pattern of ${pattern.length} characters, past the ${LONGEST_PATTERN} Lambda takes`)
+    return pattern
+}
+
 export const eventSourceMappingArgs = ({ name, filter, reportBatchItemFailures, maximumConcurrency }: LambdaQueueHandler<any>) => ({
-    ...(filter && { filterCriteria: { filters: [{ pattern: JSON.stringify(filterPattern(name, filter)) }] } }),
+    ...(filter && { filterCriteria: { filters: [{ pattern: written(name, filter) }] } }),
     ...(reportBatchItemFailures && { functionResponseTypes: ['ReportBatchItemFailures'] }),
     ...(maximumConcurrency !== undefined && { scalingConfig: { maximumConcurrency } }),
 })

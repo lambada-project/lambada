@@ -1,3 +1,5 @@
+import { isIPv4, isIPv6 } from 'net'
+
 /** One key of T, the others absent: an object holding two operators is refused. */
 type OneOf<T> = { [K in keyof T]: { [P in K]: T[P] } & { [P in Exclude<keyof T, K>]?: never } }[keyof T]
 type NonEmpty<T> = readonly [T, ...T[]]
@@ -71,13 +73,18 @@ const values: { [V in Grammar['values']]: (v: unknown) => boolean } = { scalars:
 
 const isLower = among(LOWER)
 const isUpper = among(UPPER)
-const cidr = /^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$|^[0-9a-f:]*:[0-9a-f:]*\/\d{1,3}$/i
-/** A range holds a number: its bounds, two values the user writes, are ordered, or equal and both inclusive, which a type cannot say. */
+/** An IPv4 or IPv6 address and a prefix below its width, as SNS takes. Lambda fails on any other rather than rejecting it. */
+const isCidr = (v: unknown) => {
+    const [address, prefix, ...rest] = isString(v) ? v.split('/') : []
+    const width = isIPv4(address ?? '') ? 32 : isIPv6(address ?? '') ? 128 : 0
+    return rest.length === 0 && width > 0 && /^\d{1,3}$/.test(prefix ?? '') && Number(prefix) < width
+}
+/** SNS and Lambda take a range only when its bottom is below its top, even both inclusive; two values the user writes, which a type cannot order. */
 const numeric = (v: Numeric) => {
     if (!isArray(v)) return false
     if (v.length === 2) return (v[0] === '=' || isLower(v[0]) || isUpper(v[0])) && isNumber(v[1])
     return v.length === 4 && isLower(v[0]) && isNumber(v[1]) && isUpper(v[2]) && isNumber(v[3])
-        && (v[1] < v[3] || (v[1] === v[3] && v[0] === '>=' && v[2] === '<='))
+        && v[1] < v[3]
 }
 
 type Checks<T> = { [K in keyof T]: (arg: T[K]) => boolean }
@@ -116,7 +123,7 @@ const operators = (numbers: boolean): Checks<Ops> => ({
     ...matches,
     'equals-ignore-case': isString,
     exists: v => typeof v === 'boolean',
-    cidr: v => isString(v) && cidr.test(v),
+    cidr: isCidr,
     'anything-but': anythingBut(numbers),
     numeric: v => numbers && numeric(v),
 })
@@ -126,84 +133,76 @@ const isPolicy = (v: unknown): v is AnyPolicy => isRecord(v) && Object.keys(v).l
 const isBranches = (key: string, v: Entry): v is Extract<Entry, Branches<AnyPolicy>> => key === '$or' && isArray(v) && v.length >= 2
 const isConditions = (v: Entry): v is Conditions => isArray(v) && v.length > 0
 
-/** A condition's wildcard patterns; one without any is still a pattern of the field. */
-const patterns = (c: Condition): string[] => {
+/** A condition's wildcard patterns. */
+const wildcards = (c: Condition): string[] => {
     const p = typeof c !== 'object' || c === null ? undefined
         : 'wildcard' in c ? c.wildcard
         : 'anything-but' in c && isRecord(c['anything-but']) ? c['anything-but'].wildcard
         : undefined
-    return isString(p) ? [p] : nonEmpty(p, isString) ? [...p] : ['']
+    return isString(p) ? [p] : nonEmpty(p, isString) ? [...p] : []
 }
 /** SNS's three-per-pattern bound counts an escaped `\\*` too. */
 const stars = (pattern: string) => pattern.split('*').length - 1
 const points = (stars: number) => stars > 1 ? 3 * stars : stars
 
 type Bounds = { pairs: Set<string>, combinations: number, complexity: number, stars: number }
-/**
- * What SNS counts, as its verdicts show: a key per distinct path and value list, `$or` included;
- * combinations multiplying across keys, times each key's depth, and adding across branches;
- * per field, its patterns' wildcard points times its pattern count, added across fields.
- */
-const bounds = (p: AnyPolicy, path = '', depth = 1): Bounds => {
-    const b: Bounds = { pairs: new Set(), combinations: 1, complexity: 0, stars: 0 }
-    const take = (m: Bounds) => {
-        m.pairs.forEach(pair => b.pairs.add(pair))
-        b.complexity += m.complexity
-        b.stars = Math.max(b.stars, m.stars)
-    }
-    for (const [key, v] of Object.entries(p)) {
-        if (isBranches(key, v)) {
-            const branches = v.map(branch => bounds(branch, path, depth))
-            branches.forEach(take)
-            b.combinations *= branches.reduce((sum, m) => sum + m.combinations, 0)
-        }
-        else if (isConditions(v)) {
-            const counts = v.flatMap(patterns).map(stars)
-            b.pairs.add(`${path}${key}=${JSON.stringify(v)}`)
-            b.combinations *= v.length * depth
-            b.complexity += counts.reduce((sum, n) => sum + points(n), 0) * counts.length
-            b.stars = Math.max(b.stars, ...counts)
-        }
-        else if (isPolicy(v)) {
-            const m = bounds(v, `${path}${key}.`, depth + 1)
-            take(m)
-            b.combinations *= m.combinations
-        }
-    }
-    return b
-}
 const LIMITS = { keys: 5, combinations: 150, complexity: 100, stars: 3 }
 
-/** Refuses what SNS and Lambda reject, and what they take but never match. */
+/**
+ * Refuses what SNS and Lambda reject, and what they take but never match. Where SNS bounds a
+ * policy, it counts as its verdicts show: a key per distinct path and value list, `$or` included;
+ * combinations multiplying across keys, times each key's depth, and adding across branches; per
+ * field, its patterns' wildcard points times its pattern count, a condition without a wildcard
+ * being a pattern of none, added across fields.
+ */
 const filterCheck = (grammar: Grammar) => (name: string, policy: AnyPolicy): void => {
-    const refuse = (path: string, value: unknown): never => {
-        throw new Error(`${name} filters ${path || 'by'} ${JSON.stringify(value)}, which a filter policy does not take there`)
+    const refuse = (at: string, value: unknown): never => {
+        throw new Error(`${name} filters ${at || 'by'} ${JSON.stringify(value)}, which a filter policy does not take there`)
     }
     const isValue = values[grammar.values]
     const known = operators(isValue(0))
-    const condition = (path: string, c: Condition) =>
-        (typeof c === 'object' && c !== null ? oneOf(known, c) : isValue(c)) || refuse(path, c)
-    const policyAt = (path: string, p: AnyPolicy): void => {
-        if (!isPolicy(p)) return void refuse(path, p)
-        for (const [key, v] of Object.entries(p)) {
-            const at = path ? `${path}.${key}` : key
-            if (key === '$or') grammar.or && isBranches(key, v) ? v.forEach((branch, i) => policyAt(`${at}[${i}]`, branch)) : refuse(at, v)
-            else if (isConditions(v)) v.forEach(c => condition(at, c))
-            else if (grammar.nested && isPolicy(v)) policyAt(at, v)
-            else refuse(at, v)
+    const condition = (at: string, c: Condition) =>
+        (typeof c === 'object' && c !== null ? oneOf(known, c) : isValue(c)) || refuse(at, c)
+    /** `at` names a place for the user; `keys` is the path SNS counts by, which `$or` does not extend. */
+    const walk = (at: string, keys: string, p: AnyPolicy, depth: number): Bounds => {
+        if (!isPolicy(p)) return refuse(at, p)
+        const b: Bounds = { pairs: new Set(), combinations: 1, complexity: 0, stars: 0 }
+        const take = (m: Bounds) => {
+            m.pairs.forEach(pair => b.pairs.add(pair))
+            b.complexity += m.complexity
+            b.stars = Math.max(b.stars, m.stars)
         }
+        for (const [key, v] of Object.entries(p)) {
+            const here = at ? `${at}.${key}` : key
+            if (key === '$or') {
+                if (!(grammar.or && isBranches(key, v))) return refuse(here, v)
+                const branches = v.map((branch, i) => walk(`${here}[${i}]`, keys, branch, depth))
+                branches.forEach(take)
+                b.combinations *= branches.reduce((sum, m) => sum + m.combinations, 0)
+            }
+            else if (isConditions(v)) {
+                v.forEach(c => condition(here, c))
+                const counts = v.flatMap(c => wildcards(c).length ? wildcards(c).map(stars) : [0])
+                b.pairs.add(`${keys}${key}=${JSON.stringify(v)}`)
+                b.combinations *= v.length * depth
+                b.complexity += counts.reduce((sum, n) => sum + points(n), 0) * counts.length
+                b.stars = Math.max(b.stars, ...counts)
+            }
+            else if (grammar.nested && isPolicy(v)) {
+                const m = walk(here, `${keys}${key}.`, v, depth + 1)
+                take(m)
+                b.combinations *= m.combinations
+            }
+            else return refuse(here, v)
+        }
+        return b
     }
-    policyAt('', policy)
+    const b = walk('', '', policy, 1)
     if (!grammar.bounded) return
-    const b = bounds(policy)
     const measured = { keys: b.pairs.size, combinations: b.combinations, complexity: b.complexity, stars: b.stars }
     for (const [what, limit] of Object.entries(LIMITS) as [keyof typeof LIMITS, number][])
         if (measured[what] > limit) throw new Error(`${name} filters with ${measured[what]} ${what === 'stars' ? 'wildcards in a pattern' : what === 'complexity' ? 'wildcard complexity' : what}, past the ${limit} SNS takes`)
 }
 
-export const requireFilter: { [G in keyof Grammars]: (name: string, policy: PolicyOf<Grammars[G]>) => void } = {
-    snsAttributes: filterCheck(grammars.snsAttributes),
-    snsBody: filterCheck(grammars.snsBody),
-    sqsBody: filterCheck(grammars.sqsBody),
-    sqsStrings: filterCheck(grammars.sqsStrings),
-}
+export const requireFilter = Object.fromEntries(Object.entries(grammars).map(([key, grammar]) => [key, filterCheck(grammar)])) as
+    { [G in keyof Grammars]: (name: string, policy: PolicyOf<Grammars[G]>) => void }
