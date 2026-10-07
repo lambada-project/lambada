@@ -67,7 +67,7 @@ describe('an async lambda that fails', () => {
         expect(config).toBeUndefined()
     })
 
-    test('keeps events between 1 minute and 6 hours', () => {
+    test('keeps events between 1 minute and 6 hours, in one unit, and fails to one destination, in its types', () => {
         const typeOnly = () => {
             // @ts-expect-error
             schedule('stale', { maximumEventAge: { minutes: 0 } })
@@ -75,34 +75,31 @@ describe('an async lambda that fails', () => {
             schedule('stale', { maximumEventAge: { minutes: 361 } })
             // @ts-expect-error
             schedule('stale', { maximumEventAge: { hours: 7 } })
-            schedule('fresh', { maximumEventAge: { minutes: 360 } })
-        }
-        expect(typeOnly).toBeFunction()
-        expect(() => createSchedules(context as never, [schedule('stale', { maximumEventAge: { hours: 7 } as never })]))
-            .toThrow('stale keeps events for 25200 seconds; Lambda keeps them between 1 minute and 6 hours')
-        expect(() => createSchedules(context as never, [schedule('stale', { maximumEventAge: { minutes: 0 } as never })])).toThrow('stale keeps events for 0 seconds')
-        expect(() => createSchedules(context as never, [schedule('stale', { maximumEventAge: { minutes: 361 } as never })])).toThrow('stale keeps events for 21660 seconds')
-        expect(() => createSchedules(context as never, [schedule('stale', { maximumEventAge: { minutes: 1.5 } as never })])).toThrow('stale keeps events for 90 seconds')
-    })
-
-    test('takes one unit of age and one destination, rather than drop the other', () => {
-        const typeOnly = () => {
             // @ts-expect-error
             schedule('both', { maximumEventAge: { minutes: 5, hours: 1 } })
             // @ts-expect-error
             schedule('both', { onFailure: { queue: 'failed', topic: 'alerts' } })
+            schedule('fresh', { maximumEventAge: { minutes: 360 } })
         }
         expect(typeOnly).toBeFunction()
-        expect(() => createSchedules(context as never, [schedule('both', { maximumEventAge: { minutes: 5, hours: 1 } as never })]))
-            .toThrow('an age takes minutes or hours, one of them')
+    })
+
+    test.each<[unknown, string]>([
+        [{ hours: 7 }, 'stale keeps events for 25200 seconds; Lambda keeps them between 1 minute and 6 hours'],
+        [{ minutes: 0 }, 'stale keeps events for 0 seconds'],
+        [{ minutes: 361 }, 'stale keeps events for 21660 seconds'],
+        [{ minutes: 1.5 }, 'stale keeps events for 90 seconds'],
+        [{ minutes: 5, hours: 1 }, 'an age takes minutes or hours, one of them'],
+    ])('refuses to keep events for %j, when the types are bypassed', (age, message) =>
+        expect(() => createSchedules(context as never, [schedule('stale', { maximumEventAge: age as never })])).toThrow(message))
+
+    test('refuses a queue and a topic at once, rather than drop one', () => {
         expect(() => createSchedules(context as never, [schedule('both', { onFailure: { queue: 'failed', topic: 'alerts' } as never })]))
             .toThrow('a destination takes a queue or a topic, one of them')
     })
 
-    test('keeps events for its edges, a minute and six hours', async () => {
-        for (const [age, seconds] of [[{ minutes: 1 }, 60], [{ hours: 6 }, 21600], [{ minutes: 360 }, 21600]] as const) {
-            const { config } = await built(schedule(`edge${seconds}${'minutes' in age ? 'm' : 'h'}`, { maximumEventAge: age }))
-            expect(config!.inputs).toMatchObject({ maximumEventAgeInSeconds: seconds })
-        }
+    test.each([[{ minutes: 1 }, 60], [{ hours: 6 }, 21600], [{ minutes: 360 }, 21600]] as const)('keeps events for %j, an edge, as %i seconds', async (age, seconds) => {
+        const { config } = await built(schedule(`edge${seconds}${'minutes' in age ? 'm' : 'h'}`, { maximumEventAge: age }))
+        expect(config!.inputs).toMatchObject({ maximumEventAgeInSeconds: seconds })
     })
 })

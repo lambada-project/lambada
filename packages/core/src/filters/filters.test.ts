@@ -97,45 +97,34 @@ test('takes only the conditions the grammar holds', () => {
     expect(typeOnly).toBeFunction()
 })
 
-test('refuses a queue pattern with nothing to match, $or of one, or an attribute not held by its stringValue', () => {
-    expect(() => eventSourceMappingArgs(queueHandler({} as never))).toThrow('a pattern takes a body, messageAttributes or $or of two patterns or more')
-    expect(() => eventSourceMappingArgs(queueHandler({ $or: [{ body: { k: ['a'] } }] } as never))).toThrow('$or of two patterns or more')
-    expect(() => eventSourceMappingArgs(queueHandler({ messageAttributes: { kind: ['urgent'] } } as never))).toThrow('messageAttributes.kind by ["urgent"]; an attribute is matched by its stringValue')
-    expect(() => eventSourceMappingArgs(queueHandler({ messageAttributes: { kind: { stringValue: ['a'], dataType: ['String'] } } } as never))).toThrow('an attribute is matched by its stringValue')
-    expect(() => eventSourceMappingArgs(queueHandler({ $or: [{ body: { k: ['a'] } }, { body: { k: [] } }] } as never))).toThrow('s filters k []')
-})
+const sns = (filter: unknown) => () => filterArgs('onOrder', filter as never)
+const queue = (pattern: unknown) => () => eventSourceMappingArgs(queueHandler(pattern as never))
 
-test('refuses a filter holding a key it does not take, or two scopes for SNS, rather than drop one', () => {
+test.each<[string, () => unknown, string]>([
+    ['a queue pattern with nothing to match', queue({}), 'a pattern takes a body, messageAttributes or $or of two patterns or more'],
+    ['a queue $or of one pattern', queue({ $or: [{ body: { k: ['a'] } }] }), '$or of two patterns or more'],
+    ['a queue $or branch Lambda rejects', queue({ $or: [{ body: { k: ['a'] } }, { body: { k: [] } }] }), 's filters k []'],
+    ['a queue key Lambda does not take', queue({ body: { b: ['y'] }, attributes: { a: ['x'] } }), 'a pattern takes a body, messageAttributes or $or'],
+    ['an attribute held as a bare list', queue({ messageAttributes: { kind: ['urgent'] } }), 'messageAttributes.kind by ["urgent"]; an attribute is matched by its stringValue'],
+    ['an attribute held beside its dataType', queue({ messageAttributes: { kind: { stringValue: ['a'], dataType: ['String'] } } }), 'an attribute is matched by its stringValue'],
+    ['both SNS scopes, rather than drop one', sns({ attributes: { a: ['x'] }, body: { b: ['y'] } }), 'a filter takes attributes or body, one of them'],
+    ['an SNS scope misspelled', sns({ attribute: { a: ['x'] } }), 'a filter takes attributes or body, one of them'],
+    ...['toString', 'constructor', 'hasOwnProperty'].map(op => [`${op}, a key every object inherits, as an operator`, sns({ attributes: { k: [{ [op]: 'x' }] } }), `onOrder filters k {"${op}":"x"}`] as [string, () => unknown, string]),
+    ['a range whose inclusive bottom is its top', sns({ body: { amount: [{ numeric: ['>=', 5, '<=', 5] }] } }), 'onOrder filters amount'],
+    ['a range whose bottom is its top', sns({ body: { amount: [{ numeric: ['>', 5, '<=', 5] }] } }), 'onOrder filters amount'],
+    ['a range that holds nothing', sns({ body: { amount: [{ numeric: ['>', 5, '<', 1] }] } }), 'onOrder filters amount {"numeric":[">",5,"<",1]}, which a filter policy does not take there'],
+    ['NaN, which JSON writes as null', sns({ attributes: { amount: [NaN] } }), 'onOrder filters amount null'],
+    ['Infinity, which JSON writes as null', sns({ body: { amount: [{ 'anything-but': Infinity }] } }), 'onOrder filters amount'],
+    ['$or as a field', sns({ body: { $or: ['a'] } }), 'onOrder filters $or ["a"]'],
+    ['$or of one branch', sns({ body: { $or: [{ a: ['1'] }] } }), 'onOrder filters $or'],
+])('refuses %s', (_, write, message) => expect(write).toThrow(message))
+
+test('takes one SNS scope, in its type', () => {
     const typeOnly = () => {
         // @ts-expect-error
         filterArgs('onOrder', { attributes: { a: ['x'] }, body: { b: ['y'] } })
     }
     expect(typeOnly).toBeFunction()
-    expect(() => filterArgs('onOrder', { attributes: { a: ['x'] }, body: { b: ['y'] } } as never)).toThrow('a filter takes attributes or body, one of them')
-    expect(() => filterArgs('onOrder', { attribute: { a: ['x'] } } as never)).toThrow('a filter takes attributes or body, one of them')
-    expect(() => eventSourceMappingArgs(queueHandler({ body: { b: ['y'] }, attributes: { a: ['x'] } } as never))).toThrow('a pattern takes a body, messageAttributes or $or')
-    for (const op of ['toString', 'constructor', 'hasOwnProperty'])
-        expect(() => filterArgs('onOrder', { attributes: { k: [{ [op]: 'x' }] } } as never)).toThrow(`onOrder filters k {"${op}":"x"}`)
-})
-
-test('refuses a range whose bottom is not below its top, even both inclusive', () => {
-    expect(() => filterArgs('onOrder', { body: { amount: [{ numeric: ['>=', 5, '<=', 5] }] } })).toThrow('onOrder filters amount')
-    expect(() => filterArgs('onOrder', { body: { amount: [{ numeric: ['>', 5, '<=', 5] }] } })).toThrow('onOrder filters amount')
-})
-
-test('refuses a number JSON cannot write', () => {
-    expect(() => filterArgs('onOrder', { attributes: { amount: [NaN] } })).toThrow('onOrder filters amount null')
-    expect(() => filterArgs('onOrder', { body: { amount: [{ 'anything-but': Infinity }] } })).toThrow('onOrder filters amount')
-})
-
-test('takes $or only as branches, never as a field', () => {
-    expect(() => filterArgs('onOrder', { body: { $or: ['a'] } })).toThrow('onOrder filters $or ["a"]')
-    expect(() => filterArgs('onOrder', { body: { $or: [{ a: ['1'] }] } } as never)).toThrow('onOrder filters $or')
-})
-
-test('refuses a numeric range that holds nothing', () => {
-    expect(() => filterArgs('onOrder', { body: { amount: [{ numeric: ['>', 5, '<', 1] }] } }))
-        .toThrow('onOrder filters amount {"numeric":[">",5,"<",1]}, which a filter policy does not take there')
 })
 
 describe('a filter, against what SNS delivered by it', () => {
