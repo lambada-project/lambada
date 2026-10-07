@@ -18,7 +18,7 @@ const targets: Record<string, { type: string, write: (policy: unknown) => unknow
     'sns:attributes': { type: 'AttributePolicy', write: p => filterArgs('s', { attributes: p } as never) },
     'sns:body': { type: 'BodyPolicy', write: p => filterArgs('s', { body: p } as never) },
     'sqs:body': { type: 'BodyPolicy', write: p => eventSourceMappingArgs(queueHandler({ body: p })) },
-    'sqs:attributes': { type: 'StringAttributePolicy', write: p => eventSourceMappingArgs(queueHandler({ attributes: p })) },
+    'sqs:attributes': { type: 'StringAttributePolicy', write: p => eventSourceMappingArgs(queueHandler({ messageAttributes: Object.fromEntries(Object.entries(p as object).map(([k, v]) => [k, Array.isArray(v) ? { stringValue: v } : v])) })) },
 }
 
 /** A state is legal when AWS took it, or documents it, and lambada writes it; every other is one lambada must not let a type build. */

@@ -13,7 +13,7 @@ const targets = {
     'sns:attributes': (policy: unknown) => filterArgs('s', { attributes: policy } as never).filterPolicy,
     'sns:body': (policy: unknown) => filterArgs('s', { body: policy } as never).filterPolicy,
     'sqs:body': (policy: unknown) => eventSourceMappingArgs(queueHandler({ body: policy } as never)).filterCriteria?.filters[0].pattern,
-    'sqs:attributes': (policy: unknown) => eventSourceMappingArgs(queueHandler({ attributes: policy } as never)).filterCriteria?.filters[0].pattern,
+    'sqs:attributes': (policy: unknown) => eventSourceMappingArgs(queueHandler(sent['sqs:attributes'](policy as Record<string, unknown>) as never)).filterCriteria?.filters[0].pattern,
 }
 type Target = keyof typeof targets
 
@@ -97,9 +97,12 @@ test('takes only the conditions the grammar holds', () => {
     expect(typeOnly).toBeFunction()
 })
 
-test('refuses a queue filter with nothing to match, or anyOf one', () => {
-    expect(() => eventSourceMappingArgs(queueHandler({} as never))).toThrow('a filter takes a body, attributes or anyOf two filters or more')
-    expect(() => eventSourceMappingArgs(queueHandler({ anyOf: [{ body: { k: ['a'] } }] } as never))).toThrow('anyOf two filters or more')
+test('refuses a queue pattern with nothing to match, $or of one, or an attribute not held by its stringValue', () => {
+    expect(() => eventSourceMappingArgs(queueHandler({} as never))).toThrow('a pattern takes a body, messageAttributes or $or of two patterns or more')
+    expect(() => eventSourceMappingArgs(queueHandler({ $or: [{ body: { k: ['a'] } }] } as never))).toThrow('$or of two patterns or more')
+    expect(() => eventSourceMappingArgs(queueHandler({ messageAttributes: { kind: ['urgent'] } } as never))).toThrow('messageAttributes.kind by ["urgent"]; an attribute is matched by its stringValue')
+    expect(() => eventSourceMappingArgs(queueHandler({ messageAttributes: { kind: { stringValue: ['a'], dataType: ['String'] } } } as never))).toThrow('an attribute is matched by its stringValue')
+    expect(() => eventSourceMappingArgs(queueHandler({ $or: [{ body: { k: ['a'] } }, { body: { k: [] } }] } as never))).toThrow('s filters k []')
 })
 
 test('refuses a filter holding a key it does not take, or two scopes for SNS, rather than drop one', () => {
@@ -110,7 +113,7 @@ test('refuses a filter holding a key it does not take, or two scopes for SNS, ra
     expect(typeOnly).toBeFunction()
     expect(() => filterArgs('onOrder', { attributes: { a: ['x'] }, body: { b: ['y'] } } as never)).toThrow('a filter takes attributes or body, one of them')
     expect(() => filterArgs('onOrder', { attribute: { a: ['x'] } } as never)).toThrow('a filter takes attributes or body, one of them')
-    expect(() => eventSourceMappingArgs(queueHandler({ body: { b: ['y'] }, attribute: { a: ['x'] } } as never))).toThrow('a filter takes a body, attributes or anyOf')
+    expect(() => eventSourceMappingArgs(queueHandler({ body: { b: ['y'] }, attributes: { a: ['x'] } } as never))).toThrow('a pattern takes a body, messageAttributes or $or')
     for (const op of ['toString', 'constructor', 'hasOwnProperty'])
         expect(() => filterArgs('onOrder', { attributes: { k: [{ [op]: 'x' }] } } as never)).toThrow(`onOrder filters k {"${op}":"x"}`)
 })
@@ -146,18 +149,9 @@ describe('a filter, against what SNS delivered by it', () => {
     })
 })
 
-/** A recorded pattern read back as the filter a queue handler declares. */
-const declaration = (pattern: Record<string, unknown>): object => ({
-    ...(pattern.body !== undefined && { body: pattern.body }),
-    ...(pattern.messageAttributes !== undefined && {
-        attributes: Object.fromEntries(Object.entries(pattern.messageAttributes as Record<string, { stringValue: unknown }>).map(([k, v]) => [k, v.stringValue])),
-    }),
-    ...(pattern.$or !== undefined && { anyOf: (pattern.$or as Record<string, unknown>[]).map(declaration) }),
-})
-
 describe('a queue handler filter, against what Lambda delivered by it', () => {
-    test('writes back every pattern Lambda delivered by, read as a declaration', () => {
-        expect(lambdaDeliveries.filter(d => eventSourceMappingArgs(queueHandler(declaration(JSON.parse(d.pattern)) as never)).filterCriteria?.filters[0].pattern !== d.pattern)).toEqual([])
+    test('declares every pattern Lambda delivered by as itself, and writes it unchanged', () => {
+        expect(lambdaDeliveries.filter(d => eventSourceMappingArgs(queueHandler(JSON.parse(d.pattern))).filterCriteria?.filters[0].pattern !== d.pattern)).toEqual([])
     })
 })
 
@@ -185,11 +179,15 @@ test('every operator lambada writes has delivered a message and held one back, o
 test('takes a body as text or JSON, with or beside its attributes, and the case-insensitive and listed forms', () => {
     const typeOnly = () => {
         queueHandler({ body: [{ prefix: 'ERROR' }] })
-        queueHandler({ body: { type: ['order.created'] }, attributes: { kind: ['urgent'] } })
+        queueHandler({ body: { type: ['order.created'] }, messageAttributes: { kind: { stringValue: ['urgent'] } } })
         queueHandler({ body: { name: [{ prefix: { 'equals-ignore-case': 'ab' } }, { 'anything-but': { suffix: ['.tmp', '.bak'] } }] } })
-        queueHandler({ body: { case: ['beside'] }, anyOf: [{ body: { k: ['a'] } }, { attributes: { m: ['b'] } }] })
+        queueHandler({ body: { case: ['beside'] }, $or: [{ body: { k: ['a'] } }, { messageAttributes: { m: { stringValue: ['b'] } } }] })
         // @ts-expect-error
-        queueHandler({ anyOf: [{ body: { k: ['a'] } }] })
+        queueHandler({ $or: [{ body: { k: ['a'] } }] })
+        // @ts-expect-error
+        queueHandler({ messageAttributes: { kind: ['urgent'] } })
+        // @ts-expect-error
+        queueHandler({ attributes: { kind: ['urgent'] } })
         // @ts-expect-error
         queueHandler({})
         // @ts-expect-error
