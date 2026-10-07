@@ -38,7 +38,6 @@ const states: State[] = [
     })),
 ]
 
-/** The names of the states that do not type-check, each tried as a literal of its declared type. */
 const typeErrors = (states: State[]): Set<string> => {
     const file = path.join(__dirname, '__states__.ts')
     const lines = states.map(s => `    (${JSON.stringify(s.value)}) satisfies ${s.type};`)

@@ -16,14 +16,9 @@ export type QueueBatchResponse = { batchItemFailures: { itemIdentifier: string }
 export type QueueHandlerCallback = LambdaHandler<QueueHandlerEvent, void | QueueBatchResponse>
 
 type QueueBody = BodyPolicy | Conditions<string>
-/** An attribute as Lambda holds it in an SQS record: its string value is what a pattern matches. */
 type StringValue = { stringValue: Conditions<string> }
 type QueuePattern = { body: QueueBody, messageAttributes: Record<string, StringValue>, $or: Several<QueueHandlerFilter> }
-/**
- * Lambda's filter pattern for an SQS record, written as it is declared. A body that is not JSON is
- * matched by conditions on the whole string. Every part given must match; `$or` takes two patterns
- * or more, which may each hold a body, attributes or both, and matches when one or more of them do.
- */
+/** Lambda's filter pattern for an SQS record, written as declared. A body that is not JSON is matched as one string. */
 export type QueueHandlerFilter = SomeOf<QueuePattern>
 
 export type LambdaQueueHandler<TNames extends LambadaGrantsShape = LambadaGrantsShape> = {
@@ -45,7 +40,6 @@ const isPlain = (body: QueueBody): body is Conditions<string> => Array.isArray(b
 
 const STRING_VALUE: Shape<StringValue> = { stringValue: 'required' }
 
-/** Refuses a pattern Lambda rejects, or takes and never matches; one it takes is written as declared. */
 const requirePattern = (name: string, filter: QueueHandlerFilter): void => {
     if (!isSomeOf<QueuePattern>(filter, { body: true, messageAttributes: true, $or: true }) || (filter.$or && !(filter.$or.length >= 2)))
         throw new Error(`${name} filters by ${JSON.stringify(filter)}; a pattern takes a body, messageAttributes or $or of two patterns or more`)

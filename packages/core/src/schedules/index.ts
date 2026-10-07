@@ -30,10 +30,7 @@ export type Weekday = typeof WEEKDAYS[number]
 
 type Range<T, Step> = { from: T, to: T, every?: Step }
 type Stepped<T, Step> = { every: Step, from?: T }
-/**
- * A value, a list, or one object form: a range, a step, or a form of its own. A step is at most a cyclic
- * field's highest value, months and weekdays counted from 1; a year's, at most the largest number EventBridge takes.
- */
+/** A step is at most a cyclic field's highest value, months and weekdays counted from 1; a year's, at most EventBridge's largest number. */
 type Field<T, Step, Own = never> = OneOrMany<T> | Exclusive<Range<T, Step> | Stepped<T, Step> | Own>
 
 type Nearest = { nearestWeekdayTo: Day }
@@ -49,14 +46,13 @@ type Fields = {
     dayOfWeek: Field<Weekday, Positions<typeof WEEKDAYS>, Last | Nth>
     year: Field<Year, number>
 }
-/** One or more fields, and of the two day fields one at most: EventBridge writes the other as `?`. */
+/** Of the two day fields one at most: EventBridge writes the other as `?`. */
 export type Cron = Exclusive<SomeOf<Omit<Fields, 'dayOfWeek'>> | SomeOf<Omit<Fields, 'dayOfMonth'>>>
 
 type Kinds = { every: Every, cron: Cron }
 export type Schedule = OneOf<Kinds>
 
 type Value = number | string
-/** All a field asks of its values: whether one is among them, where it falls, and the highest, months and weekdays counted from 1. */
 type Values = { has: (v: Value) => boolean, rank: (v: Value) => number, highest: number }
 const span = (lowest: number, highest: number): Values => ({
     has: v => typeof v === 'number' && Number.isInteger(v) && v >= lowest && v <= highest,
@@ -69,15 +65,13 @@ const named = (names: readonly string[]): Values => ({
     highest: names.length,
 })
 
-/** EventBridge's largest number. A field of plain data cannot refine its literal, so it is checked when written. */
+/** EventBridge's largest number, which a type cannot refine a literal to, so it is checked when written. */
 const LARGEST = 2 ** 31 - 1
-/** A rate, or a year's step: a whole number up to the largest. */
 const counts = span(1, LARGEST)
 type Refuse = () => never
 
 const isList = <T>(v: Field<T, number>): v is NonEmpty<T> => Array.isArray(v) && v.length > 0
 
-/** All a form needs of its field: to write a value or a step, to know whether a range ascends, and to refuse. */
 type Writer = { value: (v: Value) => string, step: (every: number | undefined) => string, ascends: (from: Value, to: Value) => boolean, refuse: Refuse }
 const writerOf = ({ values, steps, cyclic }: Pick<Codec<keyof Fields>, 'values' | 'steps' | 'cyclic'>, refuse: Refuse): Writer => ({
     value: v => values.has(v) ? String(v) : refuse(),
@@ -101,9 +95,8 @@ const plain = (v: Field<Value, number>, w: Writer): string => {
     return w.refuse()
 }
 
-/** All lambada knows of one cron field: its values and steps, whether it is a cycle, and how its forms are written. */
 type Codec<F extends keyof Fields> = { values: Values, steps: Values, cyclic: boolean, write: (value: Fields[F], w: Writer) => string }
-/** A cyclic field's range may run backwards around the cycle, and its step is at most its highest value. */
+/** A cyclic field's range may run backwards around the cycle. */
 const cycle = (values: Values) => ({ values, steps: span(1, values.highest), cyclic: true })
 
 /** In EventBridge's order. Years are not a cycle: a range ascends, which a type cannot order, and a step is any count. */

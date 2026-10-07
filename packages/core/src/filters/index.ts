@@ -69,7 +69,7 @@ const isCidr = (v: unknown) => {
     const width = isIPv4(address ?? '') ? 32 : isIPv6(address ?? '') ? 128 : 0
     return rest.length === 0 && width > 0 && /^\d{1,3}$/.test(prefix ?? '') && Number(prefix) < width
 }
-/** SNS and Lambda take a range only when its bottom is below its top, even both inclusive; two values the user writes, which a type cannot order. */
+/** SNS and Lambda take a range only when its bottom is below its top, even both inclusive. */
 const numeric = (v: Numeric) => {
     if (!isArray(v)) return false
     if (v.length === 2) return (v[0] === '=' || isLower(v[0]) || isUpper(v[0])) && isNumber(v[1])
@@ -97,7 +97,6 @@ const anythingBut = (numbers: boolean) => (v: Ops['anything-but']) => {
 }
 
 type Ops = Operators<Scalar>
-/** Every operator a condition may hold, and every form anything-but may exclude by. */
 export const operatorNames = () => [...Object.keys(operators(true)), ...Object.keys(exclusions).map(k => `anything-but.${k}`)]
 
 const operators = (numbers: boolean): Checks<Ops> => ({
@@ -114,7 +113,6 @@ const isPolicy = (v: unknown): v is AnyPolicy => isRecord(v) && Object.keys(v).l
 const isBranches = (v: Entry): v is Extract<Entry, Several<AnyPolicy>> => isArray(v) && v.length >= 2
 const isConditions = (v: Entry): v is Conditions => isArray(v) && v.length > 0
 
-/** A condition's wildcard patterns. */
 const wildcards = (c: Condition): string[] => {
     const p = typeof c !== 'object' || c === null ? undefined
         : 'wildcard' in c ? c.wildcard
@@ -127,7 +125,6 @@ const stars = (pattern: string) => pattern.split('*').length - 1
 const points = (stars: number) => stars > 1 ? 3 * stars : stars
 
 type Bounds = { pairs: Set<string>, combinations: number, complexity: number, stars: number }
-/** Each bound SNS sets on a policy: the most it takes, what it measures, and what to call it. */
 const LIMITS: { most: number, of: (b: Bounds) => number, called: string }[] = [
     { most: 5, of: b => b.pairs.size, called: 'keys' },
     { most: 150, of: b => b.combinations, called: 'combinations' },

@@ -153,7 +153,6 @@ const operatorsIn = (v: unknown, under?: string): string[] =>
         : operatorNames().includes(k) ? [k, ...(k === 'anything-but' ? operatorsIn(x, k) : [])]
         : operatorsIn(x))
 
-/** The operators of every condition that delivered one message and held back another. */
 const separating = (groups: Map<string, boolean[]>) =>
     new Set([...groups].filter(([, delivered]) => delivered.includes(true) && delivered.includes(false)).flatMap(([condition]) => operatorsIn(JSON.parse(condition))))
 const grouped = <T>(rows: T[], key: (row: T) => string, delivered: (row: T) => boolean) =>
