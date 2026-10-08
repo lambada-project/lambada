@@ -12,6 +12,8 @@ export type MissingResource = {
  */
 export type LambadaDiagnostics = {
     missingResource(missing: MissingResource): void
+    /** A declaration AWS would refuse, said as the sentence that explains why. */
+    invalid(reason: string): void
     /** Throws a single error naming every missing resource, if there were any. */
     throwIfIncomplete(): void
 }
@@ -20,25 +22,32 @@ const column = (rows: string[]) => Math.max(...rows.map(x => x.length), 0)
 
 export const createDiagnostics = (): LambadaDiagnostics => {
     const missing: MissingResource[] = []
+    const invalid: string[] = []
 
     return {
         missingResource: item => { missing.push(item) },
+        invalid: reason => { invalid.push(reason) },
 
         throwIfIncomplete() {
-            if (missing.length === 0) return
+            if (missing.length === 0 && invalid.length === 0) return
 
             const width = column(missing.map(x => x.functionName))
-            const lines = missing.map(x => {
-                const has = x.available.length ? x.available.join(', ') : 'none'
-                return `  ${x.functionName.padEnd(width)}  ${x.kind} '${x.name}' — the stack has: ${has}`
-            })
-
-            throw new Error(
+            const missingSection = missing.length === 0 ? [] : [
                 `Lambada found ${missing.length} ` +
                 `${missing.length === 1 ? 'resource that is' : 'resources that are'} granted but absent ` +
-                `from the stack:\n\n${lines.join('\n')}\n\n` +
-                `Correct the names, or add the resources to run().`
-            )
+                `from the stack:\n\n` +
+                missing.map(x => {
+                    const has = x.available.length ? x.available.join(', ') : 'none'
+                    return `  ${x.functionName.padEnd(width)}  ${x.kind} '${x.name}' — the stack has: ${has}`
+                }).join('\n') +
+                `\n\nCorrect the names, or add the resources to run().`
+            ]
+            const invalidSection = invalid.length === 0 ? [] : [
+                `Lambada found ${invalid.length} invalid ${invalid.length === 1 ? 'declaration' : 'declarations'}:\n\n` +
+                invalid.map(x => `  ${x}`).join('\n')
+            ]
+
+            throw new Error([...missingSection, ...invalidSection].join('\n\n'))
         },
     }
 }

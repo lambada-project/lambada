@@ -1,6 +1,7 @@
 import { getNameFromPath } from "../api/utils";
 import { LambadaResources } from "../context";
 import { LambadaDiagnostics, MissingResource } from "./diagnostics";
+import { EndpointAuthorizers, styleProblems } from "../auth/authorizers";
 import { findMissingGrants, isLambadaGrants, LambadaResourceRequest, ResourceKind, resourceLookups } from "./grants";
 
 /**
@@ -18,6 +19,7 @@ type Declaration = {
     method?: string
     resources?: LambadaResourceRequest<any>
     onFailure?: Partial<Record<ResourceKind, unknown>>
+    auth?: EndpointAuthorizers
 } & Partial<Record<ResourceKind, unknown>>
 
 /**
@@ -58,6 +60,8 @@ export const preflight = (
     diagnostics: LambadaDiagnostics,
     definitions: readonly (readonly unknown[] | undefined)[]
 ): void => {
+    context.authorization?.checkDefault().forEach(diagnostics.missingResource)
+
     for (const group of definitions) {
         for (const definition of group ?? []) {
             if (!isDeclaration(definition)) continue
@@ -66,6 +70,13 @@ export const preflight = (
 
             for (const missing of missingBindings(context, name, definition)) {
                 diagnostics.missingResource(missing)
+            }
+
+            styleProblems(context.authorization, name, definition.auth).forEach(diagnostics.invalid)
+
+            // One that falls back to the default was checked with it.
+            if (context.authorization && definition.auth?.authorizer !== undefined) {
+                context.authorization.select(name, definition.auth.authorizer).missing.forEach(diagnostics.missingResource)
             }
 
             if (isLambadaGrants(definition.resources)) {

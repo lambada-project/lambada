@@ -93,9 +93,7 @@ export const createOpenApiDocumentEndpoint = (args: {
         name: `${args.projectName}_get_openapi`,
         path: '/openapi',
         method: 'GET',
-        auth: {
-            useCognitoAuthorizer: false
-        },
+        auth: context.authorization ? { authorizer: false } : { useCognitoAuthorizer: false },
         callbackDefinition: async (): Promise<object> => {
             return {
                 statusCode: 200,

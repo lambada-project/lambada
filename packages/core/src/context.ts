@@ -11,6 +11,7 @@ import { FunctionVpcConfig, LambdaOptions } from "./lambdas";
 import { BundleSource } from "./lambdas/bundles";
 import { Input } from '@pulumi/pulumi'
 import { PoolsResult } from "./auth/pools";
+import type { Authorization } from "./auth/authorizers";
 import { LambadaDiagnostics } from "./resources/diagnostics";
 
 export type LambadaResources = {
@@ -28,7 +29,10 @@ export type LambadaResources = {
         vpcConfig?: Input<FunctionVpcConfig>
         lambdaOptions?: LambdaOptions
     },
+    /** What every endpoint runs in a stack still using `auth.lambdaAuthorizers` or `authorizerPools`. */
     authorizers: (CognitoAuthorizer | LambdaAuthorizer)[]
+    /** Present when the stack declares `auth.authorizers`, which endpoints then select from by name. */
+    authorization?: Authorization
     messaging?: MessagingResult
     queues?: QueuesResult
     notifications?: NotificationResult

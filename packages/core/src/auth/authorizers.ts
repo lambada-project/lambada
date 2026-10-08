@@ -1,0 +1,127 @@
+import * as awsx from "@pulumi/awsx/classic";
+import { CognitoAuthorizer, LambdaAuthorizer } from "@pulumi/awsx/classic/apigateway";
+import { MissingResource } from "../resources/diagnostics";
+import { PoolsResult } from "./pools";
+
+/** Tokens from the pool declared under this key in `pools` or `poolsRef`. */
+export type PoolAuthorizerDefinition = { pool: string }
+
+/**
+ * An authorizer the API can run, declared under the name endpoints select it by. That name is also
+ * what API Gateway calls it, so a lambda authorizer's own `authorizerName` gives way to it.
+ */
+export type AuthorizerDefinition = PoolAuthorizerDefinition | LambdaAuthorizer
+
+export type LambadaAuthorizers = { [name: string]: AuthorizerDefinition }
+
+/** The declared authorizer a method runs, or `false` for a public one. API Gateway runs one per method. */
+export type AuthorizerSelection = string | false
+
+export type MethodAuthorizer = CognitoAuthorizer | LambdaAuthorizer
+
+export type Authorization = {
+    /** What a method runs, and every name it uses that the stack lacks. */
+    select(functionName: string, selection: AuthorizerSelection | undefined): {
+        authorizers: MethodAuthorizer[]
+        missing: MissingResource[]
+    }
+    /** The authorizers a method runs; throws naming what the stack lacks. */
+    resolve(functionName: string, selection: AuthorizerSelection | undefined): MethodAuthorizer[]
+    /** The stack default checked on its own, since an endpoint may never fall back to it. */
+    checkDefault(): MissingResource[]
+}
+
+const isPoolDefinition = (definition: AuthorizerDefinition): definition is PoolAuthorizerDefinition =>
+    'pool' in definition
+
+/** What API Gateway accepts as an authorizer name; it refuses the import otherwise. */
+const NAME = /^[A-Za-z0-9._-]+$/
+
+export const createAuthorization = (
+    definitions: LambadaAuthorizers,
+    pools: PoolsResult,
+    defaultSelection: AuthorizerSelection | undefined
+): Authorization => {
+    for (const name of Object.keys(definitions)) {
+        if (!NAME.test(name)) {
+            throw new Error(`Cannot declare the authorizer '${name}': API Gateway names one from letters, digits, '.', '-' and '_'.`)
+        }
+    }
+
+    const declares = (name: string) => Object.prototype.hasOwnProperty.call(definitions, name)
+    const hasPool = (key: string) => Object.prototype.hasOwnProperty.call(pools, key)
+
+    // One per name, so every method selecting it shares the authorizer API Gateway imports.
+    const built = new Map<string, MethodAuthorizer>()
+    const build = (name: string): MethodAuthorizer => {
+        if (!built.has(name)) {
+            const definition = definitions[name]
+            built.set(name, isPoolDefinition(definition)
+                ? awsx.apigateway.getCognitoAuthorizer({
+                    authorizerName: name,
+                    providerARNs: [pools[definition.pool].awsPool ?? pools[definition.pool].ref.arn],
+                })
+                : { ...definition, authorizerName: name })
+        }
+        return built.get(name)!
+    }
+
+    const check = (functionName: string, name: string): MissingResource[] => {
+        if (!declares(name)) return [{ functionName, kind: 'authorizer', name, available: Object.keys(definitions) }]
+
+        const definition = definitions[name]
+        return isPoolDefinition(definition) && !hasPool(definition.pool)
+            ? [{ functionName, kind: 'pool', name: definition.pool, available: Object.keys(pools) }]
+            : []
+    }
+
+    const select: Authorization['select'] = (functionName, selection) => {
+        const name = selection ?? defaultSelection ?? false
+        if (name === false) return { authorizers: [], missing: [] }
+
+        const missing = check(functionName, name)
+        return { authorizers: missing.length > 0 ? [] : [build(name)], missing }
+    }
+
+    return {
+        select,
+        resolve(functionName, selection) {
+            const { authorizers, missing } = select(functionName, selection)
+            if (missing.length > 0) {
+                throw new Error(missing.map(m =>
+                    `${m.functionName}: ${m.kind} '${m.name}' is not declared. The stack has: ${m.available.join(', ') || 'none'}.`
+                ).join('\n'))
+            }
+            return authorizers
+        },
+        checkDefault: () => defaultSelection === undefined || defaultSelection === false
+            ? []
+            : check('(stack default)', defaultSelection),
+    }
+}
+
+/** How an endpoint asks for authorizers, in either style. */
+export type EndpointAuthorizers = {
+    useCognitoAuthorizer?: boolean
+    lambdaAuthorizer?: LambdaAuthorizer
+    authorizer?: AuthorizerSelection
+}
+
+/** An endpoint written in the other style from its stack, which would otherwise be ignored. */
+export const styleProblems = (
+    authorization: Authorization | undefined,
+    functionName: string,
+    auth: EndpointAuthorizers | undefined
+): string[] => {
+    if (authorization) {
+        const deprecated = (['useCognitoAuthorizer', 'lambdaAuthorizer'] as const).filter(f => auth?.[f] !== undefined)
+        return deprecated.length === 0 ? [] : [
+            `${functionName}: sets ${deprecated.map(f => `auth.${f}`).join(' and ')}, but run() declares ` +
+            `authorizers by name. Select one with auth.authorizer.`
+        ]
+    }
+
+    return auth?.authorizer === undefined ? [] : [
+        `${functionName}: selects auth.authorizer, but run() declares none in auth.authorizers.`
+    ]
+}

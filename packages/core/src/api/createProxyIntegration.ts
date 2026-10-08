@@ -20,7 +20,9 @@ export type ProxyIntegrationArgs = {
 export const createProxyIntegrationCompat = ({ path, targetUri, enableAuth }: ProxyIntegrationArgs, embroideryContext: LambadaResources): Route => {
     const route: IntegrationRoute = {
         path: `${embroideryContext.api?.apiPath ?? ''}${path}`,
-        authorizers: enableAuth ? embroideryContext.authorizers : [],
+        authorizers: !enableAuth ? []
+            : embroideryContext.authorization ? embroideryContext.authorization.resolve(path, undefined)
+            : embroideryContext.authorizers,
         target: {
             type: 'http_proxy',
             httpMethod: 'ANY',
