@@ -6,35 +6,30 @@ import { LambadaResources, EmbroideryEnvironmentVariables, mergeOptions } from "
 import { LambadaResourceRequest, LambadaGrantsShape, ResourceRef, resolveEnvironment, resolveGrants, resolveRef } from "../resources/grants";
 import { bundleOf, isLambdaFolder } from "../lambdas/bundles";
 import { AsyncFailures, asyncInvocationConfig, failureDestination } from "../lambdas/asyncFailures";
+import { AttributePolicy, BodyPolicy, requireFilter } from "../filters";
+import { isOneOf, OneOf } from "../types/forms";
 
 export type SubscriptionEvent = TopicEvent
 export type SubscriptionCallback = LambdaHandler<SubscriptionEvent, void>
 
-type SnsFilterCondition =
-    | string
-    | number
-    | boolean
-    | null
-    | { prefix: string }
-    | { suffix: string }
-    | { 'equals-ignore-case': string }
-    | { 'anything-but': string | number | (string | number)[] | { prefix: string } | { suffix: string } }
-    | { numeric: (string | number)[] }
-    | { exists: boolean }
-    | { cidr: string }
+type Scopes = { attributes: AttributePolicy, body: BodyPolicy }
+export type SnsSubscriptionFilter = OneOf<Scopes>
 
-export type SnsFilterPolicy = { $or?: SnsFilterPolicy[] } & { [key: string]: SnsFilterCondition[] | SnsFilterPolicy | SnsFilterPolicy[] | undefined }
+/** A subscription's policy is stated in its filter, which is checked; never as a raw string beside it. */
+export type SubscriptionArgs = Omit<TopicEventSubscriptionArgs, 'filterPolicy' | 'filterPolicyScope'>
 
-export type SnsSubscriptionFilter = { attributes: SnsFilterPolicy } | { body: SnsFilterPolicy }
-
-export const filterArgs = (subscriptionName: string, filter: SnsSubscriptionFilter | undefined, args: TopicEventSubscriptionArgs = {}): TopicEventSubscriptionArgs => {
-    if (!filter) return args
-    if (args.filterPolicy !== undefined || args.filterPolicyScope !== undefined) {
-        throw new Error(`${subscriptionName} sets both filter and subscriptionArgs.filterPolicy`)
+export const filterArgs = (subscriptionName: string, filter: SnsSubscriptionFilter | undefined, args: SubscriptionArgs = {}): TopicEventSubscriptionArgs => {
+    const raw = (['filterPolicy', 'filterPolicyScope'] as const).find(key => args[key as keyof typeof args] !== undefined)
+    if (raw !== undefined) throw new Error(`${subscriptionName} sets subscriptionArgs.${raw}; a subscription is filtered by its filter`)
+    if (filter === undefined) return args
+    if (!isOneOf<Scopes>(filter, { attributes: true, body: true }))
+        throw new Error(`${subscriptionName} filters by ${JSON.stringify(filter)}; a filter takes attributes or body, one of them`)
+    if (filter.attributes !== undefined) {
+        requireFilter.snsAttributes(subscriptionName, filter.attributes)
+        return { ...args, filterPolicy: JSON.stringify(filter.attributes), filterPolicyScope: 'MessageAttributes' }
     }
-    return 'attributes' in filter
-        ? { ...args, filterPolicy: JSON.stringify(filter.attributes), filterPolicyScope: 'MessageAttributes' }
-        : { ...args, filterPolicy: JSON.stringify(filter.body), filterPolicyScope: 'MessageBody' }
+    requireFilter.snsBody(subscriptionName, filter.body)
+    return { ...args, filterPolicy: JSON.stringify(filter.body), filterPolicyScope: 'MessageBody' }
 }
 
 export type LambdaSubscription<TNames extends LambadaGrantsShape = LambadaGrantsShape> = AsyncFailures & {
@@ -44,7 +39,7 @@ export type LambdaSubscription<TNames extends LambadaGrantsShape = LambadaGrants
     policyStatements?: aws.iam.PolicyStatement[]
     environmentVariables?: EmbroideryEnvironmentVariables
     resources: LambadaResourceRequest<TNames>
-    subscriptionArgs?: TopicEventSubscriptionArgs
+    subscriptionArgs?: SubscriptionArgs
     lambdaOptions?: LambdaOptions
     filter?: SnsSubscriptionFilter
 }

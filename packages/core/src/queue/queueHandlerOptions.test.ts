@@ -12,13 +12,13 @@ describe('the event source mapping of a queue handler', () => {
     })
 
     test('filters on an attribute by its string value', () => {
-        expect(eventSourceMappingArgs(handler({ filter: { attributes: { type: ['order.created'] } } })))
+        expect(eventSourceMappingArgs(handler({ filter: { messageAttributes: { type: { stringValue: ['order.created'] } } } })))
             .toEqual({ filterCriteria: { filters: [{ pattern: '{"messageAttributes":{"type":{"stringValue":["order.created"]}}}' }] } })
     })
 
     test('refuses a numeric condition on an attribute, which Lambda never matches', () => {
         // @ts-expect-error
-        handler({ filter: { attributes: { amount: [{ numeric: ['>', 100] }] } } })
+        handler({ filter: { messageAttributes: { amount: { stringValue: [{ numeric: ['>', 100] }] } } } })
     })
 
     test('reports batch item failures, and caps concurrency', () => {

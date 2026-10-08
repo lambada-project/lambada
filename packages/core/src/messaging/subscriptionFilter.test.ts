@@ -34,14 +34,27 @@ describe('a subscription filter', () => {
     })
 
     test('absent leaves the subscription args as they were', () => {
-        const args = { filterPolicy: '{"type":["a"]}' }
+        const args = { rawMessageDelivery: true }
 
         expect(filterArgs('onOrder', undefined, args)).toBe(args)
     })
 
-    test('next to a filter policy in subscriptionArgs is refused', () => {
-        expect(() => filterArgs('onOrder', { body: { type: ['a'] } }, { filterPolicy: '{}' }))
-            .toThrow('onOrder sets both filter and subscriptionArgs.filterPolicy')
+    test.each([
+        [{ filterPolicy: '{"type":["a"]}' }, undefined, 'onOrder sets subscriptionArgs.filterPolicy; a subscription is filtered by its filter'],
+        [{ filterPolicy: '{}' }, { body: { type: ['a'] } }, 'onOrder sets subscriptionArgs.filterPolicy'],
+        [{ filterPolicyScope: 'MessageBody' }, undefined, 'onOrder sets subscriptionArgs.filterPolicyScope'],
+    ])('is the only way to filter: subscriptionArgs %j is refused', (args, filter, message) => {
+        expect(() => filterArgs('onOrder', filter as never, args as never)).toThrow(message)
+    })
+
+    test('takes no raw policy in its subscription args, in its types', () => {
+        const typeOnly = () => {
+            // @ts-expect-error
+            filterArgs('onOrder', undefined, { filterPolicy: '{}' })
+            // @ts-expect-error
+            filterArgs('onOrder', undefined, { filterPolicyScope: 'MessageBody' })
+        }
+        expect(typeOnly).toBeFunction()
     })
 })
 

@@ -7,34 +7,19 @@ import { createLambda, LambdaFolder, LambdaHandler, LambdaOptions, LambdaResourc
 import { QueueEvent, QueueEventSubscription, QueueEventSubscriptionArgs } from "@pulumi/aws/sqs";
 import { LambadaResourceRequest, LambadaGrantsShape, ResourceRef, resolveEnvironment, resolveGrants, resolveRef } from "../resources/grants";
 import { bundleOf, isLambdaFolder } from "../lambdas/bundles";
+import { BodyPolicy, Conditions, requireFilter } from "../filters";
+import { hasShape, isRecord, isSomeOf, Shape, SomeOf } from "../types/forms";
+import { isArray, Several } from "../types/lists";
 
 export type QueueHandlerEvent = QueueEvent
 export type QueueBatchResponse = { batchItemFailures: { itemIdentifier: string }[] }
 export type QueueHandlerCallback = LambdaHandler<QueueHandlerEvent, void | QueueBatchResponse>
 
-type EventCondition =
-    | string
-    | number
-    | boolean
-    | null
-    | { prefix: string }
-    | { suffix: string }
-    | { 'equals-ignore-case': string }
-    | { 'anything-but': string | number | (string | number)[] | { prefix: string } | { suffix: string } }
-    | { numeric: (string | number)[] }
-    | { exists: boolean }
-
-export type QueueEventPattern = { $or?: QueueEventPattern[] } & { [key: string]: EventCondition[] | QueueEventPattern | QueueEventPattern[] | undefined }
-
-type AttributeCondition =
-    | string
-    | { prefix: string }
-    | { suffix: string }
-    | { 'equals-ignore-case': string }
-    | { 'anything-but': string | string[] | { prefix: string } | { suffix: string } }
-    | { exists: boolean }
-
-export type QueueHandlerFilter = { body: QueueEventPattern } | { attributes: { [name: string]: AttributeCondition[] } }
+type QueueBody = BodyPolicy | Conditions<string>
+type StringValue = { stringValue: Conditions<string> }
+type QueuePattern = { body: QueueBody, messageAttributes: Record<string, StringValue>, $or: Several<QueueHandlerFilter> }
+/** Lambda's filter pattern for an SQS record, written as declared. A body that is not JSON is matched as one string. */
+export type QueueHandlerFilter = SomeOf<QueuePattern>
 
 export type LambdaQueueHandler<TNames extends LambadaGrantsShape = LambadaGrantsShape> = {
     name: string
@@ -51,12 +36,40 @@ export type LambdaQueueHandler<TNames extends LambadaGrantsShape = LambadaGrants
     maximumConcurrency?: number
 }
 
-const filterPattern = (filter: QueueHandlerFilter) => 'body' in filter
-    ? { body: filter.body }
-    : { messageAttributes: Object.fromEntries(Object.entries(filter.attributes).map(([name, conditions]) => [name, { stringValue: conditions }])) }
+const STRING_VALUE: Shape<StringValue> = { stringValue: 'required' }
 
-export const eventSourceMappingArgs = ({ filter, reportBatchItemFailures, maximumConcurrency }: LambdaQueueHandler<any>) => ({
-    ...(filter && { filterCriteria: { filters: [{ pattern: JSON.stringify(filterPattern(filter)) }] } }),
+const requirePattern = (name: string, filter: QueueHandlerFilter): void => {
+    if (!isSomeOf<QueuePattern>(filter, { body: true, messageAttributes: true, $or: true }) || (filter.$or !== undefined && !(isArray(filter.$or) && filter.$or.length >= 2)))
+        throw new Error(`${name} filters by ${JSON.stringify(filter)}; a pattern takes a body, messageAttributes or $or of two patterns or more`)
+    if (filter.body !== undefined) {
+        const body = filter.body
+        if (isRecord(body)) requireFilter.sqsBody(name, body)
+        else requireFilter.sqsStrings(name, { body })
+    }
+    if (filter.messageAttributes !== undefined) {
+        const messageAttributes = filter.messageAttributes
+        if (!isRecord(messageAttributes))
+            throw new Error(`${name} filters messageAttributes by ${JSON.stringify(messageAttributes)}; messageAttributes holds each attribute's stringValue`)
+        const values = Object.entries(messageAttributes).map(([attribute, held]) => hasShape(held, STRING_VALUE) ? [attribute, held.stringValue] : [attribute, undefined])
+        const unheld = values.find(([, conditions]) => conditions === undefined)
+        if (unheld) throw new Error(`${name} filters messageAttributes.${unheld[0]} by ${JSON.stringify(messageAttributes[unheld[0] as string])}; an attribute is matched by its stringValue`)
+        requireFilter.sqsStrings(name, Object.fromEntries(values))
+    }
+    filter.$or?.forEach(branch => requirePattern(name, branch))
+}
+
+/** The longest pattern Lambda takes, as it answered: half what its documentation says. */
+const LONGEST_PATTERN = 2048
+
+const written = (name: string, filter: QueueHandlerFilter) => {
+    requirePattern(name, filter)
+    const pattern = JSON.stringify(filter)
+    if (pattern.length > LONGEST_PATTERN) throw new Error(`${name} filters by a pattern of ${pattern.length} characters, past the ${LONGEST_PATTERN} Lambda takes`)
+    return pattern
+}
+
+export const eventSourceMappingArgs = ({ name, filter, reportBatchItemFailures, maximumConcurrency }: LambdaQueueHandler<any>) => ({
+    ...(filter !== undefined && { filterCriteria: { filters: [{ pattern: written(name, filter) }] } }),
     ...(reportBatchItemFailures && { functionResponseTypes: ['ReportBatchItemFailures'] }),
     ...(maximumConcurrency !== undefined && { scalingConfig: { maximumConcurrency } }),
 })

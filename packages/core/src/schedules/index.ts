@@ -5,96 +5,136 @@ import { createLambda, LambdaFolder, LambdaHandler, LambdaOptions } from "../lam
 import { AsyncFailures, asyncInvocationConfig, failureDestination } from "../lambdas/asyncFailures";
 import { bundleOf, isLambdaFolder } from "../lambdas/bundles";
 import { asCreator, LambadaDefinition } from "../resources/creators";
+import { Digit, Numbers, Positions, Positive } from "../types/numbers";
+import { Exclusive, hasShape, isOneOf, isSomeOf, OneOf, Shape, SomeOf } from "../types/forms";
+import { isArray, isOne, NonEmpty, OneOrMany } from "../types/lists";
 import { LambadaGrantsShape, LambadaResourceRequest, resolveEnvironment, resolveGrants } from "../resources/grants";
 
 export type ScheduleEvent = EventRuleEvent
 export type ScheduleCallback = LambdaHandler<ScheduleEvent, void>
 
-type Units = 'minutes' | 'hours' | 'days'
-type Every = { [U in Units]: { [K in U]: number } & { [K in Exclude<Units, U>]?: never } }[Units]
-
-type Digit = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
-type Numbers<S> = S extends `${infer N extends number}` ? N : never
+const UNITS = ['minutes', 'hours', 'days'] as const
+type Units = typeof UNITS[number]
+const SINGULAR = { minutes: 'minute', hours: 'hour', days: 'day' } as const satisfies Record<Units, string>
+type Every = OneOf<Record<Units, number>>
 
 type Minute = Numbers<`${Digit}` | `${1 | 2 | 3 | 4 | 5}${Digit}`>
 type Hour = Numbers<`${Digit}` | `1${Digit}` | `2${0 | 1 | 2 | 3}`>
-type Day = Numbers<`${Exclude<Digit, 0>}` | `${1 | 2}${Digit}` | `3${0 | 1}`>
+type Day = Numbers<`${Positive}` | `${1 | 2}${Digit}` | `3${0 | 1}`>
 type Year = Numbers<`19${7 | 8 | 9}${Digit}` | `2${0 | 1}${Digit}${Digit}`>
-type MonthStep = Numbers<`${Exclude<Digit, 0>}` | `1${0 | 1 | 2}`>
 
 const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'] as const
 const WEEKDAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'] as const
 export type Month = typeof MONTHS[number]
 export type Weekday = typeof WEEKDAYS[number]
 
-type Field<T, Step = never> =
-    | T
-    | readonly [T, ...T[]]
-    | { from: T, to: T }
-    | ([Step] extends [never] ? never : { every: Step, from?: T })
+type Range<T, Step> = { from: T, to: T, every?: Step }
+type Stepped<T, Step> = { every: Step, from?: T }
+/** A step is at most a cyclic field's highest value, months and weekdays counted from 1; a year's, at most EventBridge's largest number. */
+type Field<T, Step, Own = never> = OneOrMany<T> | Exclusive<Range<T, Step> | Stepped<T, Step> | Own>
 
-export type Cron = {
-    minute?: Field<Minute, Exclude<Minute, 0>>
-    hour?: Field<Hour, Exclude<Hour, 0>>
-    month?: Field<Month, MonthStep>
-    year?: Field<Year, Exclude<Minute, 0>>
-} & (
-    | { dayOfMonth?: Field<Day, Day> | 'last' | { nearestWeekdayTo: Day }, dayOfWeek?: never }
-    | { dayOfMonth?: never, dayOfWeek: Field<Weekday, 1 | 2 | 3 | 4 | 5 | 6 | 7> | { last: Weekday } | { nth: 1 | 2 | 3 | 4 | 5, of: Weekday } }
-)
+type Nearest = { nearestWeekdayTo: Day }
+type Last = { last: Weekday }
+const NTHS = [1, 2, 3, 4, 5] as const
+type Nth = { nth: typeof NTHS[number], of: Weekday }
 
-export type Schedule = { every: Every } | { cron: Cron }
+type Fields = {
+    minute: Field<Minute, Exclude<Minute, 0>>
+    hour: Field<Hour, Exclude<Hour, 0>>
+    dayOfMonth: Field<Day, Day, Nearest> | 'last'
+    month: Field<Month, Positions<typeof MONTHS>>
+    dayOfWeek: Field<Weekday, Positions<typeof WEEKDAYS>, Last | Nth>
+    year: Field<Year, number>
+}
+/** Of the two day fields one at most: EventBridge writes the other as `?`. */
+export type Cron = Exclusive<SomeOf<Omit<Fields, 'dayOfWeek'>> | SomeOf<Omit<Fields, 'dayOfMonth'>>>
 
-type Atom = ({ kind: 'number', min: number, max: number } | { kind: 'name', names: readonly string[] }) & { maxStep: number }
-const atoms: { [F in keyof Cron]-?: Atom } = {
-    minute: { kind: 'number', min: 0, max: 59, maxStep: 59 },
-    hour: { kind: 'number', min: 0, max: 23, maxStep: 23 },
-    dayOfMonth: { kind: 'number', min: 1, max: 31, maxStep: 31 },
-    month: { kind: 'name', names: MONTHS, maxStep: 12 },
-    dayOfWeek: { kind: 'name', names: WEEKDAYS, maxStep: 7 },
-    year: { kind: 'number', min: 1970, max: 2199, maxStep: 59 },
+type Kinds = { every: Every, cron: Cron }
+export type Schedule = OneOf<Kinds>
+
+type Value = number | string
+type Values = { has: (v: Value) => boolean, rank: (v: Value) => number, highest: number }
+const span = (lowest: number, highest: number): Values => ({
+    has: v => typeof v === 'number' && Number.isInteger(v) && v >= lowest && v <= highest,
+    rank: v => typeof v === 'number' ? v : NaN,
+    highest,
+})
+const named = (names: readonly string[]): Values => ({
+    has: v => typeof v === 'string' && names.includes(v),
+    rank: v => typeof v === 'string' && names.includes(v) ? names.indexOf(v) + 1 : NaN,
+    highest: names.length,
+})
+
+/** EventBridge's largest number, which a type cannot refine a literal to, so it is checked when written. */
+const LARGEST = 2 ** 31 - 1
+const counts = span(1, LARGEST)
+type Refuse = () => never
+
+const isList = <T>(v: Field<T, number>): v is NonEmpty<T> => isArray(v) && v.length > 0
+
+type Writer = { value: (v: Value) => string, step: (every: number | undefined) => string, ascends: (from: Value, to: Value) => boolean, refuse: Refuse }
+const writerOf = ({ values, steps, cyclic }: Pick<Codec<keyof Fields>, 'values' | 'steps' | 'cyclic'>, refuse: Refuse): Writer => ({
+    value: v => values.has(v) ? String(v) : refuse(),
+    step: every => every === undefined ? '' : steps.has(every) ? `/${every}` : refuse(),
+    ascends: (from, to) => cyclic || values.rank(from) <= values.rank(to),
+    refuse,
+})
+
+const RANGE: Shape<Range<Value, number>> = { from: 'required', to: 'required', every: 'optional' }
+const STEPPED: Shape<Stepped<Value, number>> = { every: 'required', from: 'optional' }
+const NEAREST: Shape<Nearest> = { nearestWeekdayTo: 'required' }
+const LAST: Shape<Last> = { last: 'required' }
+const NTH: Shape<Nth> = { nth: 'required', of: 'required' }
+
+const plain = (v: Field<Value, number>, w: Writer): string => {
+    if (typeof v === 'number' || typeof v === 'string') return w.value(v)
+    if (isList(v)) return v.map(w.value).join(',')
+    if (hasShape(v, RANGE)) return w.ascends(v.from, v.to) ? `${w.value(v.from)}-${w.value(v.to)}${w.step(v.every)}` : w.refuse()
+    if (hasShape(v, STEPPED)) return `${v.from === undefined ? '*' : w.value(v.from)}${w.step(v.every)}`
+    v satisfies never
+    return w.refuse()
 }
 
-const cronField = (name: string, field: keyof Cron, value: unknown): string => {
-    const refuse = (): never => { throw new Error(`${name} sets ${field} to ${JSON.stringify(value)}, which a cron does not take there`) }
-    const atom = (v: unknown): string => {
-        const kind = atoms[field]
-        const valid = kind.kind === 'number'
-            ? Number.isInteger(v) && (v as number) >= kind.min && (v as number) <= kind.max
-            : kind.names.includes(v as string)
-        return valid ? String(v) : refuse()
-    }
+type Codec<F extends keyof Fields> = { values: Values, steps: Values, cyclic: boolean, write: (value: Fields[F], w: Writer) => string }
+/** A cyclic field's range may run backwards around the cycle. */
+const cycle = (values: Values) => ({ values, steps: span(1, values.highest), cyclic: true })
 
-    if (Array.isArray(value)) return value.length ? value.map(atom).join(',') : refuse()
-    if (typeof value !== 'object' || value === null) return field === 'dayOfMonth' && value === 'last' ? 'L' : atom(value)
-
-    const v = value as Record<string, unknown>
-    if ('from' in v && 'to' in v) {
-        if (field === 'year' && (v.from as number) > (v.to as number)) refuse()
-        return `${atom(v.from)}-${atom(v.to)}`
-    }
-    if ('every' in v) {
-        const every = v.every as number
-        if (!Number.isInteger(every) || every < 1 || every > atoms[field].maxStep) refuse()
-        return `${v.from === undefined ? '*' : atom(v.from)}/${every}`
-    }
-    if ('nearestWeekdayTo' in v && field === 'dayOfMonth') return `${atom(v.nearestWeekdayTo)}W`
-    if ('last' in v && field === 'dayOfWeek') return `${atom(v.last)}L`
-    if ('nth' in v && field === 'dayOfWeek' && [1, 2, 3, 4, 5].includes(v.nth as number)) return `${atom(v.of)}#${v.nth}`
-    return refuse()
+/** In EventBridge's order. Years are not a cycle: a range ascends, which a type cannot order, and a step is any count. */
+const fields: { [F in keyof Fields]: Codec<F> } = {
+    minute: { ...cycle(span(0, 59)), write: plain },
+    hour: { ...cycle(span(0, 23)), write: plain },
+    dayOfMonth: { ...cycle(span(1, 31)), write: (v, w) => v === 'last' ? 'L' : hasShape(v, NEAREST) ? `${w.value(v.nearestWeekdayTo)}W` : plain(v, w) },
+    month: { ...cycle(named(MONTHS)), write: plain },
+    dayOfWeek: {
+        ...cycle(named(WEEKDAYS)),
+        write: (v, w) => hasShape(v, LAST) ? `${w.value(v.last)}L` : hasShape(v, NTH) ? (NTHS.includes(v.nth) ? `${w.value(v.of)}#${v.nth}` : w.refuse()) : plain(v, w),
+    },
+    year: { values: span(1970, 2199), steps: counts, cyclic: false, write: plain },
 }
 
 export const scheduleExpression = (name: string, schedule: Schedule): string => {
-    if ('every' in schedule) {
-        const [unit, value] = Object.entries(schedule.every).find(([, v]) => v !== undefined) as [Units, number]
-        if (!Number.isInteger(value) || value < 1) throw new Error(`${name} runs every ${value} ${unit}; a rate takes a whole number of at least 1`)
-        return `rate(${value} ${value === 1 ? unit.slice(0, -1) : unit})`
+    if (!isOneOf<Kinds>(schedule, { every: true, cron: true }))
+        throw new Error(`${name} schedules by ${JSON.stringify(schedule)}; a schedule takes every or cron, one of them`)
+    if (schedule.every !== undefined) {
+        const every = schedule.every
+        const rates = UNITS.flatMap(unit => every[unit] === undefined ? [] : [[unit, every[unit]] as const])
+        if (!isOneOf<Record<Units, number>>(every, SINGULAR) || !isOne(rates))
+            throw new Error(`${name} runs every ${JSON.stringify(every)}; a rate takes one of ${UNITS.join(', ')}`)
+        const [[unit, value]] = rates
+        if (!counts.has(value)) throw new Error(`${name} runs every ${value} ${unit}; a rate takes a whole number from 1 to ${counts.highest}`)
+        return `rate(${value} ${value === 1 ? SINGULAR[unit] : unit})`
     }
     const cron = schedule.cron
-    if (cron.dayOfMonth !== undefined && cron.dayOfWeek !== undefined) throw new Error(`${name} sets both dayOfMonth and dayOfWeek; EventBridge takes one`)
-    const field = (f: keyof Cron, unset: string) => cron[f] === undefined ? unset : cronField(name, f, cron[f])
-    const dayOfMonth = field('dayOfMonth', cron.dayOfWeek === undefined ? '*' : '?')
-    return `cron(${field('minute', '*')} ${field('hour', '*')} ${dayOfMonth} ${field('month', '*')} ${field('dayOfWeek', '?')} ${field('year', '*')})`
+    if (!isSomeOf<Fields>(cron, fields) || (cron.dayOfMonth !== undefined && cron.dayOfWeek !== undefined))
+        throw new Error(`${name} sets ${JSON.stringify(cron)}; a cron takes one or more of ${Object.keys(fields).join(', ')}, with dayOfMonth or dayOfWeek, not both`)
+    /** TypeScript cannot pair a field's codec with a value read by a generic name (TS2590), so each field passes its own value. */
+    const field = <K extends keyof Fields>(f: K, value: Fields[K] | undefined): string =>
+        value === undefined ? '*' : fields[f].write(value, writerOf(fields[f], () => {
+            throw new Error(`${name} sets ${f} to ${JSON.stringify(value)}, which a cron does not take there`)
+        }))
+    /** EventBridge writes `?` for the day field not chosen; a cron that chooses neither runs every day of the month. */
+    const [dayOfMonth, dayOfWeek] = cron.dayOfWeek === undefined ? [field('dayOfMonth', cron.dayOfMonth), '?'] : ['?', field('dayOfWeek', cron.dayOfWeek)]
+    return `cron(${[field('minute', cron.minute), field('hour', cron.hour), dayOfMonth, field('month', cron.month), dayOfWeek, field('year', cron.year)].join(' ')})`
 }
 
 export type LambdaSchedule<TNames extends LambadaGrantsShape = LambadaGrantsShape> = AsyncFailures & {
