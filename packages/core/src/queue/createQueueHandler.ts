@@ -36,24 +36,26 @@ export type LambdaQueueHandler<TNames extends LambadaGrantsShape = LambadaGrants
     maximumConcurrency?: number
 }
 
-const isPlain = (body: QueueBody): body is Conditions<string> => Array.isArray(body)
-
 const STRING_VALUE: Shape<StringValue> = { stringValue: 'required' }
 
 const requirePattern = (name: string, filter: QueueHandlerFilter): void => {
-    if (!isSomeOf<QueuePattern>(filter, { body: true, messageAttributes: true, $or: true }) || (filter.$or !== undefined && !(isArray(filter.$or) && filter.$or.length >= 2)))
+    if (!isSomeOf<QueuePattern>(filter, { body: true, messageAttributes: true, $or: true }) || ('$or' in filter && !(isArray(filter.$or) && filter.$or.length >= 2)))
         throw new Error(`${name} filters by ${JSON.stringify(filter)}; a pattern takes a body, messageAttributes or $or of two patterns or more`)
-    const { body, messageAttributes, $or } = filter
-    if (body && isPlain(body)) requireFilter.sqsStrings(name, { body })
-    else if (body) requireFilter.sqsBody(name, body)
-    if (messageAttributes) {
-        const attributes = isRecord(messageAttributes) ? Object.entries(messageAttributes) : []
-        const values = attributes.map(([attribute, held]) => hasShape(held, STRING_VALUE) ? [attribute, held.stringValue] : [attribute, undefined])
+    if ('body' in filter) {
+        const body = filter.body
+        if (isRecord(body)) requireFilter.sqsBody(name, body)
+        else requireFilter.sqsStrings(name, { body })
+    }
+    if ('messageAttributes' in filter) {
+        const messageAttributes = filter.messageAttributes
+        if (!isRecord(messageAttributes))
+            throw new Error(`${name} filters messageAttributes by ${JSON.stringify(messageAttributes)}; messageAttributes holds each attribute's stringValue`)
+        const values = Object.entries(messageAttributes).map(([attribute, held]) => hasShape(held, STRING_VALUE) ? [attribute, held.stringValue] : [attribute, undefined])
         const unheld = values.find(([, conditions]) => conditions === undefined)
         if (unheld) throw new Error(`${name} filters messageAttributes.${unheld[0]} by ${JSON.stringify(messageAttributes[unheld[0] as string])}; an attribute is matched by its stringValue`)
         requireFilter.sqsStrings(name, Object.fromEntries(values))
     }
-    $or?.forEach(branch => requirePattern(name, branch))
+    filter.$or?.forEach(branch => requirePattern(name, branch))
 }
 
 /** The longest pattern Lambda takes, as it answered: half what its documentation says. */

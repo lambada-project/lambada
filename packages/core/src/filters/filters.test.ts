@@ -123,6 +123,10 @@ test.each<[string, () => unknown, string]>([
     ['an SNS $or with a hole', sns({ body: { $or: [, { a: ['1'] }, { b: ['2'] }] } }), 'onOrder filters $or [null,'],
     ['a queue body list with a hole', queue({ body: [, { prefix: 'E' }] }), 's filters body [null,'],
     ['a queue $or with a hole', queue({ $or: [, { body: { k: ['a'] } }, { body: { k: ['b'] } }] }), '$or of two patterns or more'],
+    ...[null, false, 0, '', undefined].map(body => [`a queue body of ${JSON.stringify(body)}`, queue({ body }), 's filters body'] as [string, () => unknown, string]),
+    ...[false, null, undefined].map(held => [`queue messageAttributes of ${JSON.stringify(held)}`, queue({ messageAttributes: held }), `s filters messageAttributes by ${JSON.stringify(held)}`] as [string, () => unknown, string]),
+    ['queue messageAttributes of null beside a body', queue({ body: { k: ['a'] }, messageAttributes: null }), 's filters messageAttributes by null'],
+    ['a queue $or of undefined', queue({ $or: undefined }), '$or of two patterns or more'],
 ])('refuses %s', (_, write, message) => expect(write).toThrow(message))
 
 test('takes one SNS scope, in its type', () => {

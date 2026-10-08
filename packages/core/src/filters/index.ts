@@ -188,4 +188,4 @@ const filterCheck = (grammar: Grammar) => (name: string, policy: AnyPolicy): voi
 }
 
 export const requireFilter = Object.fromEntries(Object.entries(grammars).map(([key, grammar]) => [key, filterCheck(grammar)])) as
-    { [G in keyof Grammars]: (name: string, policy: PolicyOf<Grammars[G]>) => void }
+    { [G in keyof Grammars]: (name: string, policy: unknown) => void }
