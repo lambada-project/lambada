@@ -15,11 +15,13 @@ export type SubscriptionCallback = LambdaHandler<SubscriptionEvent, void>
 type Scopes = { attributes: AttributePolicy, body: BodyPolicy }
 export type SnsSubscriptionFilter = OneOf<Scopes>
 
-export const filterArgs = (subscriptionName: string, filter: SnsSubscriptionFilter | undefined, args: TopicEventSubscriptionArgs = {}): TopicEventSubscriptionArgs => {
+/** A subscription's policy is stated in its filter, which is checked; never as a raw string beside it. */
+export type SubscriptionArgs = Omit<TopicEventSubscriptionArgs, 'filterPolicy' | 'filterPolicyScope'>
+
+export const filterArgs = (subscriptionName: string, filter: SnsSubscriptionFilter | undefined, args: SubscriptionArgs = {}): TopicEventSubscriptionArgs => {
+    const raw = ['filterPolicy', 'filterPolicyScope'].find(key => key in args)
+    if (raw !== undefined) throw new Error(`${subscriptionName} sets subscriptionArgs.${raw}; a subscription is filtered by its filter`)
     if (filter === undefined) return args
-    if (args.filterPolicy !== undefined || args.filterPolicyScope !== undefined) {
-        throw new Error(`${subscriptionName} sets both filter and subscriptionArgs.filterPolicy`)
-    }
     if (!isOneOf<Scopes>(filter, { attributes: true, body: true }))
         throw new Error(`${subscriptionName} filters by ${JSON.stringify(filter)}; a filter takes attributes or body, one of them`)
     if (filter.attributes !== undefined) {
@@ -37,7 +39,7 @@ export type LambdaSubscription<TNames extends LambadaGrantsShape = LambadaGrants
     policyStatements?: aws.iam.PolicyStatement[]
     environmentVariables?: EmbroideryEnvironmentVariables
     resources: LambadaResourceRequest<TNames>
-    subscriptionArgs?: TopicEventSubscriptionArgs
+    subscriptionArgs?: SubscriptionArgs
     lambdaOptions?: LambdaOptions
     filter?: SnsSubscriptionFilter
 }
