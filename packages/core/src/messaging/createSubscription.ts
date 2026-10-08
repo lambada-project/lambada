@@ -19,7 +19,7 @@ export type SnsSubscriptionFilter = OneOf<Scopes>
 export type SubscriptionArgs = Omit<TopicEventSubscriptionArgs, 'filterPolicy' | 'filterPolicyScope'>
 
 export const filterArgs = (subscriptionName: string, filter: SnsSubscriptionFilter | undefined, args: SubscriptionArgs = {}): TopicEventSubscriptionArgs => {
-    const raw = ['filterPolicy', 'filterPolicyScope'].find(key => key in args)
+    const raw = (['filterPolicy', 'filterPolicyScope'] as const).find(key => args[key as keyof typeof args] !== undefined)
     if (raw !== undefined) throw new Error(`${subscriptionName} sets subscriptionArgs.${raw}; a subscription is filtered by its filter`)
     if (filter === undefined) return args
     if (!isOneOf<Scopes>(filter, { attributes: true, body: true }))

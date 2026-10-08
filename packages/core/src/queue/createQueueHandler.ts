@@ -39,14 +39,14 @@ export type LambdaQueueHandler<TNames extends LambadaGrantsShape = LambadaGrants
 const STRING_VALUE: Shape<StringValue> = { stringValue: 'required' }
 
 const requirePattern = (name: string, filter: QueueHandlerFilter): void => {
-    if (!isSomeOf<QueuePattern>(filter, { body: true, messageAttributes: true, $or: true }) || ('$or' in filter && !(isArray(filter.$or) && filter.$or.length >= 2)))
+    if (!isSomeOf<QueuePattern>(filter, { body: true, messageAttributes: true, $or: true }) || (filter.$or !== undefined && !(isArray(filter.$or) && filter.$or.length >= 2)))
         throw new Error(`${name} filters by ${JSON.stringify(filter)}; a pattern takes a body, messageAttributes or $or of two patterns or more`)
-    if ('body' in filter) {
+    if (filter.body !== undefined) {
         const body = filter.body
         if (isRecord(body)) requireFilter.sqsBody(name, body)
         else requireFilter.sqsStrings(name, { body })
     }
-    if ('messageAttributes' in filter) {
+    if (filter.messageAttributes !== undefined) {
         const messageAttributes = filter.messageAttributes
         if (!isRecord(messageAttributes))
             throw new Error(`${name} filters messageAttributes by ${JSON.stringify(messageAttributes)}; messageAttributes holds each attribute's stringValue`)

@@ -14,14 +14,16 @@ export type Checks<T> = { [K in keyof T]-?: (arg: T[K]) => boolean }
 export type Shape<F> = { [K in keyof F]-?: {} extends Pick<F, K> ? 'optional' : 'required' }
 
 export const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
+/** A key holding undefined is absent, as JSON writes it and an optional property reads it. */
+const definedKeys = (v: Record<string, unknown>) => Object.keys(v).filter(key => v[key] !== undefined)
 const hasKeys = (v: unknown, keys: object, count: (n: number) => boolean) =>
-    isRecord(v) && count(Object.keys(v).length) && Object.keys(v).every(key => Object.keys(keys).includes(key))
+    isRecord(v) && count(definedKeys(v).length) && definedKeys(v).every(key => Object.keys(keys).includes(key))
 
 export const isOneOf = <T>(v: unknown, keys: KeyTable<T>): v is OneOf<KeysOf<T>> => hasKeys(v, keys, n => n === 1)
 export const isSomeOf = <T>(v: unknown, keys: KeyTable<T>): v is SomeOf<KeysOf<T>> => hasKeys(v, keys, n => n > 0)
 export const passesOneOf = <T extends object>(v: { [K in keyof T]?: T[K] }, checks: Checks<T>): boolean => {
     if (!isOneOf<T>(v, checks)) return false
-    const key = Object.keys(v)[0] as keyof T
+    const key = definedKeys(v)[0] as keyof T
     return checks[key](v[key]!)
 }
 export const hasShape = <F extends object>(v: unknown, shape: Shape<F>): v is F =>

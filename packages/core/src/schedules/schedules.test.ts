@@ -88,6 +88,9 @@ describe('a schedule expression', () => {
         ['the nth weekday', { cron: { minute: 0, hour: 0, dayOfWeek: { nth: 3, of: 'FRI' } } }, 'cron(0 0 ? * FRI#3 *)'],
         ['the last weekday', { cron: { minute: 0, hour: 0, dayOfWeek: { last: 'FRI' } } }, 'cron(0 0 ? * FRIL *)'],
         ['the weekday nearest a day', { cron: { minute: 0, hour: 0, dayOfMonth: { nearestWeekdayTo: 15 } } }, 'cron(0 0 15W * ? *)'],
+        ['a field holding undefined as left out', { cron: { minute: 0, hour: undefined } }, 'cron(0 * * * ? *)'],
+        ['a unit holding undefined as absent', { every: { minutes: 5, hours: undefined } }, 'rate(5 minutes)'],
+        ['a kind holding undefined as absent', { every: undefined, cron: { minute: 0 } }, 'cron(0 * * * ? *)'],
     ])('writes %s', (_, schedule, expression) => expect(scheduleExpression('s', schedule)).toBe(expression))
 
     test.each<[string, unknown, string]>([
@@ -107,6 +110,8 @@ describe('a schedule expression', () => {
         ['a rate of a unit and an unknown one', { every: { minutes: 5, weeks: 1 } }, 'report runs every {"minutes":5,"weeks":1}'],
         ['both day fields', { cron: { dayOfMonth: 1, dayOfWeek: 'MON' } }, 'report sets {"dayOfMonth":1,"dayOfWeek":"MON"}; a cron takes one or more of minute, hour, dayOfMonth, month, dayOfWeek, year, with dayOfMonth or dayOfWeek, not both'],
         ['an empty cron', { cron: {} }, 'report sets {}'],
+        ['a cron whose only field holds undefined, rather than every minute', { cron: { minute: undefined } }, 'report sets {}; a cron takes one or more of'],
+        ['a cron whose every field holds undefined', { cron: { minute: undefined, hour: undefined, year: undefined } }, 'report sets {}'],
         ['a misspelled field', { cron: { minutes: 5 } }, 'report sets {"minutes":5}'],
         ['a field a cron lacks', { cron: { minute: 0, seconds: 30 } }, 'report sets {"minute":0,"seconds":30}'],
         ['every and cron at once', { every: { minutes: 5 }, cron: { minute: 0 } }, 'report schedules by {"every":{"minutes":5},"cron":{"minute":0}}; a schedule takes every or cron, one of them'],

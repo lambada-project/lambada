@@ -123,8 +123,9 @@ test.each<[string, () => unknown, string]>([
     ['an SNS $or with a hole', sns({ body: { $or: [, { a: ['1'] }, { b: ['2'] }] } }), 'onOrder filters $or [null,'],
     ['a queue body list with a hole', queue({ body: [, { prefix: 'E' }] }), 's filters body [null,'],
     ['a queue $or with a hole', queue({ $or: [, { body: { k: ['a'] } }, { body: { k: ['b'] } }] }), '$or of two patterns or more'],
-    ...[null, false, 0, '', undefined].map(body => [`a queue body of ${JSON.stringify(body)}`, queue({ body }), 's filters body'] as [string, () => unknown, string]),
-    ...[false, null, undefined].map(held => [`queue messageAttributes of ${JSON.stringify(held)}`, queue({ messageAttributes: held }), `s filters messageAttributes by ${JSON.stringify(held)}`] as [string, () => unknown, string]),
+    ...[null, false, 0, ''].map(body => [`a queue body of ${JSON.stringify(body)}`, queue({ body }), 's filters body'] as [string, () => unknown, string]),
+    ...[false, null].map(held => [`queue messageAttributes of ${JSON.stringify(held)}`, queue({ messageAttributes: held }), `s filters messageAttributes by ${JSON.stringify(held)}`] as [string, () => unknown, string]),
+    ['a queue pattern whose only part holds undefined, which JSON drops', queue({ body: undefined }), 'a pattern takes a body, messageAttributes or $or'],
     ['queue messageAttributes of null beside a body', queue({ body: { k: ['a'] }, messageAttributes: null }), 's filters messageAttributes by null'],
     ['a queue $or of undefined', queue({ $or: undefined }), '$or of two patterns or more'],
     ...[null, false, 0, ''].flatMap(filter => [
@@ -132,6 +133,11 @@ test.each<[string, () => unknown, string]>([
         [`a queue filter of ${JSON.stringify(filter)}, rather than none`, queue(filter), 'a pattern takes a body, messageAttributes or $or'],
     ] as [string, () => unknown, string][]),
 ])('refuses %s', (_, write, message) => expect(write).toThrow(message))
+
+test('reads a key holding undefined as absent, as JSON writes it', () => {
+    expect(filterArgs('onOrder', { attributes: undefined, body: { k: ['a'] } } as never).filterPolicy).toBe('{"k":["a"]}')
+    expect(eventSourceMappingArgs(queueHandler({ body: { k: ['a'] }, messageAttributes: undefined })).filterCriteria?.filters[0].pattern).toBe('{"body":{"k":["a"]}}')
+})
 
 test('takes one SNS scope, in its type', () => {
     const typeOnly = () => {

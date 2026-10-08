@@ -43,7 +43,6 @@ describe('a subscription filter', () => {
         [{ filterPolicy: '{"type":["a"]}' }, undefined, 'onOrder sets subscriptionArgs.filterPolicy; a subscription is filtered by its filter'],
         [{ filterPolicy: '{}' }, { body: { type: ['a'] } }, 'onOrder sets subscriptionArgs.filterPolicy'],
         [{ filterPolicyScope: 'MessageBody' }, undefined, 'onOrder sets subscriptionArgs.filterPolicyScope'],
-        [{ filterPolicy: undefined }, undefined, 'onOrder sets subscriptionArgs.filterPolicy'],
     ])('is the only way to filter: subscriptionArgs %j is refused', (args, filter, message) => {
         expect(() => filterArgs('onOrder', filter as never, args as never)).toThrow(message)
     })
