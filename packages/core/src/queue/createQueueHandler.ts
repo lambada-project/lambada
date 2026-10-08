@@ -69,7 +69,7 @@ const written = (name: string, filter: QueueHandlerFilter) => {
 }
 
 export const eventSourceMappingArgs = ({ name, filter, reportBatchItemFailures, maximumConcurrency }: LambdaQueueHandler<any>) => ({
-    ...(filter && { filterCriteria: { filters: [{ pattern: written(name, filter) }] } }),
+    ...(filter !== undefined && { filterCriteria: { filters: [{ pattern: written(name, filter) }] } }),
     ...(reportBatchItemFailures && { functionResponseTypes: ['ReportBatchItemFailures'] }),
     ...(maximumConcurrency !== undefined && { scalingConfig: { maximumConcurrency } }),
 })

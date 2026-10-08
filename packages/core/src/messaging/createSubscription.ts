@@ -16,7 +16,7 @@ type Scopes = { attributes: AttributePolicy, body: BodyPolicy }
 export type SnsSubscriptionFilter = OneOf<Scopes>
 
 export const filterArgs = (subscriptionName: string, filter: SnsSubscriptionFilter | undefined, args: TopicEventSubscriptionArgs = {}): TopicEventSubscriptionArgs => {
-    if (!filter) return args
+    if (filter === undefined) return args
     if (args.filterPolicy !== undefined || args.filterPolicyScope !== undefined) {
         throw new Error(`${subscriptionName} sets both filter and subscriptionArgs.filterPolicy`)
     }

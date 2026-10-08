@@ -127,6 +127,10 @@ test.each<[string, () => unknown, string]>([
     ...[false, null, undefined].map(held => [`queue messageAttributes of ${JSON.stringify(held)}`, queue({ messageAttributes: held }), `s filters messageAttributes by ${JSON.stringify(held)}`] as [string, () => unknown, string]),
     ['queue messageAttributes of null beside a body', queue({ body: { k: ['a'] }, messageAttributes: null }), 's filters messageAttributes by null'],
     ['a queue $or of undefined', queue({ $or: undefined }), '$or of two patterns or more'],
+    ...[null, false, 0, ''].flatMap(filter => [
+        [`an SNS filter of ${JSON.stringify(filter)}, rather than none`, sns(filter), 'a filter takes attributes or body, one of them'],
+        [`a queue filter of ${JSON.stringify(filter)}, rather than none`, queue(filter), 'a pattern takes a body, messageAttributes or $or'],
+    ] as [string, () => unknown, string][]),
 ])('refuses %s', (_, write, message) => expect(write).toThrow(message))
 
 test('takes one SNS scope, in its type', () => {
