@@ -172,9 +172,13 @@ const separating = (groups: Map<string, boolean[]>) =>
 const grouped = <T>(rows: T[], key: (row: T) => string, delivered: (row: T) => boolean) =>
     rows.reduce((m, r) => m.set(key(r), [...(m.get(key(r)) ?? []), delivered(r)]), new Map<string, boolean[]>())
 
-test('every operator lambada writes has delivered a message and held one back, on each service', () => {
+test.each(['attributes', 'body'])('every operator lambada writes has delivered a message and held one back, in the SNS %s scope', scope => {
+    const untried = operatorNames().filter(op => !separating(grouped(deliveries.filter(d => d.scope === scope), d => JSON.stringify(d.condition), d => d.delivered)).has(op))
+    expect(untried).toEqual([])
+})
+
+test('every operator lambada writes has delivered a message and held one back, through Lambda', () => {
     const untried = (seen: Set<string>) => operatorNames().filter(op => !seen.has(op))
-    expect(untried(separating(grouped(deliveries, d => JSON.stringify(d.condition), d => d.delivered)))).toEqual([])
     expect(untried(separating(grouped(lambdaDeliveries, d => d.pattern, d => d.delivered)))).toEqual([])
 })
 
