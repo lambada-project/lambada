@@ -98,6 +98,7 @@ describe('a schedule expression', () => {
         ['a minute past 59', { cron: { minute: 60 } }, 'report sets minute to 60'],
         ['an expression for a field', { cron: { minute: '0 12' } }, 'report sets minute to "0 12"'],
         ['an empty list', { cron: { hour: [] } }, 'report sets hour to []'],
+        ['a list with a hole, which JSON writes as null', { cron: { minute: [, 5] } }, 'report sets minute to [null,5]'],
         ['a rate of 0', { every: { minutes: 0 } }, 'report runs every 0 minutes'],
         ['a rate that is not whole', { every: { hours: 1.5 } }, 'a rate takes a whole number from 1 to 2147483647'],
         ['a rate of no unit', { every: {} }, 'report runs every {}; a rate takes one of minutes, hours, days'],

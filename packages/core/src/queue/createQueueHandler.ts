@@ -9,7 +9,7 @@ import { LambadaResourceRequest, LambadaGrantsShape, ResourceRef, resolveEnviron
 import { bundleOf, isLambdaFolder } from "../lambdas/bundles";
 import { BodyPolicy, Conditions, requireFilter } from "../filters";
 import { hasShape, isRecord, isSomeOf, Shape, SomeOf } from "../types/forms";
-import { Several } from "../types/lists";
+import { isArray, Several } from "../types/lists";
 
 export type QueueHandlerEvent = QueueEvent
 export type QueueBatchResponse = { batchItemFailures: { itemIdentifier: string }[] }
@@ -41,7 +41,7 @@ const isPlain = (body: QueueBody): body is Conditions<string> => Array.isArray(b
 const STRING_VALUE: Shape<StringValue> = { stringValue: 'required' }
 
 const requirePattern = (name: string, filter: QueueHandlerFilter): void => {
-    if (!isSomeOf<QueuePattern>(filter, { body: true, messageAttributes: true, $or: true }) || (filter.$or && !(filter.$or.length >= 2)))
+    if (!isSomeOf<QueuePattern>(filter, { body: true, messageAttributes: true, $or: true }) || (filter.$or !== undefined && !(isArray(filter.$or) && filter.$or.length >= 2)))
         throw new Error(`${name} filters by ${JSON.stringify(filter)}; a pattern takes a body, messageAttributes or $or of two patterns or more`)
     const { body, messageAttributes, $or } = filter
     if (body && isPlain(body)) requireFilter.sqsStrings(name, { body })

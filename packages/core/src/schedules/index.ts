@@ -7,7 +7,7 @@ import { bundleOf, isLambdaFolder } from "../lambdas/bundles";
 import { asCreator, LambadaDefinition } from "../resources/creators";
 import { Digit, Numbers, Positions, Positive } from "../types/numbers";
 import { Exclusive, hasShape, isOneOf, isSomeOf, OneOf, Shape, SomeOf } from "../types/forms";
-import { isOne, NonEmpty, OneOrMany } from "../types/lists";
+import { isArray, isOne, NonEmpty, OneOrMany } from "../types/lists";
 import { LambadaGrantsShape, LambadaResourceRequest, resolveEnvironment, resolveGrants } from "../resources/grants";
 
 export type ScheduleEvent = EventRuleEvent
@@ -70,7 +70,7 @@ const LARGEST = 2 ** 31 - 1
 const counts = span(1, LARGEST)
 type Refuse = () => never
 
-const isList = <T>(v: Field<T, number>): v is NonEmpty<T> => Array.isArray(v) && v.length > 0
+const isList = <T>(v: Field<T, number>): v is NonEmpty<T> => isArray(v) && v.length > 0
 
 type Writer = { value: (v: Value) => string, step: (every: number | undefined) => string, ascends: (from: Value, to: Value) => boolean, refuse: Refuse }
 const writerOf = ({ values, steps, cyclic }: Pick<Codec<keyof Fields>, 'values' | 'steps' | 'cyclic'>, refuse: Refuse): Writer => ({

@@ -117,6 +117,12 @@ test.each<[string, () => unknown, string]>([
     ['Infinity, which JSON writes as null', sns({ body: { amount: [{ 'anything-but': Infinity }] } }), 'onOrder filters amount'],
     ['$or as a field', sns({ body: { $or: ['a'] } }), 'onOrder filters $or ["a"]'],
     ['$or of one branch', sns({ body: { $or: [{ a: ['1'] }] } }), 'onOrder filters $or'],
+    ['a condition list with a hole, which JSON writes as null', sns({ body: { k: [, 'a'] } }), 'onOrder filters k [null,"a"]'],
+    ['a condition list of only a hole', sns({ body: { k: [,] } }), 'onOrder filters k [null]'],
+    ['an anything-but list with a hole', sns({ body: { k: [{ 'anything-but': [, 'a'] }] } }), 'onOrder filters k {"anything-but":[null,"a"]}'],
+    ['an SNS $or with a hole', sns({ body: { $or: [, { a: ['1'] }, { b: ['2'] }] } }), 'onOrder filters $or [null,'],
+    ['a queue body list with a hole', queue({ body: [, { prefix: 'E' }] }), 's filters body [null,'],
+    ['a queue $or with a hole', queue({ $or: [, { body: { k: ['a'] } }, { body: { k: ['b'] } }] }), '$or of two patterns or more'],
 ])('refuses %s', (_, write, message) => expect(write).toThrow(message))
 
 test('takes one SNS scope, in its type', () => {
