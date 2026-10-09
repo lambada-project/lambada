@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import * as pulumi from '@pulumi/pulumi'
 import * as aws from '@pulumi/aws'
 import { LambdaAuthorizer } from '@pulumi/awsx/classic/apigateway'
-import { createEndpoint, LambadaResources, LambadaRunArguments, run } from '..'
+import { createEndpoint, createEndpointSimpleCors, LambadaResources, LambadaRunArguments, run } from '..'
 
 pulumi.runtime.setMocks({
     newResource: (args: pulumi.runtime.MockResourceArgs) => {
@@ -133,5 +133,19 @@ describe('a stack declaring authorizers by name', () => {
             auth: { authorizers: { [name]: { pool: 'users' } }, defaultAuthorizer: name, useApiKey: {} },
             api: { endpointDefinitions: [endpoint('/reserved')] },
         } as unknown as LambadaRunArguments)).toThrow(`Cannot declare the authorizer '${name}'`)
+    })
+
+    test('createEndpointSimpleCors selects by name too', async () => {
+        const { security } = await deploy({
+            auth: { authorizers: { secure: lambdaAuthorizer('secure5') }, defaultAuthorizer: 'secure' },
+            api: {
+                endpointDefinitions: [
+                    (context: LambadaResources) => createEndpointSimpleCors('cors-public', context, '/cors-public', 'GET', async () => ({}), [], { authorizer: false }),
+                    (context: LambadaResources) => createEndpointSimpleCors('cors-default', context, '/cors-default', 'GET', async () => ({}), []),
+                ],
+            },
+        } as unknown as Partial<LambadaRunArguments>)
+
+        expect(security).toEqual({ '/api/cors-public': [], '/api/cors-default': ['secure'] })
     })
 })

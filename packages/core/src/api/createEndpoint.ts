@@ -94,8 +94,11 @@ export const createEndpointSimpleCors = <T>(
     resources?: LambdaResource[],
     /** This overrides at endpoint level any default set */
     auth?: {
+        /** @deprecated Select an authorizer by name with `authorizer`. */
         useCognitoAuthorizer?: boolean
         useApiKey?: boolean
+        /** A name from run()'s `auth.authorizers`, or `false` for public. Left out, the stack default. */
+        authorizer?: AuthorizerSelection
     },
     options?: LambdaOptions,
 ) => {
