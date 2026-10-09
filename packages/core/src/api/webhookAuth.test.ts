@@ -32,3 +32,26 @@ describe('a webhook in a stack without named authorizers', () => {
         expect(webhook(auth).authorizers.map(a => a.authorizerName)).toEqual(expected)
     })
 })
+
+describe("a webhook's function options", () => {
+    test.each([
+        { tuning: { lambdaOptions: { timeout: 20 } } },
+        { tuning: { options: { timeout: 20 } } },
+    ])('reach its lambda from $tuning', ({ tuning }) => {
+        createLambda.mockClear()
+        createEndpointSimpleCompat({
+            name: 'tuned', path: '/tuned', method: 'POST', callbackDefinition: async () => ({}),
+            webhook: { wrapInQueue: true, options: { visibilityTimeoutSeconds: 30 } }, ...tuning,
+        } as any, context)
+
+        const timeouts = createLambda.mock.calls.map(([args]: any) => args.options?.timeout)
+        expect(timeouts).toContain(20)
+    })
+
+    test('are refused beside options', () => {
+        expect(() => createEndpointSimpleCompat({
+            name: 'both', path: '/both', method: 'POST', callbackDefinition: async () => ({}),
+            webhook: { wrapInQueue: true }, options: { timeout: 1 }, lambdaOptions: { timeout: 2 },
+        } as any, context)).toThrow('both: sets both options and lambdaOptions')
+    })
+})

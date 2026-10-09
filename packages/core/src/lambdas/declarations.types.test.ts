@@ -9,6 +9,7 @@ import type { LambdaQueueHandler, QueueHandlerCallback, QueueHandlerFilter } fro
 import type { QueueResultItem } from '../queue'
 import type { LambdaSchedule, Schedule, ScheduleCallback } from '../schedules'
 import type { LambadaGrantsShape, LambadaResourceRequest, ResourceRef } from '../resources/grants'
+import type { LambadaEndpointArgs } from '../api/createEndpoint'
 
 /**
  * Compile-time. Each kind is now its trigger over one shared function type; these pin that the
@@ -71,5 +72,15 @@ describe('every kind is the type it was, written over the shared function type',
     test('schedule', () => {
         expect(same<LambdaSchedule, ScheduleDeclaration<LambadaGrantsShape>>(true)).toBe(true)
         expect(same<LambdaSchedule<Names>, ScheduleDeclaration<Names>>(true)).toBe(true)
+    })
+})
+
+describe('an endpoint is the type it was, with lambdaOptions beside options', () => {
+    type Before = Omit<LambadaEndpointArgs, 'lambdaOptions'>
+    type Expected = Omit<LambadaEndpointArgs, 'lambdaOptions' | 'environmentVariables'> & { environmentVariables?: EmbroideryEnvironmentVariables }
+
+    test('every field it had is still there, typed as it was', () => {
+        expect(same<Before, Expected>(true)).toBe(true)
+        expect(same<LambadaEndpointArgs['lambdaOptions'], LambadaEndpointArgs['options']>(true)).toBe(true)
     })
 })
