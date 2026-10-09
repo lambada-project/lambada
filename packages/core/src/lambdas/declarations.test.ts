@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import * as pulumi from '@pulumi/pulumi'
-import { LambadaRunArguments, run } from '..'
+import { LambadaResources, LambadaRunArguments, run } from '..'
+import { toWrapperConfig } from '../api/callbackWrapper'
 
 const built: { name: string, type: string, inputs: any }[] = []
 
@@ -42,5 +43,31 @@ describe("an endpoint's lambdaOptions", () => {
         expect(() => run('proj', 'both', {
             api: { endpointDefinitions: [endpoint({ options: { timeout: 1 }, lambdaOptions: { timeout: 2 } })] },
         } as unknown as LambadaRunArguments)).toThrow(/1 invalid declaration[\s\S]*getPet: sets both options and lambdaOptions/)
+    })
+})
+
+describe('the stack defaults under api, with routes at the root', () => {
+    test.each(['', '/api'])('reach every endpoint when apiPath is %p', async apiPath => {
+        const stack = await deploy(`root${apiPath.length}`, {
+            naming: { apiPath },
+            auth: { useApiKey: {} },
+            api: { lambdaDefaultOptions: { timeout: 44 }, endpointDefinitions: [endpoint({})] },
+        } as unknown as Partial<LambadaRunArguments>)
+
+        expect(stack).toContain('"timeout":44')
+        // The method's security in the API body, which requires the key.
+        expect(stack).toMatch(/api_key\\+":\[\]/)
+    })
+
+    test.each(['', '/api'])('keep cors for the response wrapper when apiPath is %p', apiPath => {
+        let context: LambadaResources | undefined
+        run('proj', `cors${apiPath.length}`, {
+            naming: { apiPath },
+            cors: { origins: ['https://app.example.com'], headers: ['authorization'] },
+            // Reads the context and builds nothing, so no API and none of its CORS preflight lambdas.
+            api: { endpointDefinitions: [(c: LambadaResources) => { context = c; return undefined }] },
+        } as unknown as LambadaRunArguments)
+
+        expect(toWrapperConfig({ context: context! }).cors).toEqual({ origins: ['https://app.example.com'], headers: ['authorization'] })
     })
 })

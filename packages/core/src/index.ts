@@ -256,7 +256,8 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
     // TODO: option to add projectName as prefix to all functions
     const lambadaContext: LambadaResources = {
         projectName: projectName,
-        api: apiPath ? {
+        // An empty apiPath puts the routes at the root; the API and its defaults are still there.
+        api: {
             apiPath: apiPath,
             cors: args.cors,
             auth: {
@@ -264,7 +265,7 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
                 useAuthorizers: authorizers.length > 0
             },
             lambdaOptions: args.api?.lambdaDefaultOptions
-        } : undefined,
+        },
         authorizers: authorizers,
         authorization: authorization,
         messaging: messaging,
