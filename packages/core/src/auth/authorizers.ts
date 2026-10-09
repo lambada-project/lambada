@@ -105,12 +105,17 @@ export const createAuthorization = (
     }
 }
 
-/** How an endpoint asks for authorizers, in either style. */
+/** How an endpoint or proxy asks for authorizers, in either style. */
 export type EndpointAuthorizers = {
     useCognitoAuthorizer?: boolean
     lambdaAuthorizer?: LambdaAuthorizer
+    /** The positional switch of `createEndpoint` and the proxy integrations. */
+    enableAuth?: boolean
     authorizer?: AuthorizerSelection
 }
+
+const deprecatedFields = ['useCognitoAuthorizer', 'lambdaAuthorizer', 'enableAuth'] as const
+const fieldName = (field: typeof deprecatedFields[number]) => field === 'enableAuth' ? field : `auth.${field}`
 
 /** An endpoint written in the other style from its stack, which would otherwise be ignored. */
 export const styleProblems = (
@@ -119,9 +124,9 @@ export const styleProblems = (
     auth: EndpointAuthorizers | undefined
 ): string[] => {
     if (authorization) {
-        const deprecated = (['useCognitoAuthorizer', 'lambdaAuthorizer'] as const).filter(f => auth?.[f] !== undefined)
+        const deprecated = deprecatedFields.filter(f => auth?.[f] !== undefined)
         return deprecated.length === 0 ? [] : [
-            `${functionName}: sets ${deprecated.map(f => `auth.${f}`).join(' and ')}, but run() declares ` +
+            `${functionName}: sets ${deprecated.map(fieldName).join(' and ')}, but run() declares ` +
             `authorizers by name. Select one with auth.authorizer.`
         ]
     }

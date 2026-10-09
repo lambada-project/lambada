@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { LambdaAuthorizer } from '@pulumi/awsx/classic/apigateway'
 import { AuthorizerSelection, createAuthorization, LambadaAuthorizers, styleProblems } from './authorizers'
 import { PoolsResult } from './pools'
-import { createProxyIntegrationCompat } from '../api/createProxyIntegration'
+import { createProxyIntegration, createProxyIntegrationCompat } from '../api/createProxyIntegration'
 import { LambadaResources } from '../context'
 
 const pool = (arn: string) => ({ ref: { id: `${arn}-id`, arn }, envKeyName: 'POOL', definition: { id: '', arn, envKeyName: 'POOL' } })
@@ -96,14 +96,32 @@ describe('an endpoint written in the other style from its stack', () => {
     })
 })
 
-describe('a proxy integration in a stack declaring authorizers by name', () => {
-    const context = { authorizers: [], authorization: createAuthorization(definitions, pools, 'userPool') } as unknown as LambadaResources
+describe('a proxy integration', () => {
+    const named = { authorizers: [], authorization: createAuthorization(definitions, pools, 'userPool') } as unknown as LambadaResources
+    const legacy = { authorizers: [lambda('stackWide')] } as unknown as LambadaResources
+    const authorizersOf = (route: unknown) => (route as { authorizers: unknown[] }).authorizers.map(shape)
 
     test.each([
-        { enableAuth: true, expected: [{ cognito: 'userPool', pools: ['arn:users'] }] },
+        { auth: { authorizer: 'secure' }, expected: [{ lambda: 'secure' }] },
+        { auth: { authorizer: false as const }, expected: [] },
+        { auth: undefined, expected: [{ cognito: 'userPool', pools: ['arn:users'] }] },
+    ] as { auth?: { authorizer: AuthorizerSelection }, expected: object[] }[])('selects by name in a named stack: $auth', ({ auth, expected }) => {
+        expect(authorizersOf(createProxyIntegrationCompat({ path: '/p', targetUri: 'https://x', auth }, named))).toEqual(expected)
+        expect(authorizersOf(createProxyIntegration(named, '/p', 'https://x', undefined, auth))).toEqual(expected)
+    })
+
+    test.each([
+        { context: named, args: { enableAuth: false }, reason: '/p: sets enableAuth' },
+        { context: legacy, args: { auth: { authorizer: 'secure' } }, reason: '/p: selects auth.authorizer' },
+    ])('refuses the other style: $reason', ({ context, args, reason }) => {
+        expect(() => createProxyIntegrationCompat({ path: '/p', targetUri: 'https://x', ...args }, context)).toThrow(reason)
+    })
+
+    test.each([
+        { enableAuth: undefined, expected: [{ lambda: 'stackWide' }] },
+        { enableAuth: true, expected: [{ lambda: 'stackWide' }] },
         { enableAuth: false, expected: [] },
-    ] as { enableAuth: boolean, expected: object[] }[])('enableAuth $enableAuth', ({ enableAuth, expected }) => {
-        const route = createProxyIntegrationCompat({ path: '/p', targetUri: 'https://x', enableAuth }, context) as { authorizers: unknown[] }
-        expect(route.authorizers.map(shape)).toEqual(expected)
+    ] as { enableAuth?: boolean, expected: object[] }[])('keeps enableAuth $enableAuth in a stack without named authorizers', ({ enableAuth, expected }) => {
+        expect(authorizersOf(createProxyIntegration(legacy, '/p', 'https://x', enableAuth))).toEqual(expected)
     })
 })

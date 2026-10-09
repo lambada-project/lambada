@@ -224,7 +224,7 @@ export const createEndpoint = <E, R>(
     authorizer?: AuthorizerSelection
 ): LambadaEndpointResult<E, R> => {
     // A creator may call this directly, past the check on declared endpoints.
-    const mixed = styleProblems(lambadaContext.authorization, name, { useCognitoAuthorizer: enableAuth, lambdaAuthorizer, authorizer })
+    const mixed = styleProblems(lambadaContext.authorization, name, { enableAuth, lambdaAuthorizer, authorizer })
     if (mixed.length > 0) throw new Error(mixed.join('\n'))
 
     const auth = lambadaContext.authorization

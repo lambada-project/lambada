@@ -90,10 +90,12 @@ describe('a stack declaring authorizers by name', () => {
                 endpointDefinitions: [
                     endpoint('/ghost', { authorizer: 'ghost' }),
                     endpoint('/old', { useCognitoAuthorizer: true }),
+                    { path: '/proxy', targetUri: 'https://example.com', enableAuth: false },
+                    { path: '/proxy-ghost', targetUri: 'https://example.com', auth: { authorizer: 'ghost' } },
                 ],
             },
         } as unknown as LambadaRunArguments)).toThrow(
-            /2 resources that are granted but absent[\s\S]*\(stack default\)\s+pool 'ghosts'[\s\S]*ghost\s+authorizer 'ghost'[\s\S]*1 invalid declaration[\s\S]*old: sets auth.useCognitoAuthorizer/
+            /3 resources that are granted but absent[\s\S]*\(stack default\)\s+pool 'ghosts'[\s\S]*ghost\s+authorizer 'ghost'[\s\S]*\/proxy-ghost\s+authorizer 'ghost'[\s\S]*2 invalid declarations[\s\S]*old: sets auth.useCognitoAuthorizer[\s\S]*\/proxy: sets enableAuth/
         )
     })
 
@@ -107,7 +109,7 @@ describe('a stack declaring authorizers by name', () => {
         createEndpoint('direct', context, '/direct', 'GET', { functionFolder: '.', handler: 'index.main' }, [], undefined, enableAuth, undefined, undefined, lambdaAuthorizer)
 
     test.each([
-        { name: 'enableAuth: false', creator: direct(false), reason: 'sets auth.useCognitoAuthorizer' },
+        { name: 'enableAuth: false', creator: direct(false), reason: 'sets enableAuth' },
         { name: 'a lambdaAuthorizer', creator: direct(undefined, lambdaAuthorizer('legacy')), reason: 'sets auth.lambdaAuthorizer' },
     ])('refuses a creator calling createEndpoint with $name', ({ creator, reason }) => {
         expect(() => run('proj', 'direct', {

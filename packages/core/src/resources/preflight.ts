@@ -20,6 +20,8 @@ type Declaration = {
     resources?: LambadaResourceRequest<any>
     onFailure?: Partial<Record<ResourceKind, unknown>>
     auth?: EndpointAuthorizers
+    /** A proxy integration's switch, beside rather than under `auth`. */
+    enableAuth?: boolean
 } & Partial<Record<ResourceKind, unknown>>
 
 /**
@@ -31,7 +33,7 @@ const declarationName = (context: LambadaResources, declaration: Declaration): s
     declaration.name
     ?? (declaration.path && declaration.method
         ? getNameFromPath(`${context.projectName}-${declaration.path}-${declaration.method.toLowerCase()}`)
-        : '(unnamed)')
+        : declaration.path ?? '(unnamed)')
 
 const isDeclaration = (definition: unknown): definition is Declaration =>
     typeof definition === 'object' && definition !== null
@@ -73,7 +75,7 @@ export const preflight = (
                 diagnostics.missingResource(missing)
             }
 
-            styleProblems(context.authorization, name, definition.auth).forEach(diagnostics.invalid)
+            styleProblems(context.authorization, name, { ...definition.auth, enableAuth: definition.enableAuth }).forEach(diagnostics.invalid)
 
             // One that falls back to the default was checked with it.
             if (context.authorization && definition.auth?.authorizer !== undefined) {
