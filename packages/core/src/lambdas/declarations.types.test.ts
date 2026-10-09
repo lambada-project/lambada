@@ -9,7 +9,10 @@ import type { LambdaQueueHandler, QueueHandlerCallback, QueueHandlerFilter } fro
 import type { QueueResultItem } from '../queue'
 import type { LambdaSchedule, Schedule, ScheduleCallback } from '../schedules'
 import type { LambadaGrantsShape, LambadaResourceRequest, ResourceRef } from '../resources/grants'
-import type { LambadaEndpointArgs } from '../api/createEndpoint'
+import type { EmbroideryCallback, HTTP_METHODS, LambadaEndpointArgs, OpenApiFactory, OpenApiFactoryLike } from '../api/createEndpoint'
+import type { QueueArgs } from '@pulumi/aws/sqs'
+import type { LambdaAuthorizer } from '@pulumi/awsx/classic/apigateway'
+import type { AuthorizerSelection } from '../auth/authorizers'
 
 /**
  * Compile-time. Each kind is now its trigger over one shared function type; these pin that the
@@ -75,12 +78,44 @@ describe('every kind is the type it was, written over the shared function type',
     })
 })
 
-describe('an endpoint is the type it was, with lambdaOptions beside options', () => {
-    type Before = Omit<LambadaEndpointArgs, 'lambdaOptions'>
-    type Expected = Omit<LambadaEndpointArgs, 'lambdaOptions' | 'environmentVariables'> & { environmentVariables?: EmbroideryEnvironmentVariables }
+/** LambadaEndpointArgs as 1.33.0 published it. */
+type EndpointDeclaration<TNames extends LambadaGrantsShape, TOpenApi extends OpenApiFactoryLike | undefined> = {
+    name?: string,
+    path: string,
+    method: HTTP_METHODS,
+    useBundle?: LambdaFolder,
+    callbackDefinition: EmbroideryCallback,
+    resources?: LambadaResourceRequest<TNames>,
+    extraHeaders?: {},
+    cache?: {
+        control?: string
+    },
+    environmentVariables?: EmbroideryEnvironmentVariables,
+    openapi?: TOpenApi
+    webhook?: {
+        wrapInQueue: boolean,
+        options?: QueueArgs,
+        messageGroupId?: {
+            field: string
+            source: "BODY"
+        }
+    },
+    auth?: {
+        useCognitoAuthorizer?: boolean,
+        useApiKey?: boolean,
+        lambdaAuthorizer?: LambdaAuthorizer
+        authorizer?: AuthorizerSelection
+    },
+    options?: LambdaOptions
+}
 
+describe('an endpoint is the type it was, with lambdaOptions beside options', () => {
     test('every field it had is still there, typed as it was', () => {
-        expect(same<Before, Expected>(true)).toBe(true)
-        expect(same<LambadaEndpointArgs['lambdaOptions'], LambadaEndpointArgs['options']>(true)).toBe(true)
+        expect(same<Omit<LambadaEndpointArgs, 'lambdaOptions'>, EndpointDeclaration<LambadaGrantsShape, OpenApiFactory>>(true)).toBe(true)
+        expect(same<Omit<LambadaEndpointArgs<Names, undefined>, 'lambdaOptions'>, EndpointDeclaration<Names, undefined>>(true)).toBe(true)
+    })
+
+    test('lambdaOptions is typed as options was', () => {
+        expect(same<Pick<LambadaEndpointArgs, 'lambdaOptions'>, { lambdaOptions?: LambdaOptions }>(true)).toBe(true)
     })
 })
