@@ -60,7 +60,8 @@ export const preflight = (
     diagnostics: LambadaDiagnostics,
     definitions: readonly (readonly unknown[] | undefined)[]
 ): void => {
-    context.authorization?.checkDefault().forEach(diagnostics.missingResource)
+    // Checked once on its own, since an endpoint may never fall back to it.
+    context.authorization?.select('(stack default)', undefined).missing.forEach(diagnostics.missingResource)
 
     for (const group of definitions) {
         for (const definition of group ?? []) {

@@ -1,6 +1,6 @@
 import * as awsx from "@pulumi/awsx/classic";
 import { CognitoAuthorizer, LambdaAuthorizer } from "@pulumi/awsx/classic/apigateway";
-import { MissingResource } from "../resources/diagnostics";
+import { createDiagnostics, MissingResource } from "../resources/diagnostics";
 import { PoolsResult } from "./pools";
 
 /** Tokens from the pool declared under this key in `pools` or `poolsRef`. */
@@ -27,15 +27,16 @@ export type Authorization = {
     }
     /** The authorizers a method runs; throws naming what the stack lacks. */
     resolve(functionName: string, selection: AuthorizerSelection | undefined): MethodAuthorizer[]
-    /** The stack default checked on its own, since an endpoint may never fall back to it. */
-    checkDefault(): MissingResource[]
 }
 
 const isPoolDefinition = (definition: AuthorizerDefinition): definition is PoolAuthorizerDefinition =>
     'pool' in definition
 
-/** What API Gateway accepts as an authorizer name; it refuses the import otherwise. */
-const NAME = /^[A-Za-z0-9._-]+$/
+/**
+ * The key names the authorizer in API Gateway, which allows [a-zA-Z0-9._-] up to 1024, and names the
+ * function awsx builds for a lambda authorizer's handler, which refuses the '.'.
+ */
+const NAME = /^[A-Za-z0-9_-]{1,1024}$/
 
 export const createAuthorization = (
     definitions: LambadaAuthorizers,
@@ -44,7 +45,7 @@ export const createAuthorization = (
 ): Authorization => {
     for (const name of Object.keys(definitions)) {
         if (!NAME.test(name)) {
-            throw new Error(`Cannot declare the authorizer '${name}': API Gateway names one from letters, digits, '.', '-' and '_'.`)
+            throw new Error(`Cannot declare the authorizer '${name}': use up to 1024 letters, digits, '-' and '_'.`)
         }
     }
 
@@ -87,16 +88,11 @@ export const createAuthorization = (
         select,
         resolve(functionName, selection) {
             const { authorizers, missing } = select(functionName, selection)
-            if (missing.length > 0) {
-                throw new Error(missing.map(m =>
-                    `${m.functionName}: ${m.kind} '${m.name}' is not declared. The stack has: ${m.available.join(', ') || 'none'}.`
-                ).join('\n'))
-            }
+            const diagnostics = createDiagnostics()
+            missing.forEach(diagnostics.missingResource)
+            diagnostics.throwIfIncomplete()
             return authorizers
         },
-        checkDefault: () => defaultSelection === undefined || defaultSelection === false
-            ? []
-            : check('(stack default)', defaultSelection),
     }
 }
 

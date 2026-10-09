@@ -68,16 +68,10 @@ describe('a name the stack cannot resolve is reported', () => {
         const authorization = createAuthorization(definitions, pools, undefined)
 
         expect(authorization.select('fn', selection)).toEqual({ authorizers: [], missing: [{ functionName: 'fn', ...missing, available: [...missing.available] }] })
-        expect(() => authorization.resolve('fn', selection)).toThrow(`${missing.kind} '${missing.name}' is not declared`)
+        expect(() => authorization.resolve('fn', selection)).toThrow(new RegExp(`granted but absent[\\s\\S]*fn\\s+${missing.kind} '${missing.name}'`))
     })
 
-    test('the stack default is checked on its own', () => {
-        expect(createAuthorization(definitions, pools, 'ghost').checkDefault())
-            .toEqual([{ functionName: '(stack default)', kind: 'authorizer', name: 'ghost', available: Object.keys(definitions) }])
-        expect(createAuthorization(definitions, pools, 'userPool').checkDefault()).toEqual([])
-    })
-
-    test.each(['a+b', 'with space', ''])('a name API Gateway refuses: %p', name => {
+    test.each(['a+b', 'a.b', 'with space', '', 'x'.repeat(1025)])('a name API Gateway or Lambda refuses: %#', name => {
         expect(() => createAuthorization({ [name]: { pool: 'users' } }, pools, undefined)).toThrow(`authorizer '${name}'`)
     })
 })
