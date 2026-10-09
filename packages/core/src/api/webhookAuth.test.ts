@@ -3,9 +3,15 @@ import * as pulumi from '@pulumi/pulumi'
 import { LambdaAuthorizer } from '@pulumi/awsx/classic/apigateway'
 import * as lambdas from '../lambdas'
 import { createEndpointSimpleCompat } from './createEndpoint'
+import { webhookOptions } from './createWebhook'
+
+const queues: { name: string, inputs: any }[] = []
 
 pulumi.runtime.setMocks({
-    newResource: (args: pulumi.runtime.MockResourceArgs) => ({ id: `${args.name}-id`, state: { ...args.inputs, arn: `arn:${args.name}`, url: `https://${args.name}` } }),
+    newResource: (args: pulumi.runtime.MockResourceArgs) => {
+        if (args.type === 'aws:sqs/queue:Queue') queues.push({ name: args.name, inputs: args.inputs })
+        return { id: `${args.name}-id`, state: { ...args.inputs, arn: `arn:${args.name}`, url: `https://${args.name}` } }
+    },
     call: () => ({}),
 })
 
@@ -34,18 +40,50 @@ describe('a webhook in a stack without named authorizers', () => {
 })
 
 describe("a webhook's function options", () => {
-    test.each([
-        { tuning: { lambdaOptions: { timeout: 20 } } },
-        { tuning: { options: { timeout: 20 } } },
-    ])('reach its lambda from $tuning', ({ tuning }) => {
+    const tuned = (name: string, tuning: object, webhookOptions?: object) => {
         createLambda.mockClear()
         createEndpointSimpleCompat({
-            name: 'tuned', path: '/tuned', method: 'POST', callbackDefinition: async () => ({}),
-            webhook: { wrapInQueue: true, options: { visibilityTimeoutSeconds: 30 } }, ...tuning,
+            name, path: `/${name}`, method: 'POST', callbackDefinition: async () => ({}),
+            webhook: { wrapInQueue: true, options: webhookOptions }, ...tuning,
         } as any, context)
+        return createLambda.mock.calls.map(([args]: any) => ({ name: args.name, timeout: args.options?.timeout }))
+    }
+    const queue = async (name: string) => {
+        await new Promise(resolve => setTimeout(resolve, 50))
+        return queues.find(q => q.name === `${name}-test`)?.inputs
+    }
 
-        const timeouts = createLambda.mock.calls.map(([args]: any) => args.options?.timeout)
-        expect(timeouts).toContain(20)
+    test.each([
+        { name: 'newer', tuning: { lambdaOptions: { timeout: 20 } } },
+        { name: 'older', tuning: { options: { timeout: 20 } } },
+    ])('$tuning reaches its queue handler and its ingress', async ({ name, tuning }) => {
+        expect(tuned(name, tuning, { visibilityTimeoutSeconds: 45 })).toEqual([
+            { name: `${name}-handler`, timeout: 20 },
+            { name: `${name}-webhook`, timeout: 20 },
+        ])
+        expect((await queue(name)).visibilityTimeoutSeconds).toBe(45)
+    })
+
+    test('a queue that uncovers the message before the timeout is refused', async () => {
+        // The handlers above and this check read one resolved timeout. Through createWebhook the refusal
+        // would surface inside the queue's own registration, which no promise here can hold.
+        const { queueOptions } = webhookOptions({ options: { timeout: 20 }, webhook: { options: { visibilityTimeoutSeconds: 10 } } })
+        const visibility = queueOptions.visibilityTimeoutSeconds as unknown as Record<'isKnown' | 'isSecret', Promise<boolean>> & { promise(): Promise<number> }
+        // An Output rejects through its known and secret flags as well as its value.
+        visibility.isKnown.catch(() => undefined)
+        visibility.isSecret.catch(() => undefined)
+
+        await expect(visibility.promise())
+            .rejects.toThrow("visibilityTimeoutSeconds (10) must be greater or equal than the endpoint's timeout (20)")
+    })
+
+    test("leaves the caller's options as they were", () => {
+        const shared = { memorySize: 256 }
+        const queueArgs = { delaySeconds: 3 }
+        tuned('sharing', { lambdaOptions: shared }, queueArgs)
+
+        expect(shared).toEqual({ memorySize: 256 })
+        expect(queueArgs).toEqual({ delaySeconds: 3 })
     })
 
     test('are refused beside options', () => {
