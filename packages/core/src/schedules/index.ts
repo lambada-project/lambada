@@ -1,14 +1,15 @@
 import * as aws from "@pulumi/aws";
 import { EventRuleEvent, EventRuleEventSubscription } from "@pulumi/aws/cloudwatch";
-import { LambadaResources, EmbroideryEnvironmentVariables, mergeOptions } from "..";
-import { createLambda, LambdaFolder, LambdaHandler, LambdaOptions } from "../lambdas";
+import { LambadaResources, mergeOptions } from "..";
+import { createLambda, LambdaFolder, LambdaHandler } from "../lambdas";
 import { AsyncFailures, asyncInvocationConfig, failureDestination } from "../lambdas/asyncFailures";
 import { bundleOf, isLambdaFolder } from "../lambdas/bundles";
+import type { LambadaTriggeredFunction } from "../lambdas/declarations";
 import { asCreator, LambadaDefinition } from "../resources/creators";
 import { Digit, Numbers, Positions, Positive } from "../types/numbers";
 import { Exclusive, hasShape, isOneOf, isSomeOf, OneOf, Shape, SomeOf } from "../types/forms";
 import { isArray, isOne, NonEmpty, OneOrMany } from "../types/lists";
-import { LambadaGrantsShape, LambadaResourceRequest, resolveEnvironment, resolveGrants } from "../resources/grants";
+import { LambadaGrantsShape, resolveEnvironment, resolveGrants } from "../resources/grants";
 
 export type ScheduleEvent = EventRuleEvent
 export type ScheduleCallback = LambdaHandler<ScheduleEvent, void>
@@ -137,14 +138,8 @@ export const scheduleExpression = (name: string, schedule: Schedule): string => 
     return `cron(${[field('minute', cron.minute), field('hour', cron.hour), dayOfMonth, field('month', cron.month), dayOfWeek, field('year', cron.year)].join(' ')})`
 }
 
-export type LambdaSchedule<TNames extends LambadaGrantsShape = LambadaGrantsShape> = AsyncFailures & {
-    name: string
+export type LambdaSchedule<TNames extends LambadaGrantsShape = LambadaGrantsShape> = LambadaTriggeredFunction<ScheduleCallback, TNames> & AsyncFailures & {
     schedule: Schedule
-    callback: ScheduleCallback | LambdaFolder
-    policyStatements?: aws.iam.PolicyStatement[]
-    environmentVariables?: EmbroideryEnvironmentVariables
-    resources: LambadaResourceRequest<TNames>
-    lambdaOptions?: LambdaOptions
 }
 
 export type LambadaScheduleDefinition = LambadaDefinition<LambdaSchedule<any>>
