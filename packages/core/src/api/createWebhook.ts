@@ -15,11 +15,14 @@ import { lift2 } from '../inputs';
 
 export type LambadaWebhookCallback = (event: EmbroideryRequest, queueRecord: aws.sqs.QueueRecord) => Promise<object>
 
+/** What SQS gives a queue that sets none, and so what a webhook's handler is given by default. */
+const SQS_DEFAULT_VISIBILITY = 30
+
 /**
  * The queue's visibility timeout, refused when it is shorter than the handler it hides messages
  * from: a message that reappears before the handler finishes is processed twice.
  */
-export const requireVisibilityCoversTimeout = (visibility = 30, handler = 30): number => {
+export const requireVisibilityCoversTimeout = (visibility = SQS_DEFAULT_VISIBILITY, handler = SQS_DEFAULT_VISIBILITY): number => {
     if (visibility < handler) {
         throw new Error(
             `Queue visibilityTimeoutSeconds (${visibility}) must be greater or equal than the ` +
@@ -45,9 +48,9 @@ export const visibilityTimeoutFor = (
  * The webhook's function and queue options with their defaults, on copies: a caller sharing one
  * options object between endpoints must not find the webhook's timeout written into it.
  */
-export const webhookOptions = (endpointParams: { options?: LambdaOptions, webhook?: { options?: QueueArgs } }) => {
-    const endpointOptions: LambdaOptions = { ...endpointParams.options }
-    endpointOptions.timeout = endpointOptions.timeout ?? 30
+export const webhookOptions = (endpointParams: { lambdaOptions?: LambdaOptions, webhook?: { options?: QueueArgs } }) => {
+    const endpointOptions: LambdaOptions = { ...endpointParams.lambdaOptions }
+    endpointOptions.timeout = endpointOptions.timeout ?? SQS_DEFAULT_VISIBILITY
     const queueOptions: QueueArgs = {
         ...endpointParams.webhook?.options,
         visibilityTimeoutSeconds: visibilityTimeoutFor(endpointParams.webhook?.options?.visibilityTimeoutSeconds, endpointOptions.timeout),
@@ -117,10 +120,7 @@ export function createWebhook(
         definition: handlerCallback,
         environmentVariables: handlerEnvVars,
         resources: handlerResources,
-        options: {
-            ...mergeOptions(endpointOptions, context.api?.lambdaOptions),
-            timeout: endpointOptions.timeout,
-        },
+        options: mergeOptions(endpointOptions, context.api?.lambdaOptions),
         logs: context.logs,
     })
 

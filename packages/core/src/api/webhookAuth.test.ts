@@ -67,7 +67,7 @@ describe("a webhook's function options", () => {
     test('a queue that uncovers the message before the timeout is refused', async () => {
         // The handlers above and this check read one resolved timeout. Through createWebhook the refusal
         // would surface inside the queue's own registration, which no promise here can hold.
-        const { queueOptions } = webhookOptions({ options: { timeout: 20 }, webhook: { options: { visibilityTimeoutSeconds: 10 } } })
+        const { queueOptions } = webhookOptions({ lambdaOptions: { timeout: 20 }, webhook: { options: { visibilityTimeoutSeconds: 10 } } })
         const visibility = queueOptions.visibilityTimeoutSeconds as unknown as Record<'isKnown' | 'isSecret', Promise<boolean>> & { promise(): Promise<number> }
         // An Output rejects through its known and secret flags as well as its value.
         visibility.isKnown.catch(() => undefined)

@@ -168,7 +168,7 @@ export const createEndpointSimpleCompat = (args: LambadaEndpointArgs<any, any>, 
     if (webhook?.wrapInQueue) {
         // No bundle: the lambda behind the queue is lambada's glue, not this callback, so an
         // artifact built from the declaration would receive the raw SQS event.
-        return createWebhook({ ...args, options }, context)
+        return createWebhook({ ...args, lambdaOptions: options }, context)
     }
     else if (useBundle) {
         // The bundle cannot capture a Pulumi closure, so the wrapper config travels as env vars.
