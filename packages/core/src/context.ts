@@ -19,6 +19,7 @@ export type LambadaResources = {
     api?: {
         apiPath: string,
         auth?: {
+            /** @deprecated Has no effect: an endpoint that does not opt out runs the stack's authorizers, if any. */
             useAuthorizers?: boolean,
             useApiKey?: boolean
         },

@@ -271,9 +271,7 @@ const legacyAuthorizers = (
     lambdaAuthorizer: LambdaAuthorizer | undefined
 ): (CognitoAuthorizer | LambdaAuthorizer)[] => {
     if (lambdaAuthorizer) return [lambdaAuthorizer]
-    if (typeof enableAuth === 'boolean' ? enableAuth : lambadaContext?.api?.auth?.useAuthorizers === true)
-        return [...(lambadaContext.authorizers ?? [])]
-    return []
+    return enableAuth ? [...(lambadaContext.authorizers ?? [])] : []
 }
 
 export function mergeOptions(lambdaOptions: LambdaOptions | undefined, globalOptions: LambdaOptions | undefined): LambdaOptions {
