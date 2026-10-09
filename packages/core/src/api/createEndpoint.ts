@@ -8,6 +8,7 @@ import { AuthExecutionContext, toWrapperEnvVars } from '@lambada/utils';
 import { EmbroideryEnvironmentVariables } from '..';
 import { CognitoAuthorizer, LambdaAuthorizer, Method } from '@pulumi/awsx/classic/apigateway';
 import { getNameFromPath } from './utils';
+import { AuthorizerSelection, styleProblems } from '../auth/authorizers';
 import { createWebhook } from './createWebhook';
 import { createCallback, toWrapperConfig } from './callbackWrapper';
 import { QueueArgs } from '@pulumi/aws/sqs';
@@ -73,9 +74,13 @@ export type LambadaEndpointArgs<
     },
     /** This overrides at endpoint level any default set */
     auth?: {
+        /** @deprecated Select an authorizer by name with `authorizer`. */
         useCognitoAuthorizer?: boolean,
         useApiKey?: boolean,
+        /** @deprecated Declare it in run()'s `auth.authorizers` and select it by name. */
         lambdaAuthorizer?: LambdaAuthorizer
+        /** A name from run()'s `auth.authorizers`, or `false` for public. Left out, the stack default. */
+        authorizer?: AuthorizerSelection
     },
     options?: LambdaOptions
 }
@@ -89,8 +94,11 @@ export const createEndpointSimpleCors = <T>(
     resources?: LambdaResource[],
     /** This overrides at endpoint level any default set */
     auth?: {
+        /** @deprecated Select an authorizer by name with `authorizer`. */
         useCognitoAuthorizer?: boolean
         useApiKey?: boolean
+        /** A name from run()'s `auth.authorizers`, or `false` for public. Left out, the stack default. */
+        authorizer?: AuthorizerSelection
     },
     options?: LambdaOptions,
 ) => {
@@ -115,9 +123,13 @@ export const createEndpointSimple = (
     extraHeaders?: {},
     /** This overrides at endpoint level any default set */
     auth?: {
+        /** @deprecated Select an authorizer by name with `authorizer`. */
         useCognitoAuthorizer?: boolean,
         useApiKey?: boolean,
+        /** @deprecated Declare it in run()'s `auth.authorizers` and select it by name. */
         lambdaAuthorizer?: LambdaAuthorizer
+        /** A name from run()'s `auth.authorizers`, or `false` for public. Left out, the stack default. */
+        authorizer?: AuthorizerSelection
     },
     options?: LambdaOptions,
 ) => createEndpointSimpleCompat({
@@ -147,6 +159,9 @@ export const createEndpointSimpleCompat = (args: LambadaEndpointArgs<any, any>, 
         options,
         webhook,
     } = args
+    const mixed = styleProblems(context.authorization, name, auth)
+    if (mixed.length > 0) throw new Error(mixed.join('\n'))
+
     const useBundle = args.useBundle ?? bundleOf(context.bundles, name)
 
     if (webhook?.wrapInQueue) {
@@ -167,7 +182,8 @@ export const createEndpointSimpleCompat = (args: LambadaEndpointArgs<any, any>, 
             resources,
             auth?.useApiKey,
             auth?.lambdaAuthorizer,
-            options
+            options,
+            auth?.authorizer
         )
     }
     else {
@@ -178,7 +194,8 @@ export const createEndpointSimpleCompat = (args: LambadaEndpointArgs<any, any>, 
             resources,
             auth?.useApiKey,
             auth?.lambdaAuthorizer,
-            options
+            options,
+            auth?.authorizer
         )
     }
 }
@@ -199,12 +216,20 @@ export const createEndpoint = <E, R>(
     callbackDefinition: LambdaHandler<E, R> | LambdaFolder,
     policyStatements: aws.iam.PolicyStatement[],
     environmentVariables: EmbroideryEnvironmentVariables = undefined,
-    enableAuth = true,
+    enableAuth?: boolean,
     resources?: LambadaResourceRequest<any>,
     apiKeyRequired?: boolean,
     lambdaAuthorizer?: LambdaAuthorizer,
-    options?: LambdaOptions
+    options?: LambdaOptions,
+    authorizer?: AuthorizerSelection
 ): LambadaEndpointResult<E, R> => {
+    // A creator may call this directly, past the check on declared endpoints.
+    const mixed = styleProblems(lambadaContext.authorization, name, { enableAuth, lambdaAuthorizer, authorizer })
+    if (mixed.length > 0) throw new Error(mixed.join('\n'))
+
+    const auth = lambadaContext.authorization
+        ? lambadaContext.authorization.resolve(name, authorizer)
+        : legacyAuthorizers(lambadaContext, enableAuth ?? true, lambdaAuthorizer)
 
     var environment = lambadaContext.environment
     const grants = resolveGrants(lambadaContext, { name, resources })
@@ -229,13 +254,6 @@ export const createEndpoint = <E, R>(
         logs: lambadaContext.logs,
     })
 
-    let auth: (CognitoAuthorizer | LambdaAuthorizer)[] = []
-
-    if (lambdaAuthorizer)
-        auth.push(lambdaAuthorizer)
-    else if (typeof enableAuth === 'boolean' ? enableAuth : lambadaContext?.api?.auth?.useAuthorizers === true)
-        auth = [...auth, ...(lambadaContext.authorizers ?? [])]
-
     return {
         path: `${lambadaContext.api?.apiPath ?? ''}${path}`,
         method: method,
@@ -246,6 +264,15 @@ export const createEndpoint = <E, R>(
 }
 
 
+
+const legacyAuthorizers = (
+    lambadaContext: LambadaResources,
+    enableAuth: boolean,
+    lambdaAuthorizer: LambdaAuthorizer | undefined
+): (CognitoAuthorizer | LambdaAuthorizer)[] => {
+    if (lambdaAuthorizer) return [lambdaAuthorizer]
+    return enableAuth ? [...(lambadaContext.authorizers ?? [])] : []
+}
 
 export function mergeOptions(lambdaOptions: LambdaOptions | undefined, globalOptions: LambdaOptions | undefined): LambdaOptions {
     const keys = new Set([...Object.keys(globalOptions ?? {}), ...Object.keys(lambdaOptions ?? {})]) as Set<keyof LambdaOptions>

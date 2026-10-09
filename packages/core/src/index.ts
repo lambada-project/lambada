@@ -22,6 +22,7 @@ import { OpenAPIObjectConfigV31 } from "@asteasolutions/zod-to-openapi/dist/v3.1
 import { LambdaOptions } from "./lambdas";
 import { BundleSource } from "./lambdas/bundles";
 import { createPools, LambadaPools, LambadaPoolsRef, PoolsResult } from "./auth/pools";
+import { AuthorizerSelection, createAuthorization, LambadaAuthorizers } from "./auth/authorizers";
 import { createDiagnostics } from "./resources/diagnostics";
 import { preflight } from "./resources/preflight";
 
@@ -41,6 +42,7 @@ export type { AttributePolicy, BodyPolicy, Condition, Conditions, Scalar, String
 export * from './schedules'
 export * from './logs'
 export * from './auth/pools'
+export type { AuthorizerDefinition, AuthorizerSelection, LambadaAuthorizers, PoolAuthorizerDefinition } from './auth/authorizers'
 export * from './buckets'
 export * from './resources'
 export * from './security'
@@ -136,16 +138,25 @@ export type LambadaRunArguments = {
     },
     auth?: {
         createCognito?: boolean
-        /** Lambda authorizers for the API. Cognito pools are picked by `authorizerPools`. */
+        /**
+         * Every authorizer the API can run, by the name endpoints select it with: a pool from `pools`
+         * or `poolsRef`, or a lambda authorizer. Replaces `lambdaAuthorizers`, `authorizerPools` and
+         * `extraAuthorizers`, which a stack declaring this may not use.
+         */
+        authorizers?: LambadaAuthorizers
+        /** What an endpoint without `auth.authorizer` runs. Left out, such an endpoint is public. */
+        defaultAuthorizer?: AuthorizerSelection
+        /** @deprecated Declare it in `authorizers` and select it by name. */
         lambdaAuthorizers?: LambdaAuthorizer[],
         /**
          * Which pools the API accepts tokens from, by the name each is declared under in `pools` or
          * `poolsRef`. The one `createCognito` builds is always included.
+         *
+         * @deprecated Declare each pool in `authorizers` as `{ pool: key }` and select it by name.
          */
         authorizerPools?: readonly string[],
         /**
-         * @deprecated Two unrelated kinds in one list. Declare a lambda authorizer under
-         * `lambdaAuthorizers`, and a cognito pool by naming it in `authorizerPools`.
+         * @deprecated Declare each one in `authorizers` and select it by name.
          */
         extraAuthorizers?: (pulumi.Input<string> | UserPool | LambdaAuthorizer)[],
         cognitoOptions?: {
@@ -218,6 +229,16 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
     const isCognitoProvider = (x: ExtraAuthorizer): x is pulumi.Input<string> | UserPool =>
         !isLambdaAuthorizer(x)
 
+    const named = args.auth?.authorizers !== undefined || args.auth?.defaultAuthorizer !== undefined
+    const deprecated = (['lambdaAuthorizers', 'authorizerPools', 'extraAuthorizers'] as const)
+        .filter(field => args.auth?.[field] !== undefined)
+    if (named && deprecated.length > 0) {
+        throw new Error(
+            `run() declares authorizers by name and also sets ${deprecated.map(f => `auth.${f}`).join(', ')}. ` +
+            `Declare each of those in auth.authorizers instead.`
+        )
+    }
+
     const extra: ExtraAuthorizer[] = args.auth?.extraAuthorizers ?? []
     const lambdaAuthorizers = [...(args.auth?.lambdaAuthorizers ?? []), ...extra.filter(isLambdaAuthorizer)]
     const allUserPools = [...poolProviders, ...extra.filter(isCognitoProvider)]
@@ -227,6 +248,7 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
     }) : undefined
 
     const authorizers = [...(cognitoAuthorizer ? [cognitoAuthorizer] : []), ...lambdaAuthorizers]
+    const authorization = named ? createAuthorization(args.auth?.authorizers ?? {}, pools, args.auth?.defaultAuthorizer) : undefined
 
 
 
@@ -243,6 +265,7 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
             lambdaOptions: args.api?.lambdaDefaultOptions
         } : undefined,
         authorizers: authorizers,
+        authorization: authorization,
         messaging: messaging,
         queues: queues,
         notifications: notifications,
