@@ -2,6 +2,7 @@ import { getNameFromPath } from "../api/utils";
 import { LambadaResources } from "../context";
 import { LambadaDiagnostics, MissingResource } from "./diagnostics";
 import { EndpointAuthorizers, styleProblems } from "../auth/authorizers";
+import { lambdaOptionsProblems } from "../lambdas/declarations";
 import { findMissingGrants, isLambadaGrants, LambadaResourceRequest, ResourceKind, resourceLookups } from "./grants";
 
 /**
@@ -22,6 +23,8 @@ type Declaration = {
     auth?: EndpointAuthorizers
     /** A proxy integration's switch, beside rather than under `auth`. */
     enableAuth?: boolean
+    options?: unknown
+    lambdaOptions?: unknown
 } & Partial<Record<ResourceKind, unknown>>
 
 /**
@@ -76,6 +79,7 @@ export const preflight = (
             }
 
             styleProblems(context.authorization, name, { ...definition.auth, enableAuth: definition.enableAuth }).forEach(diagnostics.invalid)
+            lambdaOptionsProblems(name, definition).forEach(diagnostics.invalid)
 
             // One that falls back to the default was checked with it.
             if (context.authorization && definition.auth?.authorizer !== undefined) {

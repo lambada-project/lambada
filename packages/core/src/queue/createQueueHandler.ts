@@ -1,12 +1,13 @@
 import * as aws from "@pulumi/aws";
 import * as pulumi from "@pulumi/pulumi";
 import { QueueResultItem } from "."
-import { LambadaResources, EmbroideryEnvironmentVariables, mergeOptions } from ".."
-import { createLambda, LambdaFolder, LambdaHandler, LambdaOptions, LambdaResource } from '../lambdas'
+import { LambadaResources, mergeOptions } from ".."
+import { createLambda, LambdaFolder, LambdaHandler, LambdaResource } from '../lambdas'
 
 import { QueueEvent, QueueEventSubscription, QueueEventSubscriptionArgs } from "@pulumi/aws/sqs";
-import { LambadaResourceRequest, LambadaGrantsShape, ResourceRef, resolveEnvironment, resolveGrants, resolveRef } from "../resources/grants";
+import { LambadaGrantsShape, ResourceRef, resolveEnvironment, resolveGrants, resolveRef } from "../resources/grants";
 import { bundleOf, isLambdaFolder } from "../lambdas/bundles";
+import type { LambadaTriggeredFunction } from "../lambdas/declarations";
 import { BodyPolicy, Conditions, requireFilter } from "../filters";
 import { hasShape, isRecord, isSomeOf, Shape, SomeOf } from "../types/forms";
 import { isArray, Several } from "../types/lists";
@@ -21,15 +22,8 @@ type QueuePattern = { body: QueueBody, messageAttributes: Record<string, StringV
 /** Lambda's filter pattern for an SQS record, written as declared. A body that is not JSON is matched as one string. */
 export type QueueHandlerFilter = SomeOf<QueuePattern>
 
-export type LambdaQueueHandler<TNames extends LambadaGrantsShape = LambadaGrantsShape> = {
-    name: string
+export type LambdaQueueHandler<TNames extends LambadaGrantsShape = LambadaGrantsShape> = LambadaTriggeredFunction<QueueHandlerCallback, TNames> & {
     queue: ResourceRef<QueueResultItem>
-    /** A `FolderLambda` deploys a pre-built bundle instead of a serialized closure. */
-    callback: QueueHandlerCallback | LambdaFolder
-    policyStatements?: aws.iam.PolicyStatement[]
-    environmentVariables?: EmbroideryEnvironmentVariables,
-    resources: LambadaResourceRequest<TNames>
-    lambdaOptions?: LambdaOptions,
     subscriptionArgs?: QueueEventSubscriptionArgs | undefined
     filter?: QueueHandlerFilter
     reportBatchItemFailures?: boolean

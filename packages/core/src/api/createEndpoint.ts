@@ -9,6 +9,7 @@ import { EmbroideryEnvironmentVariables } from '..';
 import { CognitoAuthorizer, LambdaAuthorizer, Method } from '@pulumi/awsx/classic/apigateway';
 import { getNameFromPath } from './utils';
 import { AuthorizerSelection, styleProblems } from '../auth/authorizers';
+import { LambadaFunctionTuning, lambdaOptionsOf } from '../lambdas/declarations';
 import { createWebhook } from './createWebhook';
 import { createCallback, toWrapperConfig } from './callbackWrapper';
 import { QueueArgs } from '@pulumi/aws/sqs';
@@ -34,7 +35,7 @@ export type EmbroideryEventHandlerRoute = Route
 export type LambadaEndpointArgs<
     TNames extends LambadaGrantsShape = LambadaGrantsShape,
     TOpenApi extends OpenApiFactoryLike | undefined = OpenApiFactory
-> = {
+> = LambadaFunctionTuning & {
     /** Custom name for your lambda, if empty it will take a name based on the path-verb */
     name?: string,
     path: string,
@@ -55,7 +56,6 @@ export type LambadaEndpointArgs<
     cache?: {
         control?: string
     },
-    environmentVariables?: EmbroideryEnvironmentVariables,
     /**
      * Read only by the document endpoint, which narrows it back. Defaults to the classic factory so
      * an un-annotated `registry` is still typed; name a factory type to bring another vocabulary.
@@ -82,6 +82,7 @@ export type LambadaEndpointArgs<
         /** A name from run()'s `auth.authorizers`, or `false` for public. Left out, the stack default. */
         authorizer?: AuthorizerSelection
     },
+    /** @deprecated The function's options are `lambdaOptions`, as on every other kind. */
     options?: LambdaOptions
 }
 
@@ -156,9 +157,9 @@ export const createEndpointSimpleCompat = (args: LambadaEndpointArgs<any, any>, 
         extraHeaders,
         auth,
         environmentVariables,
-        options,
         webhook,
     } = args
+    const options = lambdaOptionsOf(name, args)
     const mixed = styleProblems(context.authorization, name, auth)
     if (mixed.length > 0) throw new Error(mixed.join('\n'))
 
@@ -167,7 +168,7 @@ export const createEndpointSimpleCompat = (args: LambadaEndpointArgs<any, any>, 
     if (webhook?.wrapInQueue) {
         // No bundle: the lambda behind the queue is lambada's glue, not this callback, so an
         // artifact built from the declaration would receive the raw SQS event.
-        return createWebhook(args, context)
+        return createWebhook({ ...args, lambdaOptions: options }, context)
     }
     else if (useBundle) {
         // The bundle cannot capture a Pulumi closure, so the wrapper config travels as env vars.
