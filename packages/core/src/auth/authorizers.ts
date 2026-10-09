@@ -38,6 +38,12 @@ const isPoolDefinition = (definition: AuthorizerDefinition): definition is PoolA
  */
 const NAME = /^[A-Za-z0-9_-]{1,1024}$/
 
+/**
+ * awsx registers authorizers in a plain object, where a name an object inherits reads as already taken,
+ * and writes the API key's security definition as `api_key`.
+ */
+const isReserved = (name: string) => name in {} || name === 'api_key'
+
 export const createAuthorization = (
     definitions: LambadaAuthorizers,
     pools: PoolsResult,
@@ -46,6 +52,9 @@ export const createAuthorization = (
     for (const name of Object.keys(definitions)) {
         if (!NAME.test(name)) {
             throw new Error(`Cannot declare the authorizer '${name}': use up to 1024 letters, digits, '-' and '_'.`)
+        }
+        if (isReserved(name)) {
+            throw new Error(`Cannot declare the authorizer '${name}': awsx keeps that name for itself. Choose another.`)
         }
     }
 

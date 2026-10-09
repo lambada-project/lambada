@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import * as pulumi from '@pulumi/pulumi'
 import * as aws from '@pulumi/aws'
 import { LambdaAuthorizer } from '@pulumi/awsx/classic/apigateway'
-import { LambadaRunArguments, run } from '..'
+import { createEndpoint, LambadaResources, LambadaRunArguments, run } from '..'
 
 pulumi.runtime.setMocks({
     newResource: (args: pulumi.runtime.MockResourceArgs) => {
@@ -101,5 +101,37 @@ describe('a stack declaring authorizers by name', () => {
         expect(() => run('proj', 'mixed', {
             auth: { authorizers: {}, [field]: [] },
         } as unknown as LambadaRunArguments)).toThrow(`also sets auth.${field}`)
+    })
+
+    const direct = (enableAuth?: boolean, lambdaAuthorizer?: LambdaAuthorizer) => (context: LambadaResources) =>
+        createEndpoint('direct', context, '/direct', 'GET', { functionFolder: '.', handler: 'index.main' }, [], undefined, enableAuth, undefined, undefined, lambdaAuthorizer)
+
+    test.each([
+        { name: 'enableAuth: false', creator: direct(false), reason: 'sets auth.useCognitoAuthorizer' },
+        { name: 'a lambdaAuthorizer', creator: direct(undefined, lambdaAuthorizer('legacy')), reason: 'sets auth.lambdaAuthorizer' },
+    ])('refuses a creator calling createEndpoint with $name', ({ creator, reason }) => {
+        expect(() => run('proj', 'direct', {
+            bundles: () => ({ functionFolder: '.', handler: 'index.main' }),
+            auth: { authorizers: { secure: lambdaAuthorizer('secure3') }, defaultAuthorizer: 'secure' },
+            api: { endpointDefinitions: [creator] },
+        } as unknown as LambadaRunArguments)).toThrow(`direct: ${reason}`)
+    })
+
+    test('a creator calling createEndpoint without auth runs the default', async () => {
+        const { security } = await deploy({
+            auth: { authorizers: { secure: lambdaAuthorizer('secure4') }, defaultAuthorizer: 'secure' },
+            api: { endpointDefinitions: [direct()] },
+        } as unknown as Partial<LambadaRunArguments>)
+
+        expect(security).toEqual({ '/api/direct': ['secure'] })
+    })
+
+    test.each(['constructor', 'toString', 'api_key'])('refuses the name %p, which awsx keeps for itself', name => {
+        expect(() => run('proj', 'reserved', {
+            bundles: () => ({ functionFolder: '.', handler: 'index.main' }),
+            poolsRef: { users: { id: 'users-id', arn: 'arn:users', envKeyName: 'U' } },
+            auth: { authorizers: { [name]: { pool: 'users' } }, defaultAuthorizer: name, useApiKey: {} },
+            api: { endpointDefinitions: [endpoint('/reserved')] },
+        } as unknown as LambadaRunArguments)).toThrow(`Cannot declare the authorizer '${name}'`)
     })
 })

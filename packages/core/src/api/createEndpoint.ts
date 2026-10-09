@@ -213,16 +213,20 @@ export const createEndpoint = <E, R>(
     callbackDefinition: LambdaHandler<E, R> | LambdaFolder,
     policyStatements: aws.iam.PolicyStatement[],
     environmentVariables: EmbroideryEnvironmentVariables = undefined,
-    enableAuth = true,
+    enableAuth?: boolean,
     resources?: LambadaResourceRequest<any>,
     apiKeyRequired?: boolean,
     lambdaAuthorizer?: LambdaAuthorizer,
     options?: LambdaOptions,
     authorizer?: AuthorizerSelection
 ): LambadaEndpointResult<E, R> => {
+    // A creator may call this directly, past the check on declared endpoints.
+    const mixed = styleProblems(lambadaContext.authorization, name, { useCognitoAuthorizer: enableAuth, lambdaAuthorizer, authorizer })
+    if (mixed.length > 0) throw new Error(mixed.join('\n'))
+
     const auth = lambadaContext.authorization
         ? lambadaContext.authorization.resolve(name, authorizer)
-        : legacyAuthorizers(lambadaContext, enableAuth, lambdaAuthorizer)
+        : legacyAuthorizers(lambadaContext, enableAuth ?? true, lambdaAuthorizer)
 
     var environment = lambadaContext.environment
     const grants = resolveGrants(lambadaContext, { name, resources })
