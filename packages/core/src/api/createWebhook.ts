@@ -184,7 +184,7 @@ export function createWebhook(
         envVars,
         endpointParams.auth?.useCognitoAuthorizer,
         webhookResources, endpointParams.auth?.useApiKey,
-        undefined,
+        endpointParams.auth?.lambdaAuthorizer,
         mergeOptions(endpointOptions, endpointParams.options),
         endpointParams.auth?.authorizer
     )
