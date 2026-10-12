@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import * as pulumi from '@pulumi/pulumi'
-import { EnvironmentContext, environmentPoolNames, LambadaGrants, resolveEnvironment } from './grants'
+import { EnvironmentContext, environmentPoolNames, findMissingGrants, LambadaEnvironmentVariables, LambadaGrants, requireDistinctVariables, resolveEnvironment } from './grants'
 import { LambdaResource } from '../lambdas'
 
 const context = (over: Partial<EnvironmentContext> = {}): EnvironmentContext => ({
@@ -113,5 +113,58 @@ describe('environmentPoolNames', () => {
         const pool = pulumi.output({ A: '1' }) as unknown as EnvironmentContext['environmentVariables']
 
         expect(environmentPoolNames(pool)).toEqual([])
+    })
+})
+
+describe('a pool entry that names its variable', () => {
+    const keyed = (over: Partial<EnvironmentContext> = {}) => context({
+        environmentVariables: {
+            pageSize: { envKeyName: 'PAGE_SIZE', value: '20' },
+            SEGMENT_KEY: 'sg',
+        },
+        ...over,
+    })
+
+    test('is granted by its key and set under its envKeyName', () => {
+        expect(resolveEnvironment(keyed(), { name: 'listPets', resources: declaring('pageSize'), environmentVariables: undefined })).toEqual({
+            LAMBADA_SHOW_ALL_ERRORS: 'true',
+            PAGE_SIZE: '20',
+        })
+    })
+
+    test('is not granted by its envKeyName, which is not a name in the pool', () => {
+        expect(() => resolveEnvironment(keyed(), { name: 'listPets', resources: declaring('PAGE_SIZE'), environmentVariables: undefined }))
+            .toThrow('PAGE_SIZE')
+        expect(findMissingGrants({ environmentVariables: keyed().environmentVariables } as never, { name: 'listPets', resources: declaring('PAGE_SIZE') }))
+            .toContainEqual({ functionName: 'listPets', kind: 'environment variable', name: 'PAGE_SIZE', available: ['pageSize', 'SEGMENT_KEY'] })
+    })
+
+    test('reaches the older grant list under its envKeyName too', () => {
+        expect(resolveEnvironment(keyed(), { name: 'listPets', resources: legacy, environmentVariables: undefined })).toEqual({
+            LAMBADA_SHOW_ALL_ERRORS: 'true',
+            PAGE_SIZE: '20',
+            SEGMENT_KEY: 'sg',
+        })
+    })
+
+    test('carries an Input value', () => {
+        const value = pulumi.output('secret')
+        const resolved = resolveEnvironment(keyed({ environmentVariables: { cacheTtl: { envKeyName: 'CACHE_TTL', value } } }), { name: 'listPets', resources: declaring('cacheTtl'), environmentVariables: undefined })
+        expect((resolved as Record<string, unknown>).CACHE_TTL).toBe(value)
+    })
+})
+
+describe('requireDistinctVariables', () => {
+    test.each([
+        { pool: { a: { envKeyName: 'SAME', value: '1' }, b: { envKeyName: 'SAME', value: '2' } }, reason: 'a, b all set SAME' },
+        { pool: { a: { envKeyName: 'SAME', value: '1' }, SAME: '2' }, reason: 'a, SAME all set SAME' },
+        { pool: { quiet: { envKeyName: 'LAMBADA_SHOW_ALL_ERRORS', value: 'false' } }, reason: 'quiet set LAMBADA_SHOW_ALL_ERRORS, which globalEnvironmentVariables already sets' },
+        { pool: { LAMBADA_SHOW_ALL_ERRORS: 'false' }, reason: 'LAMBADA_SHOW_ALL_ERRORS set LAMBADA_SHOW_ALL_ERRORS, which globalEnvironmentVariables' },
+    ] as { pool: LambadaEnvironmentVariables, reason: string }[])('refuses one variable with two values: $reason', ({ pool, reason }) => {
+        expect(() => requireDistinctVariables(pool, { LAMBADA_SHOW_ALL_ERRORS: 'true' })).toThrow(reason)
+    })
+
+    test('passes a pool whose variables are each set once', () => {
+        expect(() => requireDistinctVariables({ cacheTtl: { envKeyName: 'CACHE_TTL', value: '1' }, SEGMENT_KEY: 'sg' }, { LAMBADA_SHOW_ALL_ERRORS: 'true' })).not.toThrow()
     })
 })
