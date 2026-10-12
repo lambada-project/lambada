@@ -25,6 +25,7 @@ import { createPools, LambadaPools, LambadaPoolsRef, PoolsResult } from "./auth/
 import { AuthorizerSelection, createAuthorization, LambadaAuthorizers } from "./auth/authorizers";
 import { createDiagnostics } from "./resources/diagnostics";
 import { preflight } from "./resources/preflight";
+import { EnvironmentPool, requireDistinctVariables } from "./resources/grants";
 
 import { createBuckets, LambadaBuckets, LambadaBucketsRef, BucketsResult } from "./buckets";
 
@@ -117,9 +118,10 @@ export type LambadaRunArguments = {
 
     /**
      * Values a function receives only by declaring them under `resources.envVar`. A function sees
-     * what it asks for and nothing else in here.
+     * what it asks for and nothing else in here. An entry `{ envKeyName, value }` is granted by its key
+     * and set as `envKeyName`; a plain value is set under its key.
      */
-    environmentVariables?: EmbroideryEnvironmentVariables,
+    environmentVariables?: EnvironmentPool,
     globalEnvironmentVariables?: EmbroideryEnvironmentVariables,
     /** Cognito pools this stack creates */
     pools?: LambadaPools,
@@ -284,6 +286,8 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
         globalTags: globalTags,
         bundles: args.bundles
     }
+
+    requireDistinctVariables(lambadaContext.environmentVariables, lambadaContext.globalEnvironmentVariables)
 
     // Every name a plain declaration uses is checked before anything is built, so a stack with
     // several bad names fails once naming all of them, not once per deploy.

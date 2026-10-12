@@ -137,20 +137,65 @@ export const resolveGrants = (context: GrantContext, { name, resources }: Resour
         : [...((resources as LambdaResource[] | undefined) ?? [])]
 
 /**
+ * A pool entry granted by its key and published to the function as `envKeyName`, the way a table is
+ * granted by its key and published as its own `envKeyName`.
+ */
+export type EnvironmentVariableDefinition = { envKeyName: string, value: pulumi.Input<string> }
+
+/** The pool `resources.envVar` picks from. A plain value is published under its key. */
+export type LambadaEnvironmentVariables = { [name: string]: pulumi.Input<string> | EnvironmentVariableDefinition }
+
+export type EnvironmentPool = EmbroideryEnvironmentVariables | LambadaEnvironmentVariables
+
+type PoolEntry = pulumi.Input<string> | EnvironmentVariableDefinition
+
+const isDefinition = (entry: PoolEntry): entry is EnvironmentVariableDefinition =>
+    typeof entry === 'object' && entry !== null && !pulumi.Output.isInstance(entry) && !(entry instanceof Promise)
+
+/** The variable a pool entry sets: its name in the function, and its value. */
+const published = (key: string, entry: PoolEntry): [string, pulumi.Input<string>] =>
+    isDefinition(entry) ? [entry.envKeyName, entry.value] : [key, entry]
+
+/**
  * A pool can only be picked from when its keys are known here. A whole-record `Input` resolves too
  * late for that, so it is passed through untouched rather than silently emptied.
  */
 const asRecord = (
-    values: EmbroideryEnvironmentVariables
-): Record<string, pulumi.Input<string>> | undefined => {
+    values: EnvironmentPool
+): Record<string, PoolEntry> | undefined => {
     if (!values) return {}
     if (pulumi.Output.isInstance(values) || values instanceof Promise) return undefined
-    return values as Record<string, pulumi.Input<string>>
+    return values as Record<string, PoolEntry>
 }
 
 /** The names in the pool, empty when its keys cannot be known here. */
-export const environmentPoolNames = (values: EmbroideryEnvironmentVariables): string[] =>
+export const environmentPoolNames = (values: EnvironmentPool): string[] =>
     Object.keys(asRecord(values) ?? {})
+
+/**
+ * Refuses a pool where one variable name has two values: two entries publishing it, or an entry
+ * publishing a name every function already gets from the globals. Which value a function received
+ * would depend on what it picked.
+ */
+export const requireDistinctVariables = (pool: EnvironmentPool, globals: EmbroideryEnvironmentVariables): void => {
+    const record = asRecord(pool)
+    if (!record) return
+
+    const global = new Set(Object.keys(asRecord(globals) ?? {}))
+    const owners = new Map<string, string[]>()
+    for (const [key, entry] of Object.entries(record)) {
+        const [variable] = published(key, entry)
+        owners.set(variable, [...(owners.get(variable) ?? []), key])
+    }
+
+    const problems = [...owners].flatMap(([variable, keys]) => [
+        ...(keys.length > 1 ? [`${keys.join(', ')} all set ${variable}`] : []),
+        ...(global.has(variable) ? [`${keys.join(', ')} set ${variable}, which globalEnvironmentVariables already sets`] : []),
+    ])
+    if (problems.length > 0) {
+        throw new Error(`environmentVariables gives one variable two values:\n${problems.map(p => `  ${p}`).join('\n')}`)
+    }
+}
 
 /**
  * Every kind of resource a name can refer to, and the record it resolves against. The one place
@@ -229,11 +274,13 @@ export const resolveEnvironment = (
         )
     }
 
-    if (!isLambadaGrants(resources)) return { ...(globals as object), ...all, ...own }
+    const pool = Object.fromEntries(Object.entries(all).map(([key, entry]) => published(key, entry)))
+    if (!isLambadaGrants(resources)) return { ...(globals as object), ...pool, ...own }
 
     const picked: Record<string, pulumi.Input<string>> = {}
     for (const ref of resources.envVar ?? []) {
-        picked[ref] = requireItem(all, { name, kind: 'environment variable', ref })
+        const [variable, value] = published(ref, requireItem(all, { name, kind: 'environment variable', ref }))
+        picked[variable] = value
     }
 
     return { ...(globals as object), ...picked, ...own }

@@ -13,6 +13,7 @@ import { Input } from '@pulumi/pulumi'
 import { PoolsResult } from "./auth/pools";
 import type { Authorization } from "./auth/authorizers";
 import { LambadaDiagnostics } from "./resources/diagnostics";
+import type { EnvironmentPool } from "./resources/grants";
 
 export type LambadaResources = {
     projectName: string
@@ -43,7 +44,7 @@ export type LambadaResources = {
     environment: string
     kmsKeys?: SecurityResult
     /** The pool a function picks from by declaring `resources.envVar`. */
-    environmentVariables: EmbroideryEnvironmentVariables
+    environmentVariables: EnvironmentPool
     /** Published to every function, declared or not. */
     globalEnvironmentVariables?: EmbroideryEnvironmentVariables
     /** Collects every name the stack cannot resolve, so `preflight` reports them all at once. */
