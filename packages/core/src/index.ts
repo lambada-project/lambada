@@ -32,6 +32,7 @@ export * from './context'
 export * from './inputs'
 // A pre-built bundle to deploy in place of a serialized closure; see `useBundle` on an endpoint.
 export type { LambdaFolder, LambdaHandler } from './lambdas'
+export type { LambadaFunctionTuning, LambadaTriggeredFunction } from './lambdas/declarations'
 export * from './lambdas/bundles'
 export * from './api/index'
 export * from './extra'
@@ -255,7 +256,8 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
     // TODO: option to add projectName as prefix to all functions
     const lambadaContext: LambadaResources = {
         projectName: projectName,
-        api: apiPath ? {
+        // An empty apiPath puts the routes at the root; the API and its defaults are still there.
+        api: {
             apiPath: apiPath,
             cors: args.cors,
             auth: {
@@ -263,7 +265,7 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
                 useAuthorizers: authorizers.length > 0
             },
             lambdaOptions: args.api?.lambdaDefaultOptions
-        } : undefined,
+        },
         authorizers: authorizers,
         authorization: authorization,
         messaging: messaging,

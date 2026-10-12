@@ -3,7 +3,8 @@ import { Request, Response } from '@pulumi/awsx/classic/apigateway/api'
 import { createEndpoint, EmbroideryEventHandlerRoute, EmbroideryRequest, LambadaEndpointArgs, mergeOptions } from "./createEndpoint";
 import * as aws from '@pulumi/aws'
 import * as pulumi from '@pulumi/pulumi'
-import { createLambda, LambdaResource } from "../lambdas";
+import { createLambda, LambdaOptions, LambdaResource } from "../lambdas";
+import { QueueArgs } from "@pulumi/aws/sqs";
 import { createCallback } from "./callbackWrapper";
 import * as SQS from '@aws-sdk/client-sqs'
 import { QueueHandlerEvent } from "../queue/createQueueHandler";
@@ -14,11 +15,14 @@ import { lift2 } from '../inputs';
 
 export type LambadaWebhookCallback = (event: EmbroideryRequest, queueRecord: aws.sqs.QueueRecord) => Promise<object>
 
+/** What SQS gives a queue that sets none, and so what a webhook's handler is given by default. */
+const SQS_DEFAULT_VISIBILITY = 30
+
 /**
  * The queue's visibility timeout, refused when it is shorter than the handler it hides messages
  * from: a message that reappears before the handler finishes is processed twice.
  */
-export const requireVisibilityCoversTimeout = (visibility = 30, handler = 30): number => {
+export const requireVisibilityCoversTimeout = (visibility = SQS_DEFAULT_VISIBILITY, handler = SQS_DEFAULT_VISIBILITY): number => {
     if (visibility < handler) {
         throw new Error(
             `Queue visibilityTimeoutSeconds (${visibility}) must be greater or equal than the ` +
@@ -40,6 +44,20 @@ export const visibilityTimeoutFor = (
 ): pulumi.Output<number> =>
     lift2(visibilityTimeoutSeconds, timeout, requireVisibilityCoversTimeout)
 
+/**
+ * The webhook's function and queue options with their defaults, on copies: a caller sharing one
+ * options object between endpoints must not find the webhook's timeout written into it.
+ */
+export const webhookOptions = (endpointParams: { lambdaOptions?: LambdaOptions, webhook?: { options?: QueueArgs } }) => {
+    const endpointOptions: LambdaOptions = { ...endpointParams.lambdaOptions }
+    endpointOptions.timeout = endpointOptions.timeout ?? SQS_DEFAULT_VISIBILITY
+    const queueOptions: QueueArgs = {
+        ...endpointParams.webhook?.options,
+        visibilityTimeoutSeconds: visibilityTimeoutFor(endpointParams.webhook?.options?.visibilityTimeoutSeconds, endpointOptions.timeout),
+    }
+    return { queueOptions, endpointOptions }
+}
+
 export function createWebhook(
     endpointParams: (LambadaEndpointArgs<any, any> & {
         callbackDefinition: LambadaWebhookCallback,
@@ -50,14 +68,7 @@ export function createWebhook(
     const queueName = `${endpointParams.name}-${context.environment}`
     const ENV_NAME = "WEBHOOK_QUEUE_URL"
 
-    const queueOptions = endpointParams.webhook?.options ?? {}
-    const endpointOptions = endpointParams.options ?? {}
-
-    endpointOptions.timeout = endpointOptions.timeout ?? 30
-    queueOptions.visibilityTimeoutSeconds = visibilityTimeoutFor(
-        queueOptions.visibilityTimeoutSeconds,
-        endpointOptions.timeout
-    )
+    const { queueOptions, endpointOptions } = webhookOptions(endpointParams)
 
     /****** QUEUE***** */
 
@@ -109,10 +120,7 @@ export function createWebhook(
         definition: handlerCallback,
         environmentVariables: handlerEnvVars,
         resources: handlerResources,
-        options: {
-            ...mergeOptions(endpointParams.options, context.api?.lambdaOptions),
-            timeout: endpointOptions.timeout,
-        },
+        options: mergeOptions(endpointOptions, context.api?.lambdaOptions),
         logs: context.logs,
     })
 
@@ -185,7 +193,7 @@ export function createWebhook(
         endpointParams.auth?.useCognitoAuthorizer,
         webhookResources, endpointParams.auth?.useApiKey,
         endpointParams.auth?.lambdaAuthorizer,
-        mergeOptions(endpointOptions, endpointParams.options),
+        endpointOptions,
         endpointParams.auth?.authorizer
     )
 

@@ -2,10 +2,11 @@ import * as aws from "@pulumi/aws";
 import { createLambda, LambdaFolder, LambdaHandler, LambdaOptions, LambdaResource } from '../lambdas'
 import { MessagingContext, MessagingResultItem } from ".";
 import { TopicEvent, TopicEventSubscription, TopicEventSubscriptionArgs } from "@pulumi/aws/sns";
-import { LambadaResources, EmbroideryEnvironmentVariables, mergeOptions } from "..";
+import { LambadaResources, mergeOptions } from "..";
 import { LambadaResourceRequest, LambadaGrantsShape, ResourceRef, resolveEnvironment, resolveGrants, resolveRef } from "../resources/grants";
 import { bundleOf, isLambdaFolder } from "../lambdas/bundles";
 import { AsyncFailures, asyncInvocationConfig, failureDestination } from "../lambdas/asyncFailures";
+import type { LambadaTriggeredFunction } from "../lambdas/declarations";
 import { AttributePolicy, BodyPolicy, requireFilter } from "../filters";
 import { isOneOf, OneOf } from "../types/forms";
 
@@ -32,15 +33,8 @@ export const filterArgs = (subscriptionName: string, filter: SnsSubscriptionFilt
     return { ...args, filterPolicy: JSON.stringify(filter.body), filterPolicyScope: 'MessageBody' }
 }
 
-export type LambdaSubscription<TNames extends LambadaGrantsShape = LambadaGrantsShape> = AsyncFailures & {
-    name: string
-    /** A `FolderLambda` deploys a pre-built bundle instead of a serialized closure. */
-    callback: SubscriptionCallback | LambdaFolder
-    policyStatements?: aws.iam.PolicyStatement[]
-    environmentVariables?: EmbroideryEnvironmentVariables
-    resources: LambadaResourceRequest<TNames>
+export type LambdaSubscription<TNames extends LambadaGrantsShape = LambadaGrantsShape> = LambadaTriggeredFunction<SubscriptionCallback, TNames> & AsyncFailures & {
     subscriptionArgs?: SubscriptionArgs
-    lambdaOptions?: LambdaOptions
     filter?: SnsSubscriptionFilter
 }
 
