@@ -419,7 +419,7 @@ export const mergeStatements = (statements: ResolvedStatement[]): ResolvedStatem
     return merged.map(s => [JSON.stringify(s), s] as const).sort(([a], [b]) => a < b ? -1 : 1).map(([, s]) => s)
 }
 
-const sharedRoles = new Map<string, { role: aws.iam.Role, document: pulumi.Output<PolicyDocument> }>()
+const sharedRoles = new Map<string, { arn: pulumi.Output<string>, document: pulumi.Output<PolicyDocument> }>()
 const identities = new WeakMap<object, number>()
 let nextIdentity = 0
 
@@ -458,13 +458,13 @@ const roleFor = (
 
     const shared = sharedRoles.get(key)
     if (shared) {
-        return pulumi.all([shared.role.arn, shared.document, document]).apply(([arn, theirs, mine]) =>
+        return pulumi.all([shared.arn, shared.document, document]).apply(([arn, theirs, mine]) =>
             sameGrants(`${name}-${environment}`, theirs, mine, arn))
     }
 
-    const role = createRole(dashed, document)
-    sharedRoles.set(key, { role, document })
-    return role.arn
+    const { arn } = createRole(dashed, document)
+    sharedRoles.set(key, { arn, document })
+    return arn
 }
 
 export const sameGrants = (functionName: string, theirs: PolicyDocument, mine: PolicyDocument, roleArn: string) => {
@@ -498,7 +498,7 @@ export const createLambdaRoleAndPolicies = (
     environment: string,
     policyStatements: pulumi.Input<aws.iam.PolicyStatement[]>
 ) => {
-    return createRole(dashedName(name, environment), lift(policyStatements ?? [], documentOf))
+    return createRole(dashedName(name, environment), lift(policyStatements ?? [], documentOf)).role
 }
 
 const createRole = (dashedNamed: string, document: pulumi.Output<PolicyDocument>) => {
@@ -513,12 +513,14 @@ const createRole = (dashedNamed: string, document: pulumi.Output<PolicyDocument>
         policy: document.apply(d => withinLimit(policyName, d))
     })
 
-    new aws.iam.RolePolicyAttachment(`${dashedNamed}-policy-attachment`, {
+    const attachment = new aws.iam.RolePolicyAttachment(`${dashedNamed}-policy-attachment`, {
         policyArn: policy.arn,
         role: role
     })
 
-    return role
+    // Lambda checks the role's permissions when it creates the function, so the function takes an
+    // ARN that resolves only once the policy is attached, not when the bare role exists.
+    return { role, arn: pulumi.all([role.arn, attachment.id]).apply(([arn]) => arn) }
 }
 
 // export type EnvironmentVariables = pulumi.Input<{
