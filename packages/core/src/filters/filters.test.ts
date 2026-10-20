@@ -68,6 +68,11 @@ describe('a filter, against what SNS and Lambda said of it', () => {
             'sqs:attributes num6Decimals',
             'sqs:attributes numValueOver',
             'sqs:attributes butNumberOver',
+            'sqs:attributes edges:numberAbove1',
+            'sqs:attributes edges:numberEquals5',
+            'sqs:attributes edges:numberLiteral5',
+            // Matches every Number attribute: lambada writes stringValue only, so it does not offer dataType.
+            'sqs:attributes edges:numberDataType',
         ])
     })
 })
@@ -172,7 +177,12 @@ describe('a queue handler filter, against what Lambda delivered by it', () => {
     test('declares every pattern Lambda delivered by as itself, and writes it unchanged', () => {
         const holdable = lambdaDeliveries.filter(d => JSON.stringify(JSON.parse(d.pattern)) === d.pattern)
         expect(holdable.length).toBe(lambdaDeliveries.length - 2)
-        expect(holdable.filter(d => eventSourceMappingArgs(queueHandler(JSON.parse(d.pattern))).filterCriteria?.filters[0].pattern !== d.pattern)).toEqual([])
+        const written = (pattern: string) => { try { return eventSourceMappingArgs(queueHandler(JSON.parse(pattern))).filterCriteria?.filters[0].pattern } catch { return undefined } }
+        const refused = holdable.filter(d => written(d.pattern) === undefined)
+        expect(holdable.filter(d => !refused.includes(d) && written(d.pattern) !== d.pattern)).toEqual([])
+        // A refused pattern never delivered, but for dataType, which lambada does not offer.
+        expect(refused.filter(d => d.delivered && !d.pattern.includes('"dataType"'))).toEqual([])
+        expect(new Set(refused.map(d => d.pattern)).size).toBe(4)
     })
 })
 

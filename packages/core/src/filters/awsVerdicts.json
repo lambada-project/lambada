@@ -236,5 +236,10 @@
     {"name": "edges:listOfListsValue", "policy": {"o": {"k": ["a"]}}, "sns:body": "accepts", "sqs:body": "accepts"},
     {"name": "edges:listOfListsExists", "policy": {"o": {"k": [{"exists": true}]}}, "sns:body": "accepts", "sqs:body": "accepts"},
     {"name": "edges:listOfListsOr", "policy": {"o": {"$or": [{"k": ["a"]}, {"j": ["b"]}]}}, "sns:body": "accepts", "sqs:body": "accepts"},
-    {"name": "edges:listOfListsAbsent", "policy": {"o": {"k": [{"exists": false}]}}, "sns:body": "accepts", "sqs:body": "accepts"}
+    {"name": "edges:listOfListsAbsent", "policy": {"o": {"k": [{"exists": false}]}}, "sns:body": "accepts", "sqs:body": "accepts"},
+    {"name": "edges:numberAbove1", "policy": {"k": [{"numeric": [">", 1]}]}, "sqs:attributes": "accepts"},
+    {"name": "edges:numberEquals5", "policy": {"k": [{"numeric": ["=", 5]}]}, "sqs:attributes": "accepts"},
+    {"name": "edges:numberString5", "policy": {"k": ["5"]}, "sqs:attributes": "accepts"},
+    {"name": "edges:numberLiteral5", "policy": {"k": [5]}, "sqs:attributes": "accepts"},
+    {"name": "edges:numberDataType", "policy": {"k": {"dataType": ["Number"]}}, "sqs:attributes": "accepts"}
 ]
