@@ -187,5 +187,16 @@
     {"pattern": "{\"body\":{\"value\":[null]}}", "message": {"body": {"value": "a"}}, "delivered": false},
     {"pattern": "{\"body\":{\"value\":[{\"exists\":false},null]}}", "message": {"body": {"value": null}}, "delivered": true},
     {"pattern": "{\"body\":{\"value\":[{\"exists\":false},null]}}", "message": {"body": {"other": "x"}}, "delivered": true},
-    {"pattern": "{\"body\":{\"value\":[{\"exists\":false},null]}}", "message": {"body": {"value": "a"}}, "delivered": false}
+    {"pattern": "{\"body\":{\"value\":[{\"exists\":false},null]}}", "message": {"body": {"value": "a"}}, "delivered": false},
+    {"pattern": "{\"body\":{\"o\":{\"k\":[{\"exists\":false}]}}}", "message": {"body": {}}, "delivered": true},
+    {"pattern": "{\"body\":{\"o\":{\"k\":[{\"exists\":false}]}}}", "message": {"body": {"o": {}}}, "delivered": true},
+    {"pattern": "{\"body\":{\"o\":{\"k\":[{\"exists\":false}]}}}", "message": {"body": {"o": {"k": 1}}}, "delivered": false},
+    {"pattern": "{\"body\":{\"o\":{\"k\":[{\"exists\":false}]}}}", "message": {"body": {"o": {"j": 1}}}, "delivered": true},
+    {"pattern": "{\"messageAttributes\":{\"value\":{\"stringValue\":[{\"exists\":false}]}}}", "message": {"attributes": {"other": "x"}}, "delivered": true},
+    {"pattern": "{\"messageAttributes\":{\"value\":{\"stringValue\":[{\"exists\":false}]}}}", "message": {"attributes": {}}, "delivered": true},
+    {"pattern": "{\"messageAttributes\":{\"value\":{\"stringValue\":[{\"exists\":false}]}}}", "message": {"attributes": {"value": "a"}}, "delivered": false},
+    {"pattern": "{\"messageAttributes\":{\"value\":{\"stringValue\":[\"a\",{\"exists\":false}]}}}", "message": {"attributes": {"other": "x"}}, "delivered": true},
+    {"pattern": "{\"messageAttributes\":{\"value\":{\"stringValue\":[\"a\",{\"exists\":false}]}}}", "message": {"attributes": {}}, "delivered": true},
+    {"pattern": "{\"messageAttributes\":{\"value\":{\"stringValue\":[\"a\",{\"exists\":false}]}}}", "message": {"attributes": {"value": "a"}}, "delivered": true},
+    {"pattern": "{\"messageAttributes\":{\"value\":{\"stringValue\":[\"a\",{\"exists\":false}]}}}", "message": {"attributes": {"value": "b"}}, "delivered": false}
 ]

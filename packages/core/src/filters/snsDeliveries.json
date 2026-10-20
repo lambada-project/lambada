@@ -256,5 +256,9 @@
     {"scope": "attributes", "condition": ["5"], "published": 5, "delivered": false},
     {"scope": "attributes", "condition": ["5"], "published": "5", "delivered": true},
     {"scope": "attributes", "condition": [5], "published": "5", "delivered": false},
-    {"scope": "attributes", "condition": [5], "published": 5, "delivered": true}
+    {"scope": "attributes", "condition": [5], "published": 5, "delivered": true},
+    {"scope": "body", "policy": {"o": {"k": [{"exists": false}]}}, "message": "{}", "delivered": true},
+    {"scope": "body", "policy": {"o": {"k": [{"exists": false}]}}, "message": "{\"o\":{}}", "delivered": true},
+    {"scope": "body", "policy": {"o": {"k": [{"exists": false}]}}, "message": "{\"o\":{\"k\":1}}", "delivered": false},
+    {"scope": "body", "policy": {"o": {"k": [{"exists": false}]}}, "message": "{\"o\":{\"j\":1}}", "delivered": true}
 ]
