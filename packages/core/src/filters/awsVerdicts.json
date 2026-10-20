@@ -241,5 +241,14 @@
     {"name": "edges:numberEquals5", "policy": {"k": [{"numeric": ["=", 5]}]}, "sqs:attributes": "accepts"},
     {"name": "edges:numberString5", "policy": {"k": ["5"]}, "sqs:attributes": "accepts"},
     {"name": "edges:numberLiteral5", "policy": {"k": [5]}, "sqs:attributes": "accepts"},
-    {"name": "edges:numberDataType", "policy": {"k": {"dataType": ["Number"]}}, "sqs:attributes": "accepts"}
+    {"name": "edges:numberDataType", "policy": {"k": {"dataType": ["Number"]}}, "sqs:attributes": "accepts"},
+    {"name": "edges:wideAbove5e9", "policy": {"v": [{"numeric": [">", 5000000000]}]}, "sns:body": "accepts", "sqs:body": "accepts"},
+    {"name": "edges:wideBelowMinus5e9", "policy": {"v": [{"numeric": ["<", -5000000000]}]}, "sns:body": "accepts", "sqs:body": "accepts"},
+    {"name": "edges:wideAbove1e15", "policy": {"v": [{"numeric": [">", 1000000000000000]}]}, "sns:body": "accepts", "sqs:body": "accepts"},
+    {"name": "edges:wideAtLeast1e300", "policy": {"v": [{"numeric": [">=", 1e+300]}]}, "sns:body": "accepts", "sqs:body": "accepts"},
+    {"name": "edges:fineAbove7Decimals", "policy": {"v": [{"numeric": [">", 0.1234567]}]}, "sns:body": "accepts", "sqs:body": "accepts"},
+    {"name": "edges:fineEquals6Decimals", "policy": {"v": [{"numeric": ["=", 123.456789]}]}, "sns:body": "accepts", "sqs:body": "accepts"},
+    {"name": "edges:fineEqualsDoubleSum", "policy": {"v": [{"numeric": ["=", 0.30000000000000004]}]}, "sns:body": "accepts", "sqs:body": "accepts"},
+    {"name": "edges:fineAbove1eMinus7", "policy": {"v": [{"numeric": [">", 1e-07]}]}, "sns:body": "accepts", "sqs:body": "accepts"},
+    {"name": "edges:fineHalfOpenMillionth", "policy": {"v": [{"numeric": [">=", 5, "<", 5.000001]}]}, "sns:body": "accepts", "sqs:body": "accepts"}
 ]
