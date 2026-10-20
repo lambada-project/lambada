@@ -227,5 +227,14 @@
     {"name": "edges:butWildcardNonString", "policy": {"v": [{"anything-but": {"wildcard": "a*"}}]}, "sns:body": "accepts", "sqs:body": "accepts"},
     {"name": "edges:positiveBeyond53", "policy": {"v": [{"numeric": [">", 0]}]}, "sns:body": "accepts", "sqs:body": "accepts"},
     {"name": "edges:numberForms", "policy": {"v": [5]}, "sns:body": "accepts", "sqs:body": "accepts"},
-    {"name": "edges:cidrV6Ranges", "policy": {"v": [{"cidr": "2001:db8::/32"}]}, "sns:body": "accepts", "sqs:body": "accepts"}
+    {"name": "edges:cidrV6Ranges", "policy": {"v": [{"cidr": "2001:db8::/32"}]}, "sns:body": "accepts", "sqs:body": "accepts"},
+    {"name": "edges:bigExists", "policy": {"v": [{"exists": true}]}, "sns:body": "accepts", "sqs:body": "accepts"},
+    {"name": "edges:bigButString", "policy": {"v": [{"anything-but": "a"}]}, "sns:body": "accepts", "sqs:body": "accepts"},
+    {"name": "edges:bigButNumber", "policy": {"v": [{"anything-but": 5}]}, "sns:body": "accepts", "sqs:body": "accepts"},
+    {"name": "edges:bigButPrefix", "policy": {"v": [{"anything-but": {"prefix": "a"}}]}, "sns:body": "accepts", "sqs:body": "accepts"},
+    {"name": "edges:bigValueOrBut", "policy": {"v": [5, {"anything-but": 5}]}, "sns:body": "accepts", "sqs:body": "accepts"},
+    {"name": "edges:listOfListsValue", "policy": {"o": {"k": ["a"]}}, "sns:body": "accepts", "sqs:body": "accepts"},
+    {"name": "edges:listOfListsExists", "policy": {"o": {"k": [{"exists": true}]}}, "sns:body": "accepts", "sqs:body": "accepts"},
+    {"name": "edges:listOfListsOr", "policy": {"o": {"$or": [{"k": ["a"]}, {"j": ["b"]}]}}, "sns:body": "accepts", "sqs:body": "accepts"},
+    {"name": "edges:listOfListsAbsent", "policy": {"o": {"k": [{"exists": false}]}}, "sns:body": "accepts", "sqs:body": "accepts"}
 ]
