@@ -147,10 +147,13 @@ test('takes one SNS scope, in its type', () => {
     expect(typeOnly).toBeFunction()
 })
 
+/** A row's whole policy, or its `condition` on the key `value`; its message is `message` as published, or `{ value: published }`. */
+const policyOf = (d: { condition?: unknown, policy?: unknown }) => d.policy ?? { value: d.condition }
+
 describe('a filter, against what SNS delivered by it', () => {
     test('is written as the policy SNS delivered by, escaped once', () => {
         const written = deliveries.filter(d => {
-            const policy = { value: d.condition }
+            const policy = policyOf(d)
             const filter = d.scope === 'attributes' ? { attributes: policy } : { body: policy }
             return filterArgs('s', filter as never).filterPolicy !== JSON.stringify(policy)
         })
@@ -179,7 +182,7 @@ const grouped = <T>(rows: T[], key: (row: T) => string, delivered: (row: T) => b
     rows.reduce((m, r) => m.set(key(r), [...(m.get(key(r)) ?? []), delivered(r)]), new Map<string, boolean[]>())
 
 test.each(['attributes', 'body'])('every operator lambada writes has delivered a message and held one back, in the SNS %s scope', scope => {
-    const untried = operatorNames().filter(op => !separating(grouped(deliveries.filter(d => d.scope === scope), d => JSON.stringify(d.condition), d => d.delivered)).has(op))
+    const untried = operatorNames().filter(op => !separating(grouped(deliveries.filter(d => d.scope === scope), d => JSON.stringify(policyOf(d)), d => d.delivered)).has(op))
     expect(untried).toEqual([])
 })
 
