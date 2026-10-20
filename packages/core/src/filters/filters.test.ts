@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import verdicts from './awsVerdicts.json'
 import deliveries from './snsDeliveries.json'
 import lambdaDeliveries from './lambdaDeliveries.json'
+import numberVerdicts from './numberVerdicts.json'
 import { AttributePolicy, BodyPolicy, operatorNames, StringAttributePolicy } from '.'
 import { filterArgs } from '../messaging/createSubscription'
 import { eventSourceMappingArgs, LambdaQueueHandler } from '../queue/createQueueHandler'
@@ -145,6 +146,12 @@ test('takes one SNS scope, in its type', () => {
         filterArgs('onOrder', { attributes: { a: ['x'] }, body: { b: ['y'] } })
     }
     expect(typeOnly).toBeFunction()
+})
+
+/** Kept as text: a number a double cannot hold exactly changes once JSON.parse reads it. */
+test('a number SNS or Lambda cannot compare is one no JavaScript value holds, so a filter never carries it', () => {
+    const rejected = numberVerdicts.filter(v => v['sns:body'] !== 'accepts' || v['sqs:body'] !== 'accepts')
+    expect(rejected.filter(v => JSON.stringify(JSON.parse(v.text)) === v.text).map(v => v.text)).toEqual([])
 })
 
 /** A row's whole policy, or its `condition` on the key `value`; its message is `message` as published, or `{ value: published }`. */
