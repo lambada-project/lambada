@@ -22,11 +22,12 @@ export const queryMaps = (query: MockQuery | undefined): Pick<Request, 'queryStr
 
     if (pairs.length === 0) return { queryStringParameters: null, multiValueQueryStringParameters: null }
 
-    const multi: Record<string, string[]> = {}
-    for (const [key, value] of pairs) multi[key] = [...(multi[key] ?? []), value]
+    // A Map, as a key such as `constructor` or `__proto__` is a query parameter like any other.
+    const multi = new Map<string, string[]>()
+    for (const [key, value] of pairs) multi.set(key, [...(multi.get(key) ?? []), value])
     return {
-        queryStringParameters: Object.fromEntries(Object.entries(multi).map(([key, values]) => [key, values[values.length - 1]])),
-        multiValueQueryStringParameters: multi,
+        queryStringParameters: Object.fromEntries([...multi].map(([key, values]) => [key, values[values.length - 1]])),
+        multiValueQueryStringParameters: Object.fromEntries(multi),
     }
 }
 

@@ -27,6 +27,15 @@ describe('queryMaps', () => {
     ] as const)('takes the query by key too: %p', (byKey, asSent) => {
         expect(queryMaps(byKey)).toEqual(queryMaps(asSent))
     })
+
+    test('keeps a key every object inherits as a parameter of its own, as JSON.parse does with the event', () => {
+        const { queryStringParameters: single, multiValueQueryStringParameters: multi } = queryMaps('?constructor=x&__proto__=y&__proto__=z&toString')
+
+        expect(Object.entries(single!)).toEqual([['constructor', 'x'], ['__proto__', 'z'], ['toString', '']])
+        expect(Object.entries(multi!)).toEqual([['constructor', ['x']], ['__proto__', ['y', 'z']], ['toString', ['']]])
+        expect(Object.getPrototypeOf(multi)).toBe(Object.prototype)
+        expect(queryMaps(JSON.parse('{"constructor":["x"],"__proto__":"y"}'))).toEqual(queryMaps('?constructor=x&__proto__=y'))
+    })
 })
 
 describe('getMockRequest', () => {
