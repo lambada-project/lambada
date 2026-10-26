@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import * as pulumi from '@pulumi/pulumi'
 import * as aws from '@pulumi/aws'
 import { grant, LambadaRunArguments, run } from '..'
+import { logsStatement } from '.'
 
 const built: { name: string, type: string, inputs: any }[] = []
 
@@ -34,7 +35,7 @@ const documentOf = (type: string, name: string) => {
 }
 
 describe('grant', () => {
-    test("gives a role the policy a lambada function declaring the same resources gets", async () => {
+    test("gives a role the grants a lambada function declaring the same resources gets, without its logs", async () => {
         const resources = { table: { pets: ['dynamodb:GetItem'] } }
         stack('own', [{ name: 'readPets', schedule: { every: { minutes: 5 } }, callback: { functionFolder: '.', handler: 'index.main' }, resources }])
         const role = new aws.iam.Role('external-role', { assumeRolePolicy: '{}' })
@@ -44,7 +45,8 @@ describe('grant', () => {
 
         const own = documentOf('aws:iam/policy:Policy', 'read-pets-own-policy')
         const granted = documentOf('aws:iam/rolePolicy:RolePolicy', 'readPets-grants')
-        expect(granted).toEqual(own)
+        expect(granted).toEqual({ ...own, Statement: own.Statement.filter((s: { Resource: unknown }) => s.Resource !== logsStatement.Resource) })
+        expect(JSON.stringify(granted)).not.toContain('logs:')
         expect(JSON.stringify(granted)).toContain('kms:')
         expect(built.find(r => r.name === 'readPets-grants')!.inputs.role).toBe('external-role')
     })
@@ -55,12 +57,17 @@ describe('grant', () => {
         await settle()
 
         expect(documentOf('aws:iam/rolePolicy:RolePolicy', 'callUsers-grants').Statement)
-            .toContainEqual({ Effect: 'Allow', Action: ['execute-api:invoke'], Resource: usersRoutes[0] })
+            .toEqual([{ Effect: 'Allow', Action: ['execute-api:invoke'], Resource: usersRoutes[0] }])
     })
 
     test('refuses a custom grant of another service', () => {
         expect(() => grant(stack('foreign'), new aws.iam.Role('foreign-role', { assumeRolePolicy: '{}' }), 'callUsers', { custom: { users: ['s3:GetObject'] } }))
             .toThrow("callUsers: grants custom 'users' s3:GetObject, outside its service 'execute-api'.")
+    })
+
+    test('refuses a custom grant of a wildcard', () => {
+        expect(() => grant(stack('wildcard'), new aws.iam.Role('wildcard-role', { assumeRolePolicy: '{}' }), 'callUsers', { custom: { users: ['execute-api:*'] } }))
+            .toThrow("callUsers: grants custom 'users' execute-api:*, a wildcard")
     })
 
     test('refuses a name the stack does not hold', () => {

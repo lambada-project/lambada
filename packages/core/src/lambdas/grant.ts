@@ -1,6 +1,6 @@
 import * as aws from "@pulumi/aws";
 import * as pulumi from "@pulumi/pulumi";
-import { policyDocument, resourceStatements, tableKeyStatements } from ".";
+import { grantsPolicyDocument, resourceStatements, tableKeyStatements } from ".";
 import type { LambadaResources } from "../context";
 import { LambadaGrants, LambadaGrantsShape, resolveGrants } from "../resources/grants";
 
@@ -20,7 +20,8 @@ export type GrantStack = {
  * Gives a role this stack does not have lambada build the access a lambada function declaring the same
  * resources gets, as an inline policy on it. The function and the role stay whatever they are.
  *
- * Only IAM: an `envVar` grant sets variables on a function, which belongs to whoever builds it.
+ * Only what was granted: an `envVar` grant sets variables on a function, and the logs a lambada function
+ * writes are its own role's, both belonging to whoever builds the function.
  */
 export const grant = <TNames extends LambadaGrantsShape = LambadaGrantsShape>(
     stack: GrantStack,
@@ -42,6 +43,6 @@ export const grant = <TNames extends LambadaGrantsShape = LambadaGrantsShape>(
 
     return new aws.iam.RolePolicy(`${name}-grants`, {
         role: role.name,
-        policy: all.apply(resolved => JSON.stringify(policyDocument(`${name}-grants`, resolved))),
+        policy: all.apply(resolved => JSON.stringify(grantsPolicyDocument(`${name}-grants`, resolved))),
     })
 }

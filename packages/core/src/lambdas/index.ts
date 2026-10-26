@@ -478,11 +478,19 @@ export const sameGrants = (functionName: string, theirs: PolicyDocument, mine: P
 
 export const MANAGED_POLICY_LIMIT = 6144
 
+const grantsOf = (statements: ResolvedStatement[]): PolicyDocument =>
+    ({ Version: "2012-10-17", Statement: mergeStatements(statements) })
+
+/** A lambada function's own role: what it was granted, and the logs every function writes. */
 const documentOf = (statements: ResolvedStatement[]): PolicyDocument =>
     ({ Version: "2012-10-17", Statement: [logsStatement, ...mergeStatements(statements)] })
 
 export const policyDocument = (policyName: string, statements: ResolvedStatement[]) =>
     withinLimit(policyName, documentOf(statements))
+
+/** What was granted and nothing else, for a role lambada does not build and so does not know the needs of. */
+export const grantsPolicyDocument = (policyName: string, statements: ResolvedStatement[]) =>
+    withinLimit(policyName, grantsOf(statements))
 
 const withinLimit = (policyName: string, document: PolicyDocument): PolicyDocument => {
     const size = JSON.stringify(document).length
