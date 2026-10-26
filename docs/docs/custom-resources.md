@@ -42,26 +42,3 @@ A custom resource that more than one service needs is a candidate to become a ki
 ## OpenSearch
 
 The domain is built with plain Pulumi next to run(), and its ARN and endpoint go in `customRef`, as above. Each request to the domain is signed with SigV4 for the service `es`.
-
-## An internal API
-
-An API whose routes are signed (see [Signed requests](authorizers#signed-requests)) admits a caller whose IAM policy allows `execute-api:Invoke` on the route. In the caller's stack, the API is a custom resource with the routes it may call:
-
-```ts
-customRef: {
-    users: {
-        service: 'execute-api',
-        resources: [
-            'arn:aws:execute-api:us-east-1:123456789012:a1b2c3d4e5/app/GET/api/users/*',
-            'arn:aws:execute-api:us-east-1:123456789012:a1b2c3d4e5/app/POST/api/users',
-        ],
-        environment: { USERS_API_URL: 'https://a1b2c3d4e5.execute-api.us-east-1.amazonaws.com/app' },
-    },
-},
-// ...
-resources: { custom: { users: ['execute-api:Invoke'] } }
-```
-
-A route is `arn:aws:execute-api:{region}:{account}:{apiId}/{stage}/{METHOD}/{path}`, and `*` matches any stage, method or path segment. The caller signs each request with its role's credentials, using SigV4 for the service `execute-api`, for example with `@smithy/signature-v4`.
-
-When both stacks are in the same account, the caller's IAM policy is enough. A caller in another account also needs the API's resource policy (`api.policy`) to allow its role; that case has not been measured.

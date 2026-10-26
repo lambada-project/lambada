@@ -1,4 +1,5 @@
 import * as pulumi from "@pulumi/pulumi"
+import type { SignedRoute } from "../apis"
 
 /** The security definition a signed route requires, by the name it is written under. */
 export const SIGV4 = 'sigv4'
@@ -19,6 +20,14 @@ type Swagger = {
     paths?: { [path: string]: { [method: string]: Operation } }
     securityDefinitions?: { [name: string]: unknown }
 }
+
+const ANY_METHOD = 'x-amazon-apigateway-any-method'
+
+/** Every route of the API that requires a signature, as API Gateway enforces it. */
+export const signedRoutes = (swagger: Swagger): SignedRoute[] =>
+    Object.entries(swagger.paths ?? {}).flatMap(([path, methods]) => Object.entries(methods)
+        .filter(([, operation]) => operation.security?.some(requirement => SIGV4 in requirement))
+        .map(([method]) => `${method === ANY_METHOD ? 'ANY' : method.toUpperCase()} ${path}` as SignedRoute))
 
 const isSigned = (operation: Operation) => operation['x-amazon-apigateway-auth']?.type === 'AWS_IAM'
 

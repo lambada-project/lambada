@@ -14,6 +14,7 @@ import {
     SQSAccess,
 } from "../lambdas";
 import { actionProblems } from "../custom";
+import type { SignedRoute } from "../apis";
 
 
 export type LambadaGrantsShape = {
@@ -25,6 +26,7 @@ export type LambadaGrantsShape = {
     kmsKey?: string
     pool?: string
     custom?: string
+    api?: string
     envVar?: string
 }
 
@@ -43,6 +45,8 @@ export type LambadaGrants<TNames extends LambadaGrantsShape = LambadaGrantsShape
     pool?: GrantMap<TNames['pool'], CognitoAccess>
     /** Resources of `customRef`, by key: each action must belong to the service its resource names. */
     custom?: GrantMap<TNames['custom'], IamAction>
+    /** Routes of an API in `apisRef`, by key, each as that API signs it: `GET /api/users/{id}`. */
+    api?: GrantMap<TNames['api'], SignedRoute>
     /** environment variables this function may use, excluding global variables. */
     envVar?: readonly (TNames['envVar'] & string)[]
 }
@@ -52,7 +56,7 @@ export type LambadaResourceRequest<TNames extends LambadaGrantsShape = LambadaGr
 
 export type GrantContext = Pick<
     LambadaResources,
-    'databases' | 'buckets' | 'secrets' | 'messaging' | 'queues' | 'kmsKeys' | 'pools' | 'custom'
+    'databases' | 'buckets' | 'secrets' | 'messaging' | 'queues' | 'kmsKeys' | 'pools' | 'custom' | 'apis'
 >
 
 export type EnvironmentContext = Pick<LambadaResources, 'environmentVariables' | 'globalEnvironmentVariables'>
@@ -138,6 +142,8 @@ export const toLambdaResources = (
         if (problems.length) throw new Error(problems.map(problem => grantProblem(name, ref, problem)).join('\n'))
         return { custom, access: [...access] }
     }),
+    ...entries(resources.api).map(([ref, routes]) =>
+        ({ api: requireItem(context.apis, { name, kind: 'api', ref }), access: [...routes] })),
 ]
 
 const grantProblem = (name: string, ref: string, problem: string) => `${name}: grants custom '${ref}' ${problem}`
@@ -237,9 +243,10 @@ export const resourceLookups = (
     kmsKey: context.kmsKeys,
     pool: context.pools,
     custom: context.custom,
+    api: context.apis,
 })
 
-export type ResourceKind = 'table' | 'bucket' | 'topic' | 'queue' | 'secret' | 'kmsKey' | 'pool' | 'custom'
+export type ResourceKind = 'table' | 'bucket' | 'topic' | 'queue' | 'secret' | 'kmsKey' | 'pool' | 'custom' | 'api'
 
 /**
  * Every name in a grant map the stack cannot resolve. Unlike `toLambdaResources` this reports all

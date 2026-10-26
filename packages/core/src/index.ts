@@ -29,6 +29,8 @@ import { EnvironmentPool, requireDistinctVariables } from "./resources/grants";
 
 import { createBuckets, LambadaBuckets, LambadaBucketsRef, BucketsResult } from "./buckets";
 import { createCustom, CustomResult, LambadaCustomRef } from "./custom";
+import { ApisResult, createApis, LambadaApisRef, SignedApi } from "./apis";
+import { signedRoutes } from "./api/sigv4";
 
 export * from './context'
 export * from './inputs'
@@ -50,6 +52,7 @@ export * from './auth/pools'
 export type { AuthorizerDefinition, AuthorizerSelection, LambadaAuthorizers, PoolAuthorizerDefinition } from './auth/authorizers'
 export * from './buckets'
 export * from './custom'
+export * from './apis'
 export * from './resources'
 export * from './security'
 
@@ -104,6 +107,11 @@ export type LambadaRunArguments = {
      * resources, and what a granted function is told. lambada creates nothing.
      */
     customRef?: LambadaCustomRef | CustomResult
+    /**
+     * Other stacks' APIs, by the key `resources.api` grants their routes under: what each published as
+     * `signedApi`, and the variable a granted function reads its URL from.
+     */
+    apisRef?: LambadaApisRef | ApisResult
 
     /** Topics to create */
     messages?: LambadaMessages,
@@ -224,6 +232,7 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
 
     const buckets = createBuckets(environment, args.buckets, args.bucketsRef, globalTags)
     const custom = createCustom(args.customRef)
+    const apis = createApis(args.apisRef)
     const messaging = createMessaging(environment, args.messages, args.messagesRef, globalTags, encryptionKeys, diagnostics)
     const queues = createQueues(environment, args.queues, args.queuesRef)
     const notifications = createNotifications(projectName, environment, args?.notifications)
@@ -287,6 +296,7 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
         databases: databases,
         buckets: buckets,
         custom: custom,
+        apis: apis,
         logs: args.logs && { prefix: `/lambada/${projectName}`, ...args.logs },
         environment: environment,
         kmsKeys: encryptionKeys,
@@ -404,8 +414,21 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
         databases: databases,
         buckets: buckets,
         custom: custom,
+        apis: apis,
+        /** This stack's API as another stack's `apisRef` takes it: the routes it signs, and where they are. */
+        signedApi: api && signedApiOf(api),
         apiKey: apiKey,
         secrets: secrets,
         security: encryptionKeys
     }
 }
+
+/** Built for every API and read by few, so a value a stack lacks must not reject it unread. */
+const signedApiOf = (api: awsx.apigateway.API): pulumi.Output<SignedApi> =>
+    pulumi.all([api.restAPI.body, api.restAPI.executionArn, api.stage.stageName, api.stage.invokeUrl])
+        .apply(([body, executionArn, stage, url]) => ({
+            executionArn,
+            url: (url ?? '').replace(/\/$/, ''),
+            stage,
+            routes: signedRoutes(JSON.parse(body ?? '{}')),
+        }))
