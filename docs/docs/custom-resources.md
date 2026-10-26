@@ -27,7 +27,8 @@ run('pets', environment, {
 ```
 
 - `service` is the IAM prefix every granted action must carry: `es`, `aoss`, `execute-api`. An action of another service is refused before anything is built, naming the function; case is ignored, as IAM ignores it.
-- `resources` is what the actions apply to, one ARN or several, each of the declared service with partition, region and account spelled out. `*`, an ARN of another service, or one naming every resource of its service is refused; a wildcard within the resource, such as a domain's paths, is how a service scopes its own and is accepted.
+- `arnService` is the service the resources' ARNs name, when it differs from `service`: the Data API's actions are `rds-data:*` and its cluster is `arn:aws:rds:…`, so `{ service: 'rds-data', arnService: 'rds' }`. Left out, it is `service`.
+- `resources` is what the actions apply to, one ARN or several, each of `arnService` with partition, region and account spelled out. `*`, an ARN of another service, or one naming every resource of its service is refused; a wildcard within the resource, such as a domain's paths, is how a service scopes its own and is accepted.
 - A wildcard action (`es:*`, `es:ESHttp*`) is refused: each action is named.
 - `iam` and `sts` are refused as services: a grant of them lets a function give itself more.
 

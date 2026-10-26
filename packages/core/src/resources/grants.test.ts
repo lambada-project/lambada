@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { createPools } from '../auth/pools'
-import { createCustom } from '../custom'
+import { actionProblems, createCustom } from '../custom'
 import { findCustomGrantProblems, GrantContext, LambadaGrants, isLambadaGrants, resolveGrants, toLambdaResources } from './grants'
 
 const item = (name: string) => ({ definition: { name, envKeyName: `${name.toUpperCase()}_NAME` }, ref: { name } })
@@ -114,15 +114,29 @@ describe('a custom grant', () => {
 
 describe('a custom resource', () => {
     test.each([
-        { resource: '*', problem: "'*' is not an ARN of its service 'es'" },
-        { resource: 'arn:aws:s3:::pets', problem: "'arn:aws:s3:::pets' is not an ARN of its service 'es'" },
+        { resource: '*', problem: "'*' is not an ARN of 'es'" },
+        { resource: 'arn:aws:s3:::pets', problem: "'arn:aws:s3:::pets' is not an ARN of 'es'" },
         { resource: 'arn:aws:es:*:123456789012:domain/pets', problem: 'with partition, region and account spelled out' },
         { resource: 'arn:aws:es:us-east-1:*:domain/pets', problem: 'with partition, region and account spelled out' },
-        { resource: 'arn:aws:es:us-east-1:123456789012:*', problem: 'names every resource of its service' },
-        { resource: 'domain/pets', problem: "is not an ARN of its service 'es'" },
+        { resource: 'arn:aws:es:us-east-1:123456789012:*', problem: "names every resource of 'es'" },
+        { resource: 'domain/pets', problem: "is not an ARN of 'es'" },
     ])('is refused when broader than one ARN of its service: $resource', ({ resource, problem }) => {
         expect(() => createCustom({ search: { service: 'es', resources: ['arn:aws:es:us-east-1:123456789012:domain/pets', resource] } }))
             .toThrow(problem)
+    })
+
+    test('names the ARNs of its arnService when its actions carry another prefix', () => {
+        const cluster = 'arn:aws:rds:us-east-1:123456789012:cluster:pets'
+        const { pets } = createCustom({ pets: { service: 'rds-data', arnService: 'rds', resources: cluster } })
+
+        expect(() => createCustom({ pets: { service: 'rds-data', resources: cluster } })).toThrow(`'${cluster}' is not an ARN of 'rds-data'`)
+        expect(actionProblems(pets, ['rds-data:ExecuteStatement'])).toEqual([])
+        expect(actionProblems(pets, ['rds:DeleteDBCluster'])).toEqual(["rds:DeleteDBCluster, outside its service 'rds-data'."])
+    })
+
+    test.each(['', 'iam', 'RDS'])('refuses %p as an arnService', arnService => {
+        expect(() => createCustom({ pets: { service: 'rds-data', arnService, resources: 'arn:aws:rds:us-east-1:123456789012:cluster:pets' } }))
+            .toThrow(`Cannot declare the custom resource 'pets': arnService '${arnService}'`)
     })
 
     test.each([

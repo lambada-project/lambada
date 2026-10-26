@@ -9,6 +9,11 @@ import * as pulumi from "@pulumi/pulumi"
 export type CustomResourceDefinition = {
     /** The IAM prefix of every action a grant may name: `es`, `aoss`, `execute-api`. */
     service: string
+    /**
+     * The service its resources' ARNs name, when it is not `service`: the Data API's actions are
+     * `rds-data:*`, and the cluster they apply to is `arn:aws:rds:…`, so `rds`. Left out, `service`.
+     */
+    arnService?: string
     /** What the actions apply to, as IAM names it. */
     resources: pulumi.Input<string> | pulumi.Input<string>[]
     /** Published to every function granted this resource, by variable name. */
@@ -19,6 +24,7 @@ export type LambadaCustomRef = { [key: string]: CustomResourceDefinition }
 
 export type CustomResultItem = {
     service: string
+    arnService: string
     resources: pulumi.Output<string[]>
     environment: { [envKeyName: string]: pulumi.Input<string> }
 }
@@ -34,14 +40,14 @@ const REVIEWED = "State it in the function's policyStatements, where it is revie
 const IDENTITY_SERVICES = ['iam', 'sts']
 
 /**
- * What is wrong with a resource a custom grant applies to: it must be an ARN of its own service, with
+ * What is wrong with a resource a custom grant applies to: it must be an ARN of its `arnService`, with
  * no wildcard in partition, region or account, naming something narrower than everything. A wildcard
  * within the resource, such as a domain's paths, is how a service scopes its own resources.
  */
-export const resourceProblem = (service: string, resource: string): string | undefined => {
-    const arn = new RegExp(`^arn:[^:*?]+:${service}:[^:*?]*:[^:*?]*:(.+)$`).exec(resource)
-    if (!arn) return `'${resource}' is not an ARN of its service '${service}' with partition, region and account spelled out`
-    if (/^[*?]+$/.test(arn[1])) return `'${resource}' names every resource of its service`
+export const resourceProblem = (arnService: string, resource: string): string | undefined => {
+    const arn = new RegExp(`^arn:[^:*?]+:${arnService}:[^:*?]*:[^:*?]*:(.+)$`).exec(resource)
+    if (!arn) return `'${resource}' is not an ARN of '${arnService}' with partition, region and account spelled out`
+    if (/^[*?]+$/.test(arn[1])) return `'${resource}' names every resource of '${arnService}'`
     return undefined
 }
 
@@ -59,18 +65,21 @@ export const createCustom = (customRef?: LambadaCustomRef | CustomResult): Custo
 
     for (const key in customRef) {
         if (Object.prototype.hasOwnProperty.call(customRef, key)) {
-            const { service, resources, environment } = customRef[key]
-            if (!SERVICE.test(service)) {
-                throw new Error(declarationProblem(key, `service '${service}' is not an IAM prefix, such as 'es' or 'execute-api'.`))
-            }
-            if (IDENTITY_SERVICES.includes(service)) {
-                throw new Error(declarationProblem(key, `service '${service}' manages identities, so a grant of it lets a function give itself more. ${REVIEWED}`))
+            const { service, arnService = service, resources, environment } = customRef[key]
+            for (const [field, name] of [['service', service], ['arnService', arnService]]) {
+                if (!SERVICE.test(name)) {
+                    throw new Error(declarationProblem(key, `${field} '${name}' is not an IAM service prefix, such as 'es' or 'execute-api'.`))
+                }
+                if (IDENTITY_SERVICES.includes(name)) {
+                    throw new Error(declarationProblem(key, `${field} '${name}' manages identities, so a grant of it lets a function give itself more. ${REVIEWED}`))
+                }
             }
             // Plain strings are checked now; an Output when it resolves, which preview reaches.
-            const check = requireResource(key, service)
+            const check = requireResource(key, arnService)
             for (const resource of [resources].flat()) if (typeof resource === 'string') check(resource)
             result[key] = {
                 service,
+                arnService,
                 resources: pulumi.output(resources).apply(r => [r].flat().map(check)),
                 environment: { ...environment },
             }
