@@ -28,12 +28,15 @@ import { preflight } from "./resources/preflight";
 import { EnvironmentPool, requireDistinctVariables } from "./resources/grants";
 
 import { createBuckets, LambadaBuckets, LambadaBucketsRef, BucketsResult } from "./buckets";
+import { createCustom, CustomResult, LambadaCustomRef } from "./custom";
 
 export * from './context'
 export * from './inputs'
 // A pre-built bundle to deploy in place of a serialized closure; see `useBundle` on an endpoint.
 export type { LambdaFolder, LambdaHandler } from './lambdas'
 export type { LambadaFunctionTuning, LambadaTriggeredFunction } from './lambdas/declarations'
+export { grant } from './lambdas/grant'
+export type { GrantStack } from './lambdas/grant'
 export * from './lambdas/bundles'
 export * from './api/index'
 export * from './extra'
@@ -46,6 +49,7 @@ export * from './logs'
 export * from './auth/pools'
 export type { AuthorizerDefinition, AuthorizerSelection, LambadaAuthorizers, PoolAuthorizerDefinition } from './auth/authorizers'
 export * from './buckets'
+export * from './custom'
 export * from './resources'
 export * from './security'
 
@@ -94,6 +98,12 @@ export type LambadaRunArguments = {
     buckets?: LambadaBuckets
     /** Referenced buckets, does not create anything */
     bucketsRef?: LambadaBucketsRef | BucketsResult
+
+    /**
+     * Resources lambada has no kind for, by the key `resources.custom` grants: the IAM service, the
+     * resources, and what a granted function is told. lambada creates nothing.
+     */
+    customRef?: LambadaCustomRef | CustomResult
 
     /** Topics to create */
     messages?: LambadaMessages,
@@ -213,6 +223,7 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
     )
 
     const buckets = createBuckets(environment, args.buckets, args.bucketsRef, globalTags)
+    const custom = createCustom(args.customRef)
     const messaging = createMessaging(environment, args.messages, args.messagesRef, globalTags, encryptionKeys, diagnostics)
     const queues = createQueues(environment, args.queues, args.queuesRef)
     const notifications = createNotifications(projectName, environment, args?.notifications)
@@ -275,6 +286,7 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
         notifications: notifications,
         databases: databases,
         buckets: buckets,
+        custom: custom,
         logs: args.logs && { prefix: `/lambada/${projectName}`, ...args.logs },
         environment: environment,
         kmsKeys: encryptionKeys,
@@ -391,6 +403,7 @@ export const run = (projectName: string, environment: string, args: LambadaRunAr
         pools: pools,
         databases: databases,
         buckets: buckets,
+        custom: custom,
         apiKey: apiKey,
         secrets: secrets,
         security: encryptionKeys

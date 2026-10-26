@@ -16,6 +16,7 @@ import { BucketResultItem } from '../buckets';
 import { lift, lift2 } from '../inputs';
 import type { LogsResult, RetentionDays } from '../logs';
 import { PoolResultItem } from '../auth/pools';
+import type { CustomResultItem } from '../custom';
 //import { NotificationResult, NotificationResultItem } from '../notifications';
 
 export const lambdaAssumeRole: PolicyDocument = {
@@ -191,6 +192,9 @@ const grantedResource = (
     if (access.pool) {
         //Cognito calls need the pool id to address the pool
         return { resource: access.pool.ref.arn, envVars: { [access.pool.envKeyName]: access.pool.ref.id } }
+    }
+    if (access.custom) {
+        return { resource: access.custom.resources, envVars: access.custom.environment }
     }
     if (access.arn) {
         return { resource: access.arn, envVars: {} }
@@ -474,11 +478,19 @@ export const sameGrants = (functionName: string, theirs: PolicyDocument, mine: P
 
 export const MANAGED_POLICY_LIMIT = 6144
 
+const grantsOf = (statements: ResolvedStatement[]): PolicyDocument =>
+    ({ Version: "2012-10-17", Statement: mergeStatements(statements) })
+
+/** A lambada function's own role: what it was granted, and the logs every function writes. */
 const documentOf = (statements: ResolvedStatement[]): PolicyDocument =>
     ({ Version: "2012-10-17", Statement: [logsStatement, ...mergeStatements(statements)] })
 
 export const policyDocument = (policyName: string, statements: ResolvedStatement[]) =>
     withinLimit(policyName, documentOf(statements))
+
+/** What was granted and nothing else, for a role lambada does not build and so does not know the needs of. */
+export const grantsPolicyDocument = (policyName: string, statements: ResolvedStatement[]) =>
+    withinLimit(policyName, grantsOf(statements))
 
 const withinLimit = (policyName: string, document: PolicyDocument): PolicyDocument => {
     const size = JSON.stringify(document).length
@@ -579,6 +591,7 @@ export type LambdaDynamoDbResource = {
     kmsKey?: SecurityResultItem
     secret?: SecretResultItem
     pool?: PoolResultItem
+    custom?: CustomResultItem
     arn?: Input<string> | Input<Input<string>[]>
     access: LambdaResourceAccessItem[]
 }

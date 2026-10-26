@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import * as pulumi from '@pulumi/pulumi'
 import { createLambda, LambdaResource, sameGrants } from '.'
+import { createCustom } from '../custom'
 
 const created: pulumi.runtime.MockResourceArgs[] = []
 
@@ -57,6 +58,19 @@ describe('lambdas that grant differently keep their own role', () => {
         const b = await lambda('readToysCopy', [{ table: table('toys') as never, access: ['dynamodb:GetItem'] }])
 
         expect(b).not.toBe(a)
+    })
+
+    test('equal table grants and different custom grants', async () => {
+        const shops = table('shops')
+        const { search } = createCustom({ search: { service: 'es', resources: 'arn:aws:es:us-east-1:123456789012:domain/shops/*', environment: { SHOPS_ENDPOINT: 'search-shops' } } })
+        const read = { table: shops as never, access: ['dynamodb:GetItem'] }
+        const none = await lambda('readShops', [read])
+        const get = await lambda('searchShops', [read, { custom: search, access: ['es:ESHttpGet'] }])
+        const post = await lambda('queryShops', [read, { custom: search, access: ['es:ESHttpPost'] }])
+        const getAgain = await lambda('findShops', [read, { custom: search, access: ['es:ESHttpGet'] }])
+
+        expect(new Set([none, get, post]).size).toBe(3)
+        expect(getAgain).toBe(get)
     })
 
     test('statements passed by the caller, which are known only at deploy', async () => {
