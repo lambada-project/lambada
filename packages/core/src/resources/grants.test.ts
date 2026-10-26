@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { createPools } from '../auth/pools'
 import { createCustom } from '../custom'
-import { findForeignActions, GrantContext, LambadaGrants, isLambadaGrants, resolveGrants, toLambdaResources } from './grants'
+import { findCustomGrantProblems, GrantContext, LambadaGrants, isLambadaGrants, resolveGrants, toLambdaResources } from './grants'
 
 const item = (name: string) => ({ definition: { name, envKeyName: `${name.toUpperCase()}_NAME` }, ref: { name } })
 
@@ -86,16 +86,51 @@ describe('a custom grant', () => {
         const resources = { custom: { search: actions } } as LambadaGrants
 
         expect(() => toLambdaResources(context, { name: 'getPet', resources })).toThrow(`getPet: grants custom 'search' ${foreign}, outside its service 'es'.`)
-        expect(findForeignActions(context, { name: 'getPet', resources })).toEqual([`getPet: grants custom 'search' ${foreign}, outside its service 'es'.`])
+        expect(findCustomGrantProblems(context, { name: 'getPet', resources })).toEqual([`getPet: grants custom 'search' ${foreign}, outside its service 'es'.`])
     })
 
     test('reports nothing for actions of its service, or for a name preflight reports as missing', () => {
-        expect(findForeignActions(context, { name: 'getPet', resources: { custom: { search: ['es:ESHttpGet', 'ES:ESHttpPost'] } } })).toEqual([])
-        expect(findForeignActions(context, { name: 'getPet', resources: { custom: { missing: ['s3:GetObject'] } } })).toEqual([])
+        expect(findCustomGrantProblems(context, { name: 'getPet', resources: { custom: { search: ['es:ESHttpGet', 'ES:ESHttpPost'] } } })).toEqual([])
+        expect(findCustomGrantProblems(context, { name: 'getPet', resources: { custom: { missing: ['s3:GetObject'] } } })).toEqual([])
+    })
+
+    test.each(['es:*', 'es:ESHttp*', 'ES:ESHttpGe?'])('refuses the wildcard %s', action => {
+        const resources = { custom: { search: [action] } } as LambadaGrants
+        const problem = `getPet: grants custom 'search' ${action}, a wildcard: name each action. State it in the function's policyStatements, where it is reviewed as written.`
+
+        expect(() => toLambdaResources(context, { name: 'getPet', resources })).toThrow(problem)
+        expect(findCustomGrantProblems(context, { name: 'getPet', resources })).toEqual([problem])
     })
 
     test.each(['', 'es:', 'ES', 'execute api'])('refuses %p as a service', service => {
         expect(() => createCustom({ search: { service, resources: 'arn:x' } })).toThrow(`Cannot declare the custom resource 'search': service '${service}'`)
+    })
+
+    test.each(['iam', 'sts'])('refuses %s, whose grants let a function give itself more', service => {
+        expect(() => createCustom({ admin: { service, resources: `arn:aws:${service}::123456789012:role/pets` } }))
+            .toThrow(`Cannot declare the custom resource 'admin': service '${service}' manages identities`)
+    })
+})
+
+describe('a custom resource', () => {
+    test.each([
+        { resource: '*', problem: "'*' is not an ARN of its service 'es'" },
+        { resource: 'arn:aws:s3:::pets', problem: "'arn:aws:s3:::pets' is not an ARN of its service 'es'" },
+        { resource: 'arn:aws:es:*:123456789012:domain/pets', problem: 'with partition, region and account spelled out' },
+        { resource: 'arn:aws:es:us-east-1:*:domain/pets', problem: 'with partition, region and account spelled out' },
+        { resource: 'arn:aws:es:us-east-1:123456789012:*', problem: 'names every resource of its service' },
+        { resource: 'domain/pets', problem: "is not an ARN of its service 'es'" },
+    ])('is refused when broader than one ARN of its service: $resource', ({ resource, problem }) => {
+        expect(() => createCustom({ search: { service: 'es', resources: ['arn:aws:es:us-east-1:123456789012:domain/pets', resource] } }))
+            .toThrow(problem)
+    })
+
+    test.each([
+        'arn:aws:es:us-east-1:123456789012:domain/pets',
+        'arn:aws:es:us-east-1:123456789012:domain/pets/*',
+        'arn:aws-us-gov:es:us-gov-west-1:123456789012:domain/pets',
+    ])('is accepted as an ARN of its service: %s', resource => {
+        expect(() => createCustom({ search: { service: 'es', resources: resource } })).not.toThrow()
     })
 })
 

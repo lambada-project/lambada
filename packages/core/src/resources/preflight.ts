@@ -3,7 +3,7 @@ import { LambadaResources } from "../context";
 import { LambadaDiagnostics, MissingResource } from "./diagnostics";
 import { EndpointAuthorizers, styleProblems } from "../auth/authorizers";
 import { lambdaOptionsProblems } from "../lambdas/declarations";
-import { findForeignActions, findMissingGrants, isLambadaGrants, LambadaResourceRequest, ResourceKind, resourceLookups } from "./grants";
+import { findCustomGrantProblems, findMissingGrants, isLambadaGrants, LambadaResourceRequest, ResourceKind, resourceLookups } from "./grants";
 
 /**
  * As much of a handler as this pass can see without running anything. A creator has to be executed
@@ -90,7 +90,7 @@ export const preflight = (
                 for (const missing of findMissingGrants(context, { name, resources: definition.resources })) {
                     diagnostics.missingResource(missing)
                 }
-                findForeignActions(context, { name, resources: definition.resources }).forEach(diagnostics.invalid)
+                findCustomGrantProblems(context, { name, resources: definition.resources }).forEach(diagnostics.invalid)
             }
         }
     }

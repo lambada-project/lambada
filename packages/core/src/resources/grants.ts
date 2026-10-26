@@ -13,7 +13,7 @@ import {
     SNSAccess,
     SQSAccess,
 } from "../lambdas";
-import { foreignActions } from "../custom";
+import { actionProblems } from "../custom";
 
 
 export type LambadaGrantsShape = {
@@ -134,22 +134,20 @@ export const toLambdaResources = (
         ({ pool: requireItem(context.pools, { name, kind: 'pool', ref }), access: [...access] })),
     ...entries(resources.custom).map(([ref, access]) => {
         const custom = requireItem(context.custom, { name, kind: 'custom', ref })
-        const foreign = foreignActions(custom, access)
-        if (foreign.length) throw new Error(foreignActionsProblem(name, ref, custom.service, foreign))
+        const problems = actionProblems(custom, access)
+        if (problems.length) throw new Error(problems.map(problem => grantProblem(name, ref, problem)).join('\n'))
         return { custom, access: [...access] }
     }),
 ]
 
-const foreignActionsProblem = (name: string, ref: string, service: string, actions: string[]) =>
-    `${name}: grants custom '${ref}' ${actions.join(', ')}, outside its service '${service}'.`
+const grantProblem = (name: string, ref: string, problem: string) => `${name}: grants custom '${ref}' ${problem}`
 
-/** Every custom grant naming an action outside its resource's service, reported together like a missing name. */
-export const findForeignActions = (context: GrantContext, { name, resources }: ResourceAsk): string[] =>
+/** Every custom grant naming an action it may not, reported together like a missing name. */
+export const findCustomGrantProblems = (context: GrantContext, { name, resources }: ResourceAsk): string[] =>
     isLambadaGrants(resources)
         ? entries(resources.custom).flatMap(([ref, access]) => {
             const custom = context.custom?.[ref]
-            const foreign = custom ? foreignActions(custom, access) : []
-            return foreign.length ? [foreignActionsProblem(name, ref, custom!.service, foreign)] : []
+            return custom ? actionProblems(custom, access).map(problem => grantProblem(name, ref, problem)) : []
         })
         : []
 

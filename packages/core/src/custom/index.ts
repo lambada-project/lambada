@@ -28,6 +28,31 @@ export type CustomResult = { [key: string]: CustomResultItem }
 /** An IAM service prefix, which never holds the ':' that ends it. */
 const SERVICE = /^[a-z0-9-]+$/
 
+const REVIEWED = "State it in the function's policyStatements, where it is reviewed as written."
+
+/** Services whose actions manage identities: a grant of one lets a function give itself more. */
+const IDENTITY_SERVICES = ['iam', 'sts']
+
+/**
+ * What is wrong with a resource a custom grant applies to: it must be an ARN of its own service, with
+ * no wildcard in partition, region or account, naming something narrower than everything. A wildcard
+ * within the resource, such as a domain's paths, is how a service scopes its own resources.
+ */
+export const resourceProblem = (service: string, resource: string): string | undefined => {
+    const arn = new RegExp(`^arn:[^:*?]+:${service}:[^:*?]*:[^:*?]*:(.+)$`).exec(resource)
+    if (!arn) return `'${resource}' is not an ARN of its service '${service}' with partition, region and account spelled out`
+    if (/^[*?]+$/.test(arn[1])) return `'${resource}' names every resource of its service`
+    return undefined
+}
+
+const declarationProblem = (key: string, problem: string) => `Cannot declare the custom resource '${key}': ${problem}`
+
+const requireResource = (key: string, service: string) => (resource: string) => {
+    const problem = resourceProblem(service, resource)
+    if (problem) throw new Error(`${declarationProblem(key, problem)}. ${REVIEWED}`)
+    return resource
+}
+
 /** Each custom resource as a grant resolves it. A result of an earlier run passes through. */
 export const createCustom = (customRef?: LambadaCustomRef | CustomResult): CustomResult => {
     const result: CustomResult = {}
@@ -36,11 +61,17 @@ export const createCustom = (customRef?: LambadaCustomRef | CustomResult): Custo
         if (Object.prototype.hasOwnProperty.call(customRef, key)) {
             const { service, resources, environment } = customRef[key]
             if (!SERVICE.test(service)) {
-                throw new Error(`Cannot declare the custom resource '${key}': service '${service}' is not an IAM prefix, such as 'es' or 'execute-api'.`)
+                throw new Error(declarationProblem(key, `service '${service}' is not an IAM prefix, such as 'es' or 'execute-api'.`))
             }
+            if (IDENTITY_SERVICES.includes(service)) {
+                throw new Error(declarationProblem(key, `service '${service}' manages identities, so a grant of it lets a function give itself more. ${REVIEWED}`))
+            }
+            // Plain strings are checked now; an Output when it resolves, which preview reaches.
+            const check = requireResource(key, service)
+            for (const resource of [resources].flat()) if (typeof resource === 'string') check(resource)
             result[key] = {
                 service,
-                resources: pulumi.output(resources).apply(r => [r].flat()),
+                resources: pulumi.output(resources).apply(r => [r].flat().map(check)),
                 environment: { ...environment },
             }
         }
@@ -49,6 +80,12 @@ export const createCustom = (customRef?: LambadaCustomRef | CustomResult): Custo
     return result
 }
 
-/** The actions of a grant that belong to another service than the resource's. IAM ignores their case. */
-export const foreignActions = (item: CustomResultItem, actions: readonly string[]): string[] =>
-    actions.filter(action => !action.toLowerCase().startsWith(`${item.service}:`))
+/** What is wrong with the actions of a grant: another service than the resource's, or a wildcard. IAM ignores their case. */
+export const actionProblems = (item: CustomResultItem, actions: readonly string[]): string[] => {
+    const foreign = actions.filter(action => !action.toLowerCase().startsWith(`${item.service}:`))
+    const wildcards = actions.filter(action => !foreign.includes(action) && /[*?]/.test(action))
+    return [
+        ...(foreign.length ? [`${foreign.join(', ')}, outside its service '${item.service}'.`] : []),
+        ...(wildcards.length ? [`${wildcards.join(', ')}, a wildcard: name each action. ${REVIEWED}`] : []),
+    ]
+}

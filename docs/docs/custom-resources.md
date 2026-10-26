@@ -27,7 +27,11 @@ run('pets', environment, {
 ```
 
 - `service` is the IAM prefix every granted action must carry: `es`, `aoss`, `execute-api`. An action of another service is refused before anything is built, naming the function; case is ignored, as IAM ignores it.
-- `resources` is what the actions apply to, one ARN or several.
+- `resources` is what the actions apply to, one ARN or several, each of the declared service with partition, region and account spelled out. `*`, an ARN of another service, or one naming every resource of its service is refused; a wildcard within the resource, such as a domain's paths, is how a service scopes its own and is accepted.
+- A wildcard action (`es:*`, `es:ESHttp*`) is refused: each action is named.
+- `iam` and `sts` are refused as services: a grant of them lets a function give itself more.
+
+What the slot refuses can still be stated in a function's `policyStatements`, where it is written and reviewed as the statement IAM receives.
 - `environment` is set on every function granted the resource. A function not granted it does not see it.
 
 A grant naming a key `customRef` lacks is reported with the other missing resources. Functions granting the same actions on the same resources share a role, as they do for any kind. `grant()` takes custom grants too.
