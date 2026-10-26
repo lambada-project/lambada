@@ -18,6 +18,7 @@ const definitions: LambadaAuthorizers = {
     admin: { pool: 'admins' },
     orphan: { pool: 'ghosts' },
     secure: lambda('anotherName'),
+    signed: { iam: true },
 }
 
 const shape = (a: any): object => 'providerARNs' in a
@@ -42,14 +43,26 @@ describe('a method runs the one authorizer it names', () => {
         { defaults: false, expected: [] },
         { defaults: undefined, expected: [] },
     ] as { defaults: AuthorizerSelection | undefined, expected: object[] }[])('left out, the default $defaults', ({ defaults, expected }) => {
-        expect(createAuthorization(definitions, pools, defaults).resolve('fn', undefined).map(shape)).toEqual(expected)
+        expect(createAuthorization(definitions, pools, defaults).resolve('fn', undefined).authorizers.map(shape)).toEqual(expected)
     })
 
     test('one authorizer per name, shared by every method selecting it', () => {
         const authorization = createAuthorization(definitions, pools, undefined)
 
-        expect(authorization.resolve('a', 'userPool')[0]).toBe(authorization.resolve('b', 'userPool')[0])
-        expect(authorization.resolve('a', 'secure')[0]).toBe(authorization.resolve('b', 'secure')[0])
+        expect(authorization.resolve('a', 'userPool').authorizers[0]).toBe(authorization.resolve('b', 'userPool').authorizers[0])
+        expect(authorization.resolve('a', 'secure').authorizers[0]).toBe(authorization.resolve('b', 'secure').authorizers[0])
+    })
+
+    test('a signed route runs no authorizer, and requires a signature instead', () => {
+        expect(createAuthorization(definitions, pools, undefined).select('fn', 'signed'))
+            .toEqual({ authorizers: [], iamAuthEnabled: true, missing: [] })
+    })
+
+    test('every other route requires no signature', () => {
+        const authorization = createAuthorization(definitions, pools, 'signed')
+
+        expect(authorization.resolve('fn', 'secure')).not.toHaveProperty('iamAuthEnabled')
+        expect(authorization.resolve('fn', false)).toEqual({ authorizers: [] })
     })
 
     test('leaves the declared lambda authorizer as it was written', () => {
@@ -72,6 +85,10 @@ describe('a name the stack cannot resolve is reported', () => {
     })
 
     test.each(['a+b', 'a.b', 'with space', '', 'x'.repeat(1025)])('a name API Gateway or Lambda refuses: %#', name => {
+        expect(() => createAuthorization({ [name]: { pool: 'users' } }, pools, undefined)).toThrow(`authorizer '${name}'`)
+    })
+
+    test.each(['api_key', 'sigv4', 'toString'])('a name the API writes its own security definition under: %s', name => {
         expect(() => createAuthorization({ [name]: { pool: 'users' } }, pools, undefined)).toThrow(`authorizer '${name}'`)
     })
 })

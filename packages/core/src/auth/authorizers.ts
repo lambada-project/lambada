@@ -2,15 +2,22 @@ import * as awsx from "@pulumi/awsx/classic";
 import { CognitoAuthorizer, LambdaAuthorizer } from "@pulumi/awsx/classic/apigateway";
 import { createDiagnostics, MissingResource } from "../resources/diagnostics";
 import { PoolsResult } from "./pools";
+import { SIGV4 } from "../api/sigv4";
 
 /** Tokens from the pool declared under this key in `pools` or `poolsRef`. */
 export type PoolAuthorizerDefinition = { pool: string }
 
 /**
+ * Requests signed with SigV4 by an identity whose IAM policy allows `execute-api:Invoke` on the route.
+ * A caller in this account is granted routes through `resources.custom`, with service `execute-api`.
+ */
+export type IamAuthorizerDefinition = { iam: true }
+
+/**
  * An authorizer the API can run, declared under the name endpoints select it by. That name is also
  * what API Gateway calls it, so a lambda authorizer's own `authorizerName` gives way to it.
  */
-export type AuthorizerDefinition = PoolAuthorizerDefinition | LambdaAuthorizer
+export type AuthorizerDefinition = PoolAuthorizerDefinition | IamAuthorizerDefinition | LambdaAuthorizer
 
 export type LambadaAuthorizers = { [name: string]: AuthorizerDefinition }
 
@@ -19,18 +26,26 @@ export type AuthorizerSelection = string | false
 
 export type MethodAuthorizer = CognitoAuthorizer | LambdaAuthorizer
 
+/** What a route takes to run its authorizer: awsx's own `iamAuthEnabled` marks a signed route. */
+export type RouteAuthorization = {
+    authorizers: MethodAuthorizer[]
+    iamAuthEnabled?: true
+}
+
 export type Authorization = {
     /** What a method runs, and every name it uses that the stack lacks. */
-    select(functionName: string, selection: AuthorizerSelection | undefined): {
-        authorizers: MethodAuthorizer[]
+    select(functionName: string, selection: AuthorizerSelection | undefined): RouteAuthorization & {
         missing: MissingResource[]
     }
-    /** The authorizers a method runs; throws naming what the stack lacks. */
-    resolve(functionName: string, selection: AuthorizerSelection | undefined): MethodAuthorizer[]
+    /** What a method runs; throws naming what the stack lacks. */
+    resolve(functionName: string, selection: AuthorizerSelection | undefined): RouteAuthorization
 }
 
 const isPoolDefinition = (definition: AuthorizerDefinition): definition is PoolAuthorizerDefinition =>
     'pool' in definition
+
+const isIamDefinition = (definition: AuthorizerDefinition): definition is IamAuthorizerDefinition =>
+    'iam' in definition && definition.iam === true
 
 /**
  * The key names the authorizer in API Gateway, which allows [a-zA-Z0-9._-] up to 1024, and names the
@@ -40,9 +55,9 @@ const NAME = /^[A-Za-z0-9_-]{1,1024}$/
 
 /**
  * awsx registers authorizers in a plain object, where a name an object inherits reads as already taken,
- * and writes the API key's security definition as `api_key`.
+ * and writes the API key's security definition as `api_key`; lambada writes a signed route's as `sigv4`.
  */
-const isReserved = (name: string) => name in {} || name === 'api_key'
+const isReserved = (name: string) => name in {} || name === 'api_key' || name === SIGV4
 
 export const createAuthorization = (
     definitions: LambadaAuthorizers,
@@ -54,7 +69,7 @@ export const createAuthorization = (
             throw new Error(`Cannot declare the authorizer '${name}': use up to 1024 letters, digits, '-' and '_'.`)
         }
         if (isReserved(name)) {
-            throw new Error(`Cannot declare the authorizer '${name}': awsx keeps that name for itself. Choose another.`)
+            throw new Error(`Cannot declare the authorizer '${name}': its security definition would take the place of one the API writes under that name. Choose another.`)
         }
     }
 
@@ -63,9 +78,10 @@ export const createAuthorization = (
 
     // One per name, so every method selecting it shares the authorizer API Gateway imports.
     const built = new Map<string, MethodAuthorizer>()
-    const build = (name: string): MethodAuthorizer => {
+    const build = (name: string): RouteAuthorization => {
+        const definition = definitions[name]
+        if (isIamDefinition(definition)) return { authorizers: [], iamAuthEnabled: true }
         if (!built.has(name)) {
-            const definition = definitions[name]
             built.set(name, isPoolDefinition(definition)
                 ? awsx.apigateway.getCognitoAuthorizer({
                     authorizerName: name,
@@ -73,7 +89,7 @@ export const createAuthorization = (
                 })
                 : { ...definition, authorizerName: name })
         }
-        return built.get(name)!
+        return { authorizers: [built.get(name)!] }
     }
 
     const check = (functionName: string, name: string): MissingResource[] => {
@@ -90,17 +106,17 @@ export const createAuthorization = (
         if (name === false) return { authorizers: [], missing: [] }
 
         const missing = check(functionName, name)
-        return { authorizers: missing.length > 0 ? [] : [build(name)], missing }
+        return missing.length > 0 ? { authorizers: [], missing } : { ...build(name), missing }
     }
 
     return {
         select,
         resolve(functionName, selection) {
-            const { authorizers, missing } = select(functionName, selection)
+            const { missing, ...route } = select(functionName, selection)
             const diagnostics = createDiagnostics()
             missing.forEach(diagnostics.missingResource)
             diagnostics.throwIfIncomplete()
-            return authorizers
+            return route
         },
     }
 }

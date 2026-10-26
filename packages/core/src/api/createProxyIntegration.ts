@@ -31,8 +31,8 @@ export const createProxyIntegrationCompat = ({ path, targetUri, enableAuth, auth
 
     const route: IntegrationRoute = {
         path: `${embroideryContext.api?.apiPath ?? ''}${path}`,
-        authorizers: embroideryContext.authorization ? embroideryContext.authorization.resolve(path, auth?.authorizer)
-            : enableAuth ? embroideryContext.authorizers : [],
+        ...(embroideryContext.authorization ? embroideryContext.authorization.resolve(path, auth?.authorizer)
+            : { authorizers: enableAuth ? embroideryContext.authorizers : [] }),
         target: {
             type: 'http_proxy',
             httpMethod: 'ANY',

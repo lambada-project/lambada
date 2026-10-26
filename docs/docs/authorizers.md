@@ -6,7 +6,7 @@ slug: /authorizers
 
 ## Declare them once
 
-Every authorizer the API can run is declared under `auth.authorizers`, by the name endpoints select it with. An entry is a Cognito pool from `pools` or `poolsRef`, or a lambda authorizer.
+Every authorizer the API can run is declared under `auth.authorizers`, by the name endpoints select it with. An entry is a Cognito pool from `pools` or `poolsRef`, a lambda authorizer, or `{ iam: true }` for signed requests.
 
 ```ts
 run('orders', environment, {
@@ -16,6 +16,7 @@ run('orders', environment, {
             admin: { pool: 'admins' },
             pin: awsx.apigateway.getRequestLambdaAuthorizer({ headers: ['Authorization'], handler: { uri, credentials } }),
             noPin: awsx.apigateway.getRequestLambdaAuthorizer({ headers: ['Authorization'], handler: { uri: noPinUri, credentials } }),
+            internal: { iam: true },
         },
         defaultAuthorizer: 'noPin',
     },
@@ -35,6 +36,14 @@ Without `defaultAuthorizer`, an endpoint that selects nothing is public. Proxy i
 
 Every name is checked before anything is built. Names that are not declared, and pools that are not in `pools` or `poolsRef`, are reported together with the other missing resources.
 
+## Signed requests
+
+An endpoint selecting `{ iam: true }` admits a request signed with SigV4 by an identity whose IAM policy allows `execute-api:Invoke` on its route, and no authorizer runs. Callers are granted routes as a [custom resource](custom-resources#an-internal-api).
+
+Measured on an API with one granted route: a signed request to it got 200, an unsigned one 403, and a signed request to a route not granted 403. A new grant took effect within seconds. With `useApiKey`, a request needs both the signature and the key.
+
+awsx's `iamAuthEnabled` alone writes an extension API Gateway ignores on import, which left the route open to unsigned requests. lambada writes the route's security as the `sigv4` definition API Gateway enforces.
+
 ## One authorizer per method
 
 API Gateway runs a single authorizer on a method, and refuses to import one with two ("Only one Authorizer or IAM authorization is allowed per operation"). So an endpoint selects one name. A pool and a lambda authorizer cannot share a method; to accept both kinds of token, have the lambda authorizer verify the pool's tokens itself.
@@ -44,7 +53,7 @@ API Gateway runs a single authorizer on a method, and refuses to import one with
 The key is the authorizer's name in API Gateway, and for a lambda authorizer whose handler is a function, the name of the function awsx builds for it. It replaces the authorizer's own `authorizerName`.
 
 - Keys use up to 1024 letters, digits, `-` and `_`. API Gateway refuses other characters, and Lambda refuses `.` in a function name.
-- `api_key`, and names every object has such as `constructor` or `toString`, are refused: awsx uses them itself.
+- `api_key`, `sigv4`, and names every object has such as `constructor` or `toString`, are refused: the API writes its own security definitions under them.
 
 ## Moving from the deprecated fields
 
