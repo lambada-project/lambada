@@ -6,6 +6,7 @@ import { NotificationResult } from "./notifications";
 import { EmbroideryEnvironmentVariables } from ".";
 import { QueuesResult } from "./queue";
 import { BucketsResult } from "./buckets";
+import { CustomResult } from "./custom";
 import type { LogsResult } from "./logs";
 import { FunctionVpcConfig, LambdaOptions } from "./lambdas";
 import { BundleSource } from "./lambdas/bundles";
@@ -40,6 +41,8 @@ export type LambadaResources = {
     notifications?: NotificationResult
     databases?: DatabaseResult
     buckets?: BucketsResult
+    /** The resources of `customRef`, granted through `resources.custom`. */
+    custom?: CustomResult
     logs?: LogsResult
     environment: string
     kmsKeys?: SecurityResult

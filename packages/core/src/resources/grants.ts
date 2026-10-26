@@ -13,6 +13,7 @@ import {
     SNSAccess,
     SQSAccess,
 } from "../lambdas";
+import { foreignActions } from "../custom";
 
 
 export type LambadaGrantsShape = {
@@ -23,8 +24,12 @@ export type LambadaGrantsShape = {
     secret?: string
     kmsKey?: string
     pool?: string
+    custom?: string
     envVar?: string
 }
+
+/** An action as IAM names it, `service:Action`. */
+export type IamAction = `${string}:${string}`
 
 type GrantMap<TName, TAccess extends string> = Partial<Record<TName & string, readonly TAccess[]>>
 
@@ -36,6 +41,8 @@ export type LambadaGrants<TNames extends LambadaGrantsShape = LambadaGrantsShape
     secret?: GrantMap<TNames['secret'], SecretAccess>
     kmsKey?: GrantMap<TNames['kmsKey'], KmsAccess>
     pool?: GrantMap<TNames['pool'], CognitoAccess>
+    /** Resources of `customRef`, by key: each action must belong to the service its resource names. */
+    custom?: GrantMap<TNames['custom'], IamAction>
     /** environment variables this function may use, excluding global variables. */
     envVar?: readonly (TNames['envVar'] & string)[]
 }
@@ -45,7 +52,7 @@ export type LambadaResourceRequest<TNames extends LambadaGrantsShape = LambadaGr
 
 export type GrantContext = Pick<
     LambadaResources,
-    'databases' | 'buckets' | 'secrets' | 'messaging' | 'queues' | 'kmsKeys' | 'pools'
+    'databases' | 'buckets' | 'secrets' | 'messaging' | 'queues' | 'kmsKeys' | 'pools' | 'custom'
 >
 
 export type EnvironmentContext = Pick<LambadaResources, 'environmentVariables' | 'globalEnvironmentVariables'>
@@ -125,7 +132,26 @@ export const toLambdaResources = (
         ({ kmsKey: requireItem(context.kmsKeys, { name, kind: 'kmsKey', ref }), access: [...access] })),
     ...entries(resources.pool).map(([ref, access]) =>
         ({ pool: requireItem(context.pools, { name, kind: 'pool', ref }), access: [...access] })),
+    ...entries(resources.custom).map(([ref, access]) => {
+        const custom = requireItem(context.custom, { name, kind: 'custom', ref })
+        const foreign = foreignActions(custom, access)
+        if (foreign.length) throw new Error(foreignActionsProblem(name, ref, custom.service, foreign))
+        return { custom, access: [...access] }
+    }),
 ]
+
+const foreignActionsProblem = (name: string, ref: string, service: string, actions: string[]) =>
+    `${name}: grants custom '${ref}' ${actions.join(', ')}, outside its service '${service}'.`
+
+/** Every custom grant naming an action outside its resource's service, reported together like a missing name. */
+export const findForeignActions = (context: GrantContext, { name, resources }: ResourceAsk): string[] =>
+    isLambadaGrants(resources)
+        ? entries(resources.custom).flatMap(([ref, access]) => {
+            const custom = context.custom?.[ref]
+            const foreign = custom ? foreignActions(custom, access) : []
+            return foreign.length ? [foreignActionsProblem(name, ref, custom!.service, foreign)] : []
+        })
+        : []
 
 /**
  * Grants for either form, always as a fresh array. Callers append to what comes back — a kms key,
@@ -212,9 +238,10 @@ export const resourceLookups = (
     secret: context.secrets,
     kmsKey: context.kmsKeys,
     pool: context.pools,
+    custom: context.custom,
 })
 
-export type ResourceKind = 'table' | 'bucket' | 'topic' | 'queue' | 'secret' | 'kmsKey' | 'pool'
+export type ResourceKind = 'table' | 'bucket' | 'topic' | 'queue' | 'secret' | 'kmsKey' | 'pool' | 'custom'
 
 /**
  * Every name in a grant map the stack cannot resolve. Unlike `toLambdaResources` this reports all

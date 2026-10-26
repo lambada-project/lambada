@@ -18,8 +18,11 @@ const settled = <T>(o: pulumi.Input<T>): Promise<T> =>
 
 const pets = { name: 'pets-test', arn: 'arn:aws:dynamodb:us-east-1:123456789012:table/pets-test', streamArn: '', kmsKeyArn: 'arn:aws:kms:us-east-1:123456789012:key/pets' }
 
+const usersRoutes = ['arn:aws:execute-api:us-east-1:123456789012:a1b2c3d4e5/app/GET/api/users/*']
+
 const stack = (environment: string, functions: object[] = []) => run('proj', environment, {
     bundles: () => ({ functionFolder: '.', handler: 'index.main' }),
+    customRef: { users: { service: 'execute-api', resources: usersRoutes } },
     tablesRef: { pets: { awsTable: {}, ref: pets, definition: { name: 'pets', primaryKey: 'id', envKeyName: 'PETS_TABLE_NAME' }, streamEnabled: false } },
     scheduleDefinitions: functions,
 } as unknown as LambadaRunArguments)
@@ -44,6 +47,20 @@ describe('grant', () => {
         expect(granted).toEqual(own)
         expect(JSON.stringify(granted)).toContain('kms:')
         expect(built.find(r => r.name === 'readPets-grants')!.inputs.role).toBe('external-role')
+    })
+
+    test('gives a role a custom grant on exactly its resources', async () => {
+        const policy = grant(stack('custom'), new aws.iam.Role('custom-role', { assumeRolePolicy: '{}' }), 'callUsers', { custom: { users: ['execute-api:Invoke'] } })
+        await settled(policy.policy)
+        await settle()
+
+        expect(documentOf('aws:iam/rolePolicy:RolePolicy', 'callUsers-grants').Statement)
+            .toContainEqual({ Effect: 'Allow', Action: ['execute-api:invoke'], Resource: usersRoutes[0] })
+    })
+
+    test('refuses a custom grant of another service', () => {
+        expect(() => grant(stack('foreign'), new aws.iam.Role('foreign-role', { assumeRolePolicy: '{}' }), 'callUsers', { custom: { users: ['s3:GetObject'] } }))
+            .toThrow("callUsers: grants custom 'users' s3:GetObject, outside its service 'execute-api'.")
     })
 
     test('refuses a name the stack does not hold', () => {
