@@ -123,6 +123,10 @@ const denyInsecureTransport: BucketStatement = arn => ({
 
 /** CloudFront signs as its service, so the bucket names the one distribution it serves. */
 const cdnReads = (bucket: string, definition: BucketDefinition, distribution: aws.cloudfront.Distribution): BucketStatement => {
+    // An empty list would read as "every object" below; an allowlist that emptied must serve nothing.
+    if (definition.cdn?.prefixes?.length === 0) {
+        throw new Error(`Cannot serve the bucket '${bucket}' through its cdn: cdn.prefixes is empty. Leave it out to serve every object, or leave out cdn.`)
+    }
     const served = (definition.cdn?.prefixes ?? []).map(key => {
         const prefix = definition.prefixes?.[key]
         if (prefix === undefined) {

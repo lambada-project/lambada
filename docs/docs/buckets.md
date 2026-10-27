@@ -49,7 +49,8 @@ photos: {
 ```
 
 - lambada creates an origin access control and the distribution, and adds to the bucket's policy one statement letting `cloudfront.amazonaws.com` read objects, for requests whose `AWS:SourceArn` is that distribution.
-- `cdn.prefixes` names the prefixes the distribution may read, by key. Left out, it reads every object. An object outside them answers 403 through the distribution.
+- Whatever the distribution may read is public: anyone with an object's URL fetches it, with no viewer authentication. Serve only what is meant for everyone, and keep private objects in prefixes the distribution does not read.
+- `cdn.prefixes` names the prefixes the distribution may read, by key. Left out, it reads every object; an empty list is refused, so an allowlist that empties does not open the bucket. An object outside them answers 403 through the distribution.
 - `cdn.envKeyName` publishes the distribution's domain to every function granted the bucket or one of its prefixes, so a function can build the URL of an object it wrote.
 - The distribution only reads: GET and HEAD, HTTPS, with AWS's managed caching policy. `cdn.options` is merged over what lambada writes, for a custom domain or another cache policy. The one origin's id is `bucket`.
 - The distribution has no `s3:ListBucket`, so a missing object answers 403, not 404.

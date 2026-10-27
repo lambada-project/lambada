@@ -327,6 +327,10 @@ describe('a bucket served through its cdn', () => {
             .toThrow("it names the prefix 'ghost', which the bucket does not declare. It declares: profiles, visits.")
     })
 
+    test('refuses an empty list of prefixes, which would otherwise serve every object', () => {
+        expect(() => create(photos({ cdn: { prefixes: [] } }))).toThrow("cdn.prefixes is empty")
+    })
+
     test('refuses a policy given through options', () => {
         expect(() => create(photos({ cdn: {}, hardened: false, options: { policy: '{}' } }))).toThrow(/sets its own policy through options/)
     })
