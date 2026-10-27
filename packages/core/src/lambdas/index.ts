@@ -142,6 +142,7 @@ export const resourceStatements = (
     if (access.access.length === 0) {
         throw new Error(`Resource on ${functionName} has zero access request`)
     }
+    if (access.bucket?.prefix !== undefined) return prefixStatements(access.bucket, access.access, functionName)
     const { resource, envVars } = grantedResource(access, functionName, environment)
 
     return { statements: [{ Action: access.access, Resource: resource, Effect: 'Allow' }], envVars }
@@ -165,8 +166,8 @@ const grantedResource = (
     }
     if (access.bucket) {
         // S3 calls address a bucket by name, and object actions are on `${arn}/*`, not the bucket.
-        const { awsS3Bucket, envKeyName } = access.bucket
-        return { resource: [awsS3Bucket.arn, pulumi.interpolate`${awsS3Bucket.arn}/*`], envVars: { [envKeyName]: awsS3Bucket.bucket } }
+        const { awsS3Bucket } = access.bucket
+        return { resource: [awsS3Bucket.arn, pulumi.interpolate`${awsS3Bucket.arn}/*`], envVars: bucketVariables(access.bucket) }
     }
     if (access.topic) {
         //PubSub connections need the topic ARN to talk to SNS
@@ -200,6 +201,42 @@ const grantedResource = (
         return { resource: access.arn, envVars: {} }
     }
     throw functionName + '-' + environment + ': Access must have the resource, eg. topic, table, messaging, etc. ' + JSON.stringify(access);
+}
+
+const bucketVariables = ({ awsS3Bucket, envKeyName, cdn }: BucketResultItem): Record<string, pulumi.Input<string>> => ({
+    [envKeyName]: awsS3Bucket.bucket,
+    ...(cdn?.envKeyName && { [cdn.envKeyName]: cdn.distribution.domainName }),
+})
+
+/** Bucket actions S3 narrows to a prefix through the `s3:prefix` condition key. */
+const PREFIX_LISTS = ['ListBucket', 'ListBucketVersions', 'ListBucketMultipartUploads']
+
+/** The actions S3 authorizes on an object, the only resource a prefix names. */
+const onObject = (action: string) =>
+    (/object/i.test(action) && !/bucket/i.test(action)) || ['s3:abortmultipartupload', 's3:listmultipartuploadparts'].includes(actionName(action))
+
+/**
+ * A prefix grants its objects, and the listings that S3 narrows to it. Any other bucket action would
+ * apply to the whole bucket, so naming one is refused: grant the bucket for it.
+ */
+const prefixStatements = (bucket: BucketResultItem, access: LambdaResourceAccessItem[], functionName: string) => {
+    const { awsS3Bucket, prefix } = bucket
+    const lists = access.filter(action => PREFIX_LISTS.some(name => matchesAction(action, `s3:${name}`)))
+    const whole = access.filter(action => !/[*?]/.test(action) && !onObject(action) && !lists.includes(action))
+    if (whole.length) {
+        throw new Error(
+            `${functionName}: grants the prefix '${prefix}' ${whole.join(', ')}, which S3 applies to the whole ` +
+            `bucket. Grant the bucket for ${whole.length > 1 ? 'them' : 'it'}.`
+        )
+    }
+    const objects = access.filter(action => /[*?]/.test(action) || !lists.includes(action))
+    const statements: aws.iam.PolicyStatement[] = objects.length
+        ? [{ Effect: 'Allow', Action: objects, Resource: pulumi.interpolate`${awsS3Bucket.arn}/${prefix}*` }]
+        : []
+    if (lists.length) {
+        statements.push({ Effect: 'Allow', Action: lists, Resource: awsS3Bucket.arn, Condition: { StringLike: { 's3:prefix': [`${prefix}*`] } } })
+    }
+    return { statements, envVars: bucketVariables(bucket) }
 }
 
 /**
