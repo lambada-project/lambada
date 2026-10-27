@@ -4,6 +4,7 @@ import { LambadaRunArguments } from '..'
 import { createDiagnostics } from '../resources/diagnostics'
 import { findMissingGrants, toLambdaResources } from '../resources/grants'
 import { bucketName, BucketsResult, createBuckets } from '.'
+import { resourceStatements } from '../lambdas'
 
 const built: { name: string, type: string, id?: string, inputs: any }[] = []
 const looked: string[] = []
@@ -11,10 +12,14 @@ const looked: string[] = []
 pulumi.runtime.setMocks({
     newResource: (args: pulumi.runtime.MockResourceArgs) => {
         built.push({ name: args.name, type: args.type, id: args.id, inputs: args.inputs })
+        if (args.type === 'aws:cloudfront/distribution:Distribution') {
+            return { id: 'E1', state: { ...args.inputs, arn: 'arn:aws:cloudfront::123456789012:distribution/E1', domainName: 'd1.cloudfront.net' } }
+        }
+        if (args.type === 'aws:cloudfront/originAccessControl:OriginAccessControl') return { id: 'oac-1', state: args.inputs }
         // A bucket's id is its name: `args.id` on a `.get`, the `bucket` input on a create.
         const id = args.id || (args.inputs.bucket as string)
 
-        return { id, state: { ...args.inputs, bucket: id, arn: `arn:aws:s3:::${id}` } }
+        return { id, state: { ...args.inputs, bucket: id, arn: `arn:aws:s3:::${id}`, bucketRegionalDomainName: `${id}.s3.us-east-1.amazonaws.com` } }
     },
     call: (args: pulumi.runtime.MockCallArgs) => {
         if (args.token === 'aws:s3/getBucket:getBucket') {
@@ -89,7 +94,7 @@ describe('createBuckets', () => {
 
     test('refuses to reference a bucket under the name of one it created', () => {
         expect(() => create({ uploads: definition('uploads') }, { uploads: definition('other') }))
-            .toThrow(/Cannot create a ref bucket with the same name of an existing bucket: uploads/)
+            .toThrow(/Cannot add the bucket or prefix .uploads.: the stack already has/)
     })
 })
 
@@ -196,5 +201,137 @@ describe('what run() accepts', () => {
         const resources = { bucket: { uploads: ['s3:GetObject', 's3:PutObject'] } } as const
 
         expect(resources.bucket.uploads).toHaveLength(2)
+    })
+})
+
+const photos = (extra: object = {}) => ({
+    photos: { ...definition('photos'), prefixes: { profiles: 'profiles/', visits: 'visits/' }, ...extra },
+})
+
+describe('a prefix', () => {
+    test('is granted by its key, as a bucket narrowed to its keys', () => {
+        const buckets = create(photos())
+
+        expect(Object.keys(buckets)).toEqual(['photos', 'profiles', 'visits'])
+        expect(buckets.profiles).toMatchObject({ prefix: 'profiles/', envKeyName: 'PHOTOS_BUCKET' })
+        expect(buckets.profiles.awsS3Bucket).toBe(buckets.photos.awsS3Bucket)
+        expect(buckets.photos.prefix).toBeUndefined()
+    })
+
+    test('shares the namespace of the buckets', () => {
+        expect(() => create({ ...photos(), profiles: definition('profiles') }))
+            .toThrow("Cannot add the bucket or prefix 'profiles'")
+    })
+
+    test.each([
+        { prefix: '', problem: 'is empty' },
+        { prefix: 'cat*', problem: 'holds a wildcard' },
+        { prefix: '/profiles/', problem: "starts with '/'" },
+    ])('refuses $prefix', ({ prefix, problem }) => {
+        expect(() => create({ photos: { ...definition('photos'), prefixes: { profiles: prefix } } }))
+            .toThrow(`Cannot declare the prefix 'profiles' of the bucket 'photos': '${prefix}' ${problem}`)
+    })
+
+    test('of a referenced bucket', () => {
+        const buckets = create(undefined, { outside: { id: 'someone-elses-bucket', envKeyName: 'OUTSIDE_BUCKET', prefixes: { inbox: 'inbox/' } } })
+
+        expect(buckets.inbox.prefix).toBe('inbox/')
+    })
+})
+
+describe('a granted prefix', () => {
+    const statementsOf = async (access: string[], extra?: object) => {
+        const [grant] = toLambdaResources({ buckets: create(photos(extra)) } as any, { name: 'fn', resources: { bucket: { profiles: access as any } } })
+        const { statements, envVars } = resourceStatements(grant, 'fn', 'test')
+        return { statements: await settled(statements as any), envVars: await settled(envVars as any) }
+    }
+
+    test('reaches only the objects under it', async () => {
+        const { statements, envVars } = await statementsOf(['s3:PutObject'])
+
+        expect(statements).toEqual([{ Effect: 'Allow', Action: ['s3:PutObject'], Resource: 'arn:aws:s3:::photos-test/profiles/*' }])
+        expect(envVars).toEqual({ PHOTOS_BUCKET: 'photos-test' })
+    })
+
+    test('lists only the keys under it', async () => {
+        const { statements } = await statementsOf(['s3:GetObject', 's3:ListBucket'])
+
+        expect(statements[0]).toMatchObject({ Action: ['s3:GetObject'] })
+        expect(statements[1]).toEqual({
+            Effect: 'Allow', Action: ['s3:ListBucket'], Resource: 'arn:aws:s3:::photos-test',
+            Condition: { StringLike: { 's3:prefix': ['profiles/*'] } },
+        })
+    })
+
+    test('a listing alone grants no object', async () => {
+        const { statements } = await statementsOf(['s3:ListBucket'])
+
+        expect(statements.map((s: any) => s.Resource)).toEqual(['arn:aws:s3:::photos-test'])
+    })
+
+    test.each(['s3:GetBucketLocation', 's3:GetBucketObjectLockConfiguration'])('refuses %s, which S3 applies to the whole bucket', async action => {
+        await expect(statementsOf(['s3:GetObject', action])).rejects.toThrow(`fn: grants the prefix 'profiles/' ${action}, which S3 applies to the whole bucket`)
+    })
+})
+
+describe('a bucket served through its cdn', () => {
+    const built0 = (type: string) => built.filter(r => r.type === type)
+    const drain = async () => {
+        for (let i = 0; i < 10; i++) await new Promise(resolve => setTimeout(resolve, 0))
+    }
+    const policyOf = async (buckets: BucketsResult) => {
+        await settled(buckets.photos.cdn!.distribution.arn)
+        await drain()
+        return JSON.parse(await settled(built0('aws:s3/bucketPolicy:BucketPolicy')[0].inputs.policy))
+    }
+
+    test('reads through a distribution lambada builds, the one reader the bucket lets in', async () => {
+        built.length = 0
+        const policy = await policyOf(create(photos({ cdn: {} })))
+
+        const [distribution] = built0('aws:cloudfront/distribution:Distribution')
+        expect(distribution.inputs.origins).toEqual([{ originId: 'bucket', domainName: 'photos-test.s3.us-east-1.amazonaws.com', originAccessControlId: 'oac-1' }])
+        expect(policy.Statement.map((s: any) => s.Sid)).toEqual(['DenyInsecureTransport', 'CdnReadsObjects'])
+        expect(policy.Statement[1]).toEqual({
+            Sid: 'CdnReadsObjects', Effect: 'Allow', Principal: { Service: 'cloudfront.amazonaws.com' }, Action: 's3:GetObject',
+            Resource: 'arn:aws:s3:::photos-test/*',
+            Condition: { StringEquals: { 'AWS:SourceArn': 'arn:aws:cloudfront::123456789012:distribution/E1' } },
+        })
+    })
+
+    test('reads only the prefixes it names', async () => {
+        built.length = 0
+        const policy = await policyOf(create(photos({ cdn: { prefixes: ['profiles'] } })))
+
+        expect(policy.Statement[1].Resource).toEqual(['arn:aws:s3:::photos-test/profiles/*'])
+    })
+
+    test('writes its policy on a bucket that is not hardened', async () => {
+        built.length = 0
+        const policy = await policyOf(create(photos({ cdn: {}, hardened: false })))
+
+        expect(policy.Statement.map((s: any) => s.Sid)).toEqual(['CdnReadsObjects'])
+        expect(built0('aws:s3/bucketPublicAccessBlock:BucketPublicAccessBlock')).toHaveLength(0)
+    })
+
+    test('publishes its domain to a function granted the bucket or one of its prefixes', async () => {
+        const buckets = create(photos({ cdn: { envKeyName: 'PHOTOS_CDN' } }))
+        for (const ref of ['photos', 'profiles']) {
+            const [grant] = toLambdaResources({ buckets } as any, { name: 'fn', resources: { bucket: { [ref]: ['s3:GetObject'] } } })
+            expect(await settled(resourceStatements(grant, 'fn', 'test').envVars as any)).toEqual({ PHOTOS_BUCKET: 'photos-test', PHOTOS_CDN: 'd1.cloudfront.net' })
+        }
+    })
+
+    test('refuses a prefix the bucket does not declare', () => {
+        expect(() => create(photos({ cdn: { prefixes: ['ghost'] } })))
+            .toThrow("it names the prefix 'ghost', which the bucket does not declare. It declares: profiles, visits.")
+    })
+
+    test('refuses a policy given through options', () => {
+        expect(() => create(photos({ cdn: {}, hardened: false, options: { policy: '{}' } }))).toThrow(/sets its own policy through options/)
+    })
+
+    test('refuses a referenced bucket', () => {
+        expect(() => create(undefined, { shared: { ...definition('shared'), cdn: {} } })).toThrow("Cannot serve the referenced bucket 'shared'")
     })
 })
