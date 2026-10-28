@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import verdicts from './awsVerdicts.json'
 import deliveries from './snsDeliveries.json'
 import lambdaDeliveries from './lambdaDeliveries.json'
+import numberVerdicts from './numberVerdicts.json'
 import { AttributePolicy, BodyPolicy, operatorNames, StringAttributePolicy } from '.'
 import { filterArgs } from '../messaging/createSubscription'
 import { eventSourceMappingArgs, LambdaQueueHandler } from '../queue/createQueueHandler'
@@ -67,6 +68,11 @@ describe('a filter, against what SNS and Lambda said of it', () => {
             'sqs:attributes num6Decimals',
             'sqs:attributes numValueOver',
             'sqs:attributes butNumberOver',
+            'sqs:attributes edges:numberAbove1',
+            'sqs:attributes edges:numberEquals5',
+            'sqs:attributes edges:numberLiteral5',
+            // Matches every Number attribute: lambada writes stringValue only, so it does not offer dataType.
+            'sqs:attributes edges:numberDataType',
         ])
     })
 })
@@ -147,10 +153,19 @@ test('takes one SNS scope, in its type', () => {
     expect(typeOnly).toBeFunction()
 })
 
+/** Kept as text: a number a double cannot hold exactly changes once JSON.parse reads it. */
+test('a number SNS or Lambda cannot compare is one no JavaScript value holds, so a filter never carries it', () => {
+    const rejected = numberVerdicts.filter(v => v['sns:body'] !== 'accepts' || v['sqs:body'] !== 'accepts')
+    expect(rejected.filter(v => JSON.stringify(JSON.parse(v.text)) === v.text).map(v => v.text)).toEqual([])
+})
+
+/** A row's whole policy, or its `condition` on the key `value`; its message is `message` as published, or `{ value: published }`. */
+const policyOf = (d: { condition?: unknown, policy?: unknown }) => d.policy ?? { value: d.condition }
+
 describe('a filter, against what SNS delivered by it', () => {
     test('is written as the policy SNS delivered by, escaped once', () => {
         const written = deliveries.filter(d => {
-            const policy = { value: d.condition }
+            const policy = policyOf(d)
             const filter = d.scope === 'attributes' ? { attributes: policy } : { body: policy }
             return filterArgs('s', filter as never).filterPolicy !== JSON.stringify(policy)
         })
@@ -160,7 +175,14 @@ describe('a filter, against what SNS delivered by it', () => {
 
 describe('a queue handler filter, against what Lambda delivered by it', () => {
     test('declares every pattern Lambda delivered by as itself, and writes it unchanged', () => {
-        expect(lambdaDeliveries.filter(d => eventSourceMappingArgs(queueHandler(JSON.parse(d.pattern))).filterCriteria?.filters[0].pattern !== d.pattern)).toEqual([])
+        const holdable = lambdaDeliveries.filter(d => JSON.stringify(JSON.parse(d.pattern)) === d.pattern)
+        expect(holdable.length).toBe(lambdaDeliveries.length - 2)
+        const written = (pattern: string) => { try { return eventSourceMappingArgs(queueHandler(JSON.parse(pattern))).filterCriteria?.filters[0].pattern } catch { return undefined } }
+        const refused = holdable.filter(d => written(d.pattern) === undefined)
+        expect(holdable.filter(d => !refused.includes(d) && written(d.pattern) !== d.pattern)).toEqual([])
+        // A refused pattern never delivered, but for dataType, which lambada does not offer.
+        expect(refused.filter(d => d.delivered && !d.pattern.includes('"dataType"'))).toEqual([])
+        expect(new Set(refused.map(d => d.pattern)).size).toBe(4)
     })
 })
 
@@ -179,7 +201,7 @@ const grouped = <T>(rows: T[], key: (row: T) => string, delivered: (row: T) => b
     rows.reduce((m, r) => m.set(key(r), [...(m.get(key(r)) ?? []), delivered(r)]), new Map<string, boolean[]>())
 
 test.each(['attributes', 'body'])('every operator lambada writes has delivered a message and held one back, in the SNS %s scope', scope => {
-    const untried = operatorNames().filter(op => !separating(grouped(deliveries.filter(d => d.scope === scope), d => JSON.stringify(d.condition), d => d.delivered)).has(op))
+    const untried = operatorNames().filter(op => !separating(grouped(deliveries.filter(d => d.scope === scope), d => JSON.stringify(policyOf(d)), d => d.delivered)).has(op))
     expect(untried).toEqual([])
 })
 
