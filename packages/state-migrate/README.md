@@ -101,6 +101,8 @@ It makes:
 - **A KMS key**, `alias/pulumi-state`, with rotation on, for the secrets provider.
 - **The login `pulumi_ci`**, and a policy on each of `deployRoles` letting it open the database and decrypt.
 
+The policies on `deployRoles` belong to this template: remove a role from `deployRoles` and run `pulumi up` before deleting the role, or IAM refuses the delete with `DeleteConflict`.
+
 `vpcId` and `subnetIds` place it outside the default VPC; `multiAz`, `instanceClass`, `backupDays` and `identifier` change the rest.
 
 The backend runs `CREATE TABLE IF NOT EXISTS` each time it opens, so its login needs `CREATE` on the schema and must own `pulumi_state`. A login that may only read and write rows cannot open it. The template keeps the owner apart from the login:
