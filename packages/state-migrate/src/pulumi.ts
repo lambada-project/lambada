@@ -1,0 +1,26 @@
+import { spawnSync } from 'node:child_process'
+
+export const PULUMI_CLOUD = 'https://api.pulumi.com'
+
+export type Result = { code: number, stdout: string, stderr: string }
+
+/** Runs the Pulumi CLI against one backend. The target's URL is read from the environment, never passed as an argument. */
+export type Pulumi = (args: string[], options: { backend: 'cloud' | 'target', cwd: string }) => Result
+
+export const pulumiCli = (targetUrl: string, cloudToken: string | undefined): Pulumi => (args, { backend, cwd }) => {
+    // The token stays set on the target too: a secret Pulumi Cloud encrypted is decrypted by Pulumi Cloud, also while importing it elsewhere.
+    const env: NodeJS.ProcessEnv = {
+        ...process.env,
+        PULUMI_SKIP_UPDATE_CHECK: '1',
+        PULUMI_BACKEND_URL: backend === 'cloud' ? PULUMI_CLOUD : targetUrl,
+        ...(cloudToken ? { PULUMI_ACCESS_TOKEN: cloudToken } : {}),
+    }
+    const r = spawnSync('pulumi', [...args, '--non-interactive'], { cwd, env, encoding: 'utf8', maxBuffer: 512 * 1024 * 1024 })
+    if (r.error) throw r.error
+    return { code: r.status ?? 1, stdout: r.stdout, stderr: r.stderr }
+}
+
+export const must = (r: Result, what: string): string => {
+    if (r.code !== 0) throw new Error(`${what} failed:\n${(r.stderr || r.stdout).trim().split('\n').slice(-8).join('\n')}`)
+    return r.stdout
+}
