@@ -12,9 +12,16 @@ const SELF_MANAGED_ORG = 'organization'
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 const lineOf = (text: string, index: number) => text.slice(0, index).split('\n').length
 
-/** `new StackReference(<literal>` in code: the literal's quote and its text up to the closing quote. */
-const REFERENCE = /StackReference\(\s*(['"`])((?:\\.|(?!\1)[^\\])*)\1/g
-const CONFIG_REFERENCE = /StackReference\(\s*(?:[\w.]+\.)?(?:config\.)?(?:require|get)(?:Secret)?\(\s*['"]([^'"]+)['"]/g
+/**
+ * Where a reference names its stack: its `name` argument, as in `new StackReference('catalog', { name })`,
+ * or else its first argument, which is then both the resource's name and the stack's.
+ */
+const TARGET = String.raw`StackReference\(\s*(?:(?:'[^'\n]*'|"[^"\n]*"|\`[^\`\n]*\`|[\w.]+)\s*,\s*\{[^{}]*?\bname\s*:\s*)?`
+const CONFIG_READ = String.raw`(?:[\w.]+\.)?(?:config\.)?(?:require|get)(?:Secret)?\(`
+/** A literal target: its quote and its text up to the closing quote. */
+const REFERENCE = new RegExp(String.raw`${TARGET}(['"\`])((?:\\.|(?!\1)[^\\])*)\1`, 'g')
+const CONFIG_REFERENCE = new RegExp(String.raw`${TARGET}${CONFIG_READ}\s*['"]([^'"]+)['"]`, 'g')
+const COMPUTED_REFERENCE = new RegExp(String.raw`${TARGET}(?=\S)(?!['"\`])(?!${CONFIG_READ})([^)\n,}]*)`, 'g')
 
 /** The config keys whose values name a stack to reference, for `rewriteConfig`. */
 export const referenceConfigKeys = (source: string): string[] =>
@@ -25,7 +32,7 @@ export const rewriteCode = (source: string, org: string): Rewrite => {
     const unresolved: Unresolved[] = []
     const prefix = new RegExp(`^${escape(org)}/`)
     const text = source.replace(REFERENCE, (match, quote: string, name: string, index: number) => {
-        const line = lineOf(source, index)
+        const line = lineOf(source, index + match.lastIndexOf(`${quote}${name}${quote}`))
         if (prefix.test(name)) {
             const to = name.replace(prefix, `${SELF_MANAGED_ORG}/`)
             changes.push({ line, from: name, to })
@@ -34,8 +41,8 @@ export const rewriteCode = (source: string, org: string): Rewrite => {
         if (quote === '`' && /^\$\{/.test(name)) unresolved.push({ line, text: name, reason: 'the organization is computed; make it resolve to \'organization\'' })
         return match
     })
-    for (const m of source.matchAll(/StackReference\(\s*(?=\S)(?!['"`])(?!(?:[\w.]+\.)?(?:config\.)?(?:require|get)(?:Secret)?\()([^)\n]*)/g)) {
-        unresolved.push({ line: lineOf(source, m.index), text: m[1].trim(), reason: 'the name is computed; make its organization resolve to \'organization\'' })
+    for (const m of source.matchAll(COMPUTED_REFERENCE)) {
+        unresolved.push({ line: lineOf(source, m.index + m[0].length - m[1].length), text: m[1].trim(), reason: 'the name is computed; make its organization resolve to \'organization\'' })
     }
     // A name built away from the reference, such as a constant passed in. The organization is often also a
     // GitHub or registry owner, so these are reported, not rewritten.

@@ -43,6 +43,26 @@ describe('a stack reference spelled in code', () => {
     })
 })
 
+describe('a stack reference naming its stack apart from its resource', () => {
+    test('the name argument is rewritten, on its own line; the resource name is left', () => {
+        const source = "new StackReference('catalog', {\n    name: `petstore/catalog/${environment}`,\n})"
+        const r = rewriteCode(source, 'petstore')
+        expect(r.text).toBe("new StackReference('catalog', {\n    name: `organization/catalog/${environment}`,\n})")
+        expect(r.changes.map(c => c.line)).toEqual([2])
+        expect(r.unresolved).toEqual([])
+    })
+
+    test('a name from config is left to the config', () => {
+        const source = "new pulumi.StackReference('catalog-from-config', { name: config.require('catalogStack') })"
+        expect(rewriteCode(source, 'petstore')).toEqual({ text: source, changes: [], unresolved: [] })
+        expect(referenceConfigKeys(source)).toEqual(['catalogStack'])
+    })
+
+    test('a computed name is reported', () => {
+        expect(rewriteCode("new StackReference('catalog', { name: catalogStack })", 'petstore').unresolved.map(u => u.text)).toEqual(['catalogStack'])
+    })
+})
+
 describe('a stack reference in stack config', () => {
     const yaml = [
         'config:',

@@ -30,7 +30,7 @@ export const rewriteWorkflow = (yaml: string): WorkflowRewrite => {
         return to
     })
     const text = lines.join('\n')
-    const unresolved: Unresolved[] = changes.length === 0 && RUNS_PULUMI.test(yaml)
+    const unresolved: Unresolved[] = !/\bPULUMI_(ACCESS_TOKEN|BACKEND_URL)/.test(yaml) && RUNS_PULUMI.test(yaml)
         ? [{ line: 1, text: 'PULUMI_ACCESS_TOKEN', reason: 'the workflow runs Pulumi but never names the token; give its Pulumi steps PULUMI_BACKEND_URL' }]
         : []
     const secrets = new Set<string>()

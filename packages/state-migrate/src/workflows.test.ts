@@ -56,6 +56,15 @@ describe('a workflow logging in to Pulumi Cloud', () => {
             .toEqual(['the workflow runs Pulumi but never names the token; give its Pulumi steps PULUMI_BACKEND_URL'])
         expect(rewriteWorkflow(workflow('      - run: npm test')).unresolved).toEqual([])
     })
+
+    test('a workflow already rewritten is left, and not reported', () => {
+        const once = rewriteWorkflow(workflow(`      - uses: pulumi/actions@v6
+        env:
+          PULUMI_ACCESS_TOKEN: \${{ secrets.PULUMI_ACCESS_TOKEN }}`)).text
+        const again = rewriteWorkflow(once)
+        expect([again.text, again.changes, again.unresolved]).toEqual([once, [], []])
+        expect(again.secrets).toEqual(['PULUMI_BACKEND_URL'])
+    })
 })
 
 describe('jobs that can run one stack twice at once', () => {

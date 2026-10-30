@@ -38,7 +38,7 @@ export const migrateStack = ({ pulumi, cwd, org, project, stack, secretsProvider
     for (const problem of [nameProblem('project', project), nameProblem('stack', stack)]) if (problem) throw new Error(problem)
     const existing: { name: string }[] = JSON.parse(target(['stack', 'ls', '--json'], 'listing the target stacks') || '[]')
     if (existing.some(s => s.name.split('/').pop() === stack)) {
-        throw new Error(`${stack} already exists in the target. To copy it again, remove the copy first: \`pulumi stack rm --force -s ${stack}\` against the target (its resources stay).`)
+        throw new Error(`${stack} already exists in the target. To copy it again, remove the copy with \`pulumi stack rm --force -s ${stack}\` against the target; its resources stay. That deletes Pulumi.${stack}.yaml, which the copy re-encrypted, so restore the Pulumi Cloud one, such as with \`git checkout -- Pulumi.${stack}.yaml\`, and migrate again.`)
     }
 
     const version = () => {

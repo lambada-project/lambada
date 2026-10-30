@@ -79,7 +79,9 @@ if (values.help || !command) {
     const plan = planRepo(resolve(repo!), org)
     if (plan.problems.length) fail(plan.problems.join('\n'))
     const pulumi = pulumiCli(targetUrl, process.env.PULUMI_ACCESS_TOKEN)
-    for (const project of plan.projects.filter(p => p.stacks.some(s => s.name === stack))) {
+    const projects = plan.projects.filter(p => p.stacks.some(s => s.name === stack))
+    if (projects.length === 0) fail(`No project in ${repo} has a Pulumi.${stack}.yaml; its stacks are named by those files.`)
+    for (const project of projects) {
         migrateStack({ pulumi, cwd: join(plan.root, project.dir), org, project: project.name, stack: stack!, secretsProvider: secretsProvider!, log: console.log })
     }
     console.log(`\nNext: make the Pulumi Cloud stacks read-only, run \`lambada-state rewrite ${repo}\`, and open the PR; its preview should show no changes.`)

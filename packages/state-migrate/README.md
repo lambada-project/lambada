@@ -51,7 +51,8 @@ A deploy to Pulumi Cloud after the copy and before step 2 leaves the copy behind
 To take the copy again:
 
 1. Remove it with `pulumi stack rm --force -s <stack>` against the target. Its resources stay.
-2. Run `migrate` again.
+2. That also deletes `Pulumi.<stack>.yaml`, which the copy re-encrypted. Restore the Pulumi Cloud version, such as with `git checkout -- Pulumi.<stack>.yaml`.
+3. Run `migrate` again.
 
 Once both backends have deployed, neither preview shows it without `--refresh`, and the stacks must be reconciled by hand.
 
@@ -67,3 +68,5 @@ Measured with Pulumi 3.265 against RDS Postgres 17:
 - **`_` and `%` in a project or stack name are read as SQL wildcards.** A stack `a_b` next to a stack `aXb` crashes the CLI on every command, `stack rm` included.
 - **`pulumi stack export --version` is not supported.** Every checkpoint is kept in the table; nothing deletes them.
 - **An update makes about 190 SQL statements,** so the network between CI and the database shapes its speed.
+- **End to end, two lambada services moved and kept deploying.** One referenced the other in code and through config. After `migrate` and `rewrite`, a run with only `PULUMI_BACKEND_URL` previewed no changes. Its updates reached both references, its secrets decrypted with KMS alone, and both APIs answered.
+- **`pulumi/actions` writes the backend URL, password included, to `~/.pulumi/credentials.json`.** A GitHub-hosted runner discards it; a self-hosted runner keeps it.
