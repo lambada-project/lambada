@@ -67,7 +67,7 @@ A new reference names `organization/<project>/<stack>`, or only `<stack>` within
 For each environment, in the order `plan` gives:
 
 1. **Pause the repos' deploys** and copy their stacks with `migrate`.
-2. **Make the Pulumi Cloud stacks read-only.**
+2. **Make the Pulumi Cloud stacks read-only** by revoking the Pulumi tokens their workflows use, or deleting the `PULUMI_ACCESS_TOKEN` secrets. Nothing on the Pulumi side holds: an update held open blocks others only until its lease expires, about 5 minutes, and a renamed stack still answers to its old name.
 3. **Create the backend URL secrets**, run `rewrite`, and open the PR with the rewritten `Pulumi.<stack>.yaml` files. Its preview should show no changes. CI then needs to reach the database and to decrypt with the KMS key.
 4. **Keep the Pulumi Cloud stacks until the soak ends.** They are the way back.
 
@@ -81,6 +81,41 @@ To take the copy again:
 
 Once both backends have deployed, neither preview shows it without `--refresh`, and the stacks must be reconciled by hand.
 
+## The database and CI
+
+The backend runs `CREATE TABLE IF NOT EXISTS` each time it opens, so its login needs `CREATE` on the schema and must own `pulumi_state`. A login that may only read and write rows cannot open it. Keep the owner apart from the admin:
+
+```sql
+CREATE ROLE pulumi_state_owner NOLOGIN;
+ALTER TABLE pulumi_state OWNER TO pulumi_state_owner;   -- after the first `pulumi login`
+GRANT pulumi_state_owner TO pulumi_admin;
+CREATE ROLE pulumi_ci LOGIN PASSWORD '…';
+GRANT CREATE ON SCHEMA public TO pulumi_ci;
+GRANT pulumi_state_owner TO pulumi_ci;
+```
+
+`pulumi_ci` deploys and cannot create roles or databases. It can drop the table, so give each AWS account its own database, and keep point-in-time recovery and deletion protection on.
+
+For `sslmode=verify-full`, the URL names the RDS certificate bundle, which CI downloads from `https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem`. The URL holds the password; GitHub masks the secret as a whole, but `pulumi/actions` prints the URL's host in its login line.
+
+A GitHub-hosted runner leaves from Azure, from an address no security group can list in advance. The deploy role may add the runner's `/32` to the database's security group, and the job removes it in a step that runs even when the job fails. That role needs `ec2:AuthorizeSecurityGroupIngress` and `ec2:RevokeSecurityGroupIngress` on that group, `ec2:DescribeSecurityGroups`, and `kms:Decrypt` on the secrets provider's key; it needs no `kms:Encrypt`.
+
+## Going back to Pulumi Cloud
+
+After the target has deployed, its state returns to the same Pulumi Cloud stack, which keeps its history:
+
+1. Export from the target: `pulumi stack export -s <stack> > state.json`.
+2. Restore the Pulumi Cloud `Pulumi.<stack>.yaml`, then set in it every config value the target deployed with.
+3. Import into Pulumi Cloud: `pulumi stack import --file state.json -s <org>/<project>/<stack>`.
+
+Secrets are re-encrypted for Pulumi Cloud on import. The returned stack matched the target resource by resource, and its preview and refresh showed no changes.
+
+## Operating the database
+
+- **Point-in-time restore** brings back the table as it was. A stack in the restored copy is behind the resources by every update since; one `pulumi up --refresh` catches it up. A restore took 12 minutes.
+- **History can be pruned with SQL.** Rows under `.pulumi/history/<project>/<stack>/` and `.pulumi/backups/<project>/<stack>/` can be deleted, newest kept; the stack still previews with no changes and records later updates.
+- **A password change takes effect at once.** The old URL is refused at its next connection, so update every repo's secret together.
+
 ## The Postgres backend, measured
 
 Measured with Pulumi 3.265 against RDS Postgres 17:
@@ -91,7 +126,8 @@ Measured with Pulumi 3.265 against RDS Postgres 17:
 - **Dropped connections are survived.** An update whose database connections were cut 15 times finished, with its state intact.
 - **Two runs on one stack both fail.** In 28 of 30 rounds, both runs saw the other's lock and stopped; never did both run. A `concurrency` group per stack queues them instead.
 - **`_` and `%` in a project or stack name are read as SQL wildcards.** A stack `a_b` next to a stack `aXb` crashes the CLI on every command, `stack rm` included.
-- **`pulumi stack export --version` is not supported.** Every checkpoint is kept in the table; nothing deletes them.
+- **`pulumi stack export --version` is not supported.** Every checkpoint is kept in the table until pruned.
 - **An update makes about 190 SQL statements,** so the network between CI and the database shapes its speed.
 - **End to end, two lambada services moved and kept deploying.** One referenced the other in code and through config. After `migrate` and `rewrite`, a run with only `PULUMI_BACKEND_URL` previewed no changes. Its updates reached both references, its secrets decrypted with KMS alone, and both APIs answered.
 - **`pulumi/actions` writes the backend URL, password included, to `~/.pulumi/credentials.json`.** A GitHub-hosted runner discards it; a self-hosted runner keeps it.
+- **A GitHub-hosted runner deployed a lambada service through the backend.** It opened the database to itself, decrypted with `kms:Decrypt` alone, resumed an update an earlier run had left half done, and a second run previewed no changes.
