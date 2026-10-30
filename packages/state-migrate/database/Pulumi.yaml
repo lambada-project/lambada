@@ -1,0 +1,14 @@
+name: pulumi-state
+runtime: nodejs
+description: The database that holds this AWS account's Pulumi state
+template:
+  description: A Postgres database for Pulumi state, one per AWS account, for lambada-state
+  config:
+    aws:region:
+      description: The region to put the database in
+      default: us-east-1
+    adminCidrs:
+      description: Addresses that may reach the database to set it up, such as your own, as comma-separated CIDRs
+    deployRoles:
+      description: IAM roles that deploy from CI, as comma-separated names
+      default: ''

@@ -85,18 +85,35 @@ Once both backends have deployed, neither preview shows it without `--refresh`, 
 
 ## The database and CI
 
-The backend runs `CREATE TABLE IF NOT EXISTS` each time it opens, so its login needs `CREATE` on the schema and must own `pulumi_state`. A login that may only read and write rows cannot open it. Keep the owner apart from the admin:
+Each AWS account gets its own database, from the template in [`database`](database/index.ts). Keep the template's own state on Pulumi Cloud or in S3, never in the database it makes:
+
+```sh
+pulumi new https://github.com/lambada-project/lambada/tree/main/packages/state-migrate/database
+pulumi up
+pulumi stack output backendUrl --show-secrets   # the PULUMI_BACKEND_URL secret
+pulumi stack output secretsProvider             # --secrets-provider for migrate
+```
+
+It makes:
+
+- **A Postgres instance** that refuses unencrypted connections, with deletion protection, 14 days of point-in-time recovery, a final snapshot, and its admin password in Secrets Manager. Pulumi protects it too.
+- **A security group named `pulumi-state`** admitting `adminCidrs` and whatever runners open it. Its ingress rules are resources of their own, so an update leaves the runners' rules alone.
+- **A KMS key**, `alias/pulumi-state`, with rotation on, for the secrets provider.
+- **The login `pulumi_ci`**, and a policy on each of `deployRoles` letting it open the database and decrypt.
+
+`vpcId` and `subnetIds` place it outside the default VPC; `multiAz`, `instanceClass`, `backupDays` and `identifier` change the rest.
+
+The backend runs `CREATE TABLE IF NOT EXISTS` each time it opens, so its login needs `CREATE` on the schema and must own `pulumi_state`. A login that may only read and write rows cannot open it. The template keeps the owner apart from the login:
 
 ```sql
 CREATE ROLE pulumi_state_owner NOLOGIN;
-ALTER TABLE pulumi_state OWNER TO pulumi_state_owner;   -- after the first `pulumi login`
+GRANT CREATE, USAGE ON SCHEMA public TO pulumi_state_owner;
 GRANT pulumi_state_owner TO pulumi_admin;
-CREATE ROLE pulumi_ci LOGIN PASSWORD '…';
-GRANT CREATE ON SCHEMA public TO pulumi_ci;
-GRANT pulumi_state_owner TO pulumi_ci;
+CREATE ROLE pulumi_ci LOGIN PASSWORD '…' IN ROLE pulumi_state_owner;
+ALTER ROLE pulumi_ci SET ROLE pulumi_state_owner;   -- the table it creates belongs to the owner
 ```
 
-`pulumi_ci` deploys and cannot create roles or databases. It can drop the table, so give each AWS account its own database, and keep point-in-time recovery and deletion protection on.
+`pulumi_ci` deploys and cannot create roles or databases. It can drop the table, which is why each account has its own database, with point-in-time recovery and deletion protection.
 
 For `sslmode=verify-full`, the URL names the RDS certificate bundle at `/tmp/rds-ca.pem`, as `sslrootcert=/tmp/rds-ca.pem`. The URL holds the password; GitHub masks the secret as a whole, but `pulumi/actions` prints the URL's host in its login line.
 
@@ -142,4 +159,5 @@ Measured with Pulumi 3.265 against RDS Postgres 17:
 - **An update makes about 190 SQL statements,** so the network between CI and the database shapes its speed.
 - **End to end, two lambada services moved and kept deploying.** One referenced the other in code and through config. After `migrate` and `rewrite`, a run with only `PULUMI_BACKEND_URL` previewed no changes. Its updates reached both references, its secrets decrypted with KMS alone, and both APIs answered.
 - **`pulumi/actions` writes the backend URL, password included, to `~/.pulumi/credentials.json`.** A GitHub-hosted runner discards it; a self-hosted runner keeps it.
+- **The template made a working database from scratch in about 10 minutes**, and a second update changed nothing. Its login's session ran as `pulumi_state_owner`, so the table the backend created belonged to the owner; it deployed with KMS secrets; a rule a runner had added survived the template's update; and protect refused a destroy.
 - **A GitHub-hosted runner deployed a lambada service through the backend.** It opened the database to itself, decrypted with `kms:Decrypt` alone, resumed an update an earlier run had left half done, and a second run previewed no changes.
