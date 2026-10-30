@@ -3,11 +3,32 @@
 Moves Pulumi stacks from Pulumi Cloud to a self-managed backend, such as Postgres, and rewrites the repo to match.
 
 ```sh
-npx lambada-state plan ../shop ../catalog ../orders     # what moves, what changes, in which order
+lambada-state plan ../shop ../catalog ../orders     # what moves, what changes, in which order
 PULUMI_BACKEND_URL='postgres://…?sslmode=verify-full' PULUMI_ACCESS_TOKEN=… \
-  npx lambada-state migrate ../shop --stack dev --secrets-provider 'awskms://alias/pulumi-state?region=us-east-1'
-npx lambada-state rewrite ../shop                       # then open the PR
+  lambada-state migrate ../shop --stack dev --secrets-provider 'awskms://alias/pulumi-state?region=us-east-1'
+lambada-state rewrite ../shop                       # then open the PR
 ```
+
+## Running it
+
+`@lambada/state-migrate` is not on npm yet. From a checkout of this repo:
+
+```sh
+npm install && npm run build -w packages/state-migrate
+node packages/state-migrate/dist/cli.js --help
+```
+
+`npm link` in `packages/state-migrate` puts `lambada-state` on `PATH`, as the examples use it.
+
+It needs Node 22 or later and the `pulumi` CLI on `PATH`. Every command takes `--org <name>`, the Pulumi Cloud organization, or reads it from `PULUMI_ACCESS_TOKEN`. `migrate` also takes `--stack` and `--secrets-provider`, and reads the target from `PULUMI_BACKEND_URL`.
+
+`plan` and `rewrite` mark each line of their output:
+
+- `~ file:line`: a change `rewrite` makes.
+- `? file:line`: something to change by hand, with the reason.
+- `✗`: a problem that stops the move.
+
+A command exits 1 when `plan` finds a problem, or when it fails or refuses; otherwise it exits 0.
 
 ## What it does
 

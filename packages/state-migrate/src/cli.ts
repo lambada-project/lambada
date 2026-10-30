@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { statSync } from 'node:fs'
 import { resolve, join } from 'node:path'
 import { parseArgs } from 'node:util'
 import { migrateStack } from './migrate'
@@ -13,7 +14,17 @@ const USAGE = `lambada-state: move Pulumi stacks from Pulumi Cloud to a self-man
                                      copy the stack of every project in the repo, and prove each copy
 
 Options:
+  --stack <name>            migrate: the stack to copy, in every project of the repo that has Pulumi.<name>.yaml
+  --secrets-provider <url>  migrate: how the copy encrypts, such as awskms://alias/pulumi-state?region=us-east-1
   --org <name>              the Pulumi Cloud organization (default: the one PULUMI_ACCESS_TOKEN belongs to)
+
+Output:
+  ~ file:line  a change rewrite makes
+  ? file:line  something to change by hand, with the reason
+  ✗            a problem that stops the move, such as a name the backend cannot hold
+
+Exit status: 1 when plan finds a problem, or a command fails or refuses; 0 otherwise.
+Needs the pulumi CLI on PATH and Node 22 or later.
 
 Environment for migrate:
   PULUMI_BACKEND_URL        the target backend, such as postgres://…?sslmode=verify-full. Read from the
@@ -37,10 +48,16 @@ const fail = (message: string): never => {
     process.exit(1)
 }
 
+const isDirectory = (path: string) => statSync(path, { throwIfNoEntry: false })?.isDirectory() ?? false
+
 const organization = (): string => {
     if (values.org) return values.org
     if (!process.env.PULUMI_ACCESS_TOKEN) return fail('Pass --org, or set PULUMI_ACCESS_TOKEN to read it from Pulumi Cloud.')
-    return must(pulumiCli('', process.env.PULUMI_ACCESS_TOKEN)(['whoami'], { backend: 'cloud', cwd: process.cwd() }), 'pulumi whoami').trim()
+    try {
+        return must(pulumiCli('', process.env.PULUMI_ACCESS_TOKEN)(['whoami'], { backend: 'cloud', cwd: process.cwd() }), 'pulumi whoami').trim()
+    } catch (error) {
+        return fail((error as Error).message)
+    }
 }
 
 const print = (plan: RepoPlan) => {
@@ -55,6 +72,8 @@ const print = (plan: RepoPlan) => {
     if (plan.secrets.length) console.log(`  workflows read the backend URL from: ${plan.secrets.join(', ')}; create these secrets before merging`)
     if (plan.references.length) console.log(`  references: ${plan.references.join(', ')}`)
 }
+
+for (const repo of repos.filter(r => !isDirectory(r))) fail(`${repo} is not a directory.`)
 
 if (values.help || !command) {
     console.log(USAGE)
@@ -82,7 +101,11 @@ if (values.help || !command) {
     const projects = plan.projects.filter(p => p.stacks.some(s => s.name === stack))
     if (projects.length === 0) fail(`No project in ${repo} has a Pulumi.${stack}.yaml; its stacks are named by those files.`)
     for (const project of projects) {
-        migrateStack({ pulumi, cwd: join(plan.root, project.dir), org, project: project.name, stack: stack!, secretsProvider: secretsProvider!, log: console.log })
+        try {
+            migrateStack({ pulumi, cwd: join(plan.root, project.dir), org, project: project.name, stack: stack!, secretsProvider: secretsProvider!, log: console.log })
+        } catch (error) {
+            fail(`${project.name}: ${(error as Error).message}`)
+        }
     }
     console.log(`\nNext: make the Pulumi Cloud stacks read-only, run \`lambada-state rewrite ${repo}\`, and open the PR; its preview should show no changes.`)
 } else {
