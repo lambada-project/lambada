@@ -2,7 +2,8 @@
   "packages": [
     "packages/core",
     "packages/create",
-    "packages/utils"
+    "packages/utils",
+    "packages/state-migrate"
   ],
   "version": "0.0.0",
   "$schema": "node_modules/lerna/schemas/lerna-schema.json"
