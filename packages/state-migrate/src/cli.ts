@@ -15,7 +15,8 @@ const USAGE = `lambada-state: move Pulumi stacks from Pulumi Cloud to a self-man
   lambada-state migrate <repo> --stack <name> --secrets-provider <url>
                                      copy the stack of every project in the repo, and prove each copy
   lambada-state freeze <repo> --stack <name>
-                                     tag each Pulumi Cloud stack with the version it moved at; run again,
+                                     prove each copy still equals its Pulumi Cloud stack, and tag that stack
+                                     with the version it moved at; run again,
                                      report any deploy that landed on it since. Nothing is deleted.
 
 Options:
@@ -129,13 +130,14 @@ if (values.help || !command) {
     if (!repo || !stack) fail(USAGE)
     const org = organization()
     const plan = planRepo(resolve(repo!), org)
-    const pulumi = pulumiCli('', process.env.PULUMI_ACCESS_TOKEN)
+    const targetUrl = process.env.PULUMI_BACKEND_URL ?? fail('Set PULUMI_BACKEND_URL to the target backend; the first freeze proves the copy still equals Pulumi Cloud.')
+    const pulumi = pulumiCli(targetUrl, process.env.PULUMI_ACCESS_TOKEN)
     const projects = plan.projects.filter(p => p.stacks.some(s => s.name === stack))
     if (projects.length === 0) fail(`No project in ${repo} has a Pulumi.${stack}.yaml; its stacks are named by those files.`)
     for (const project of projects) {
         const source = `${org}/${project.name}/${stack}`
         try {
-            const frozen = freezeStack(pulumi, join(plan.root, project.dir), source)
+            const frozen = freezeStack(pulumi, join(plan.root, project.dir), source, stack!)
             if (frozen.state === 'tagged') console.log(`${source}: frozen at version ${frozen.version}`)
             else if (frozen.state === 'unchanged') console.log(`${source}: unchanged since it moved at version ${frozen.version}, ${frozen.at}`)
             else {

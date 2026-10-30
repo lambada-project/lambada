@@ -69,9 +69,21 @@ A new reference names `organization/<project>/<stack>`, or only `<stack>` within
 For each environment, in the order `plan` gives:
 
 1. **Pause the repos' deploys** and copy their stacks with `migrate`.
-2. **Freeze Pulumi Cloud.** `freeze` tags each stack with the version it moved at; it deletes nothing. Then revoke the Pulumi tokens the workflows use, or remove their secrets from the repo, and revoke the personal tokens of whoever deployed by hand. Nothing on the Pulumi side holds a stack still: an update held open blocks others only until its lease expires, about 5 minutes, and a renamed stack still answers to its old name. Read-only stacks need Pulumi Cloud's team permissions.
+2. **Freeze Pulumi Cloud.** `freeze` proves each copy still equals its Pulumi Cloud stack, then tags that stack with the version it moved at; it deletes nothing. A deploy that landed after the copy is refused, not tagged. Then revoke the Pulumi tokens the workflows use, or remove their secrets from the repo, and revoke the personal tokens of whoever deployed by hand. Nothing on the Pulumi side holds a stack still: an update held open blocks others only until its lease expires, about 5 minutes, and a renamed stack still answers to its old name. Read-only stacks need Pulumi Cloud's team permissions.
 3. **Create the backend URL secrets**, run `rewrite`, and open the PR with the rewritten `Pulumi.<stack>.yaml` files. Its preview should show no changes. CI then needs to reach the database and to decrypt with the KMS key. The step `rewrite` adds is handed the tokens the workflows used, and refuses to deploy while one still logs in to Pulumi Cloud, so the move cannot run beside a live way to Pulumi Cloud.
 4. **Keep the Pulumi Cloud stacks until the soak ends.** They are the way back. Run `freeze` again to check none was deployed since: it names any stack whose version moved, and exits 1.
+
+The move is a saga, not a transaction: each step commits on its own, and each has a step that undoes it. The first deploy from the target is the pivot; before it, every step can be undone exactly, and the CI step keeps it from running until Pulumi Cloud is frozen.
+
+| Step | Undone by |
+|---|---|
+| `migrate` | `pulumi stack rm --force` against the target, and restoring `Pulumi.<stack>.yaml` |
+| `freeze` | `pulumi stack tag rm lambada-state:moved` |
+| revoking tokens | new tokens |
+| the PR | reverting it |
+| deploys from the target | the way back to Pulumi Cloud |
+
+Nothing isolates the steps from a deploy to Pulumi Cloud; they detect one instead. `migrate` copies again when one lands while it runs, `freeze` refuses when one landed after the copy, and `freeze` run again names one that landed since.
 
 A deploy to Pulumi Cloud after the copy and before step 2 leaves the copy behind. `migrate` catches the ones that land while it runs. Afterwards, the target's preview does not show the gap: it plans to create what Pulumi Cloud created, which then fails with "already exists".
 
@@ -169,6 +181,6 @@ Measured with Pulumi 3.265 against RDS Postgres 17:
 - **An update makes about 190 SQL statements,** so the network between CI and the database shapes its speed.
 - **End to end, two lambada services moved and kept deploying.** One referenced the other in code and through config. After `migrate` and `rewrite`, a run with only `PULUMI_BACKEND_URL` previewed no changes. Its updates reached both references, its secrets decrypted with KMS alone, and both APIs answered.
 - **`pulumi/actions` writes the backend URL, password included, to `~/.pulumi/credentials.json`.** A GitHub-hosted runner discards it; a self-hosted runner keeps it.
-- **`freeze` and the token check, on Pulumi Cloud.** `freeze` tagged a stack at version 1, found it unchanged when run again, and named it with exit 1 after a deploy took it to version 2. The token check answered a live token 200 and a revoked one 401, so the step stopped on the live one and passed the revoked and missing ones.
+- **`freeze` and the token check, on Pulumi Cloud.** `freeze` refused a stack deployed between `migrate` and it, naming the resources that differed, and tagged nothing. It tagged a stack moved cleanly at version 1, found it unchanged when run again, and named it with exit 1 after a deploy took it to version 2. The token check answered a live token 200 and a revoked one 401, so the step stopped on the live one and passed the revoked and missing ones.
 - **The template made a working database from scratch in about 10 minutes**, and a second update changed nothing. Its login's session ran as `pulumi_state_owner`, so the table the backend created belonged to the owner; it deployed with KMS secrets; a rule a runner had added survived the template's update; and protect refused a destroy.
 - **A GitHub-hosted runner deployed a lambada service through the backend.** It opened the database to itself, decrypted with `kms:Decrypt` alone, resumed an update an earlier run had left half done, and a second run previewed no changes.

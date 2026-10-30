@@ -24,3 +24,9 @@ export const must = (r: Result, what: string): string => {
     if (r.code !== 0) throw new Error(`${what} failed:\n${(r.stderr || r.stdout).trim().split('\n').slice(-8).join('\n')}`)
     return r.stdout
 }
+
+/** The latest version of a Pulumi Cloud stack, 0 before its first update. */
+export const cloudVersion = (pulumi: Pulumi, cwd: string, source: string): number => {
+    const history: { version: number }[] = JSON.parse(must(pulumi(['stack', 'history', '--json', '--page-size', '1', '-s', source], { backend: 'cloud', cwd }), `reading the history of ${source}`) || '[]')
+    return Math.max(0, ...history.map(h => h.version))
+}

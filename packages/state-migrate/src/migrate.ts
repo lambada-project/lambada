@@ -1,8 +1,7 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { cloudVersion } from './freeze'
-import { must, PULUMI_CLOUD, Pulumi } from './pulumi'
+import { cloudVersion, must, PULUMI_CLOUD, Pulumi } from './pulumi'
 import { nameProblem } from './scan'
 import { Config, configDifferences, Exported, stateDifferences } from './state'
 
@@ -25,6 +24,13 @@ export type Migrated = {
     recopied: boolean
 }
 
+/** How the target's copy of a stack differs in state from its Pulumi Cloud source, secrets decrypted. */
+export const copyDifferences = (pulumi: Pulumi, cwd: string, source: string, stack: string): string[] => {
+    const exported = (backend: 'cloud' | 'target', name: string): Exported =>
+        JSON.parse(must(pulumi(['stack', 'export', '--show-secrets', '-s', name], { backend, cwd }), `exporting ${name}`))
+    return stateDifferences(exported('cloud', source), exported('target', stack))
+}
+
 /**
  * Copies a stack from Pulumi Cloud and proves the copy: every resource, every config value and secret,
  * and the Pulumi Cloud version it was taken at. The source is left as it was. A deploy that lands on
@@ -45,9 +51,8 @@ export const migrateStack = ({ pulumi, cwd, org, project, stack, secretsProvider
     const version = () => cloudVersion(pulumi, cwd, source)
     const sourceConfig: Config = JSON.parse(cloud(['config', '--show-secrets', '--json', '-s', source], `reading the config of ${source}`))
     const prove = () => {
-        const exported = (run: typeof cloud, name: string): Exported => JSON.parse(run(['stack', 'export', '--show-secrets', '-s', name], `exporting ${name}`))
         const differences = [
-            ...stateDifferences(exported(cloud, source), exported(target, stack)),
+            ...copyDifferences(pulumi, cwd, source, stack),
             ...configDifferences(sourceConfig, JSON.parse(target(['config', '--show-secrets', '--json', '-s', stack], `reading the config of ${stack}`))),
         ]
         if (differences.length > 0) {
