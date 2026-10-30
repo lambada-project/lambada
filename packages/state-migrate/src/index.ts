@@ -1,3 +1,5 @@
+export * from './back'
+export * from './freeze'
 export * from './migrate'
 export * from './plan'
 export * from './pulumi'

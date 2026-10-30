@@ -81,7 +81,7 @@ The move is a saga, not a transaction: each step commits on its own, and each ha
 | `freeze` | `pulumi stack tag rm lambada-state:moved` |
 | revoking tokens | new tokens |
 | the PR | reverting it |
-| deploys from the target | the way back to Pulumi Cloud |
+| deploys from the target | `back`, the way back to Pulumi Cloud |
 
 Nothing isolates the steps from a deploy to Pulumi Cloud; they detect one instead. `migrate` copies again when one lands while it runs, `freeze` refuses when one landed after the copy, and `freeze` run again names one that landed since.
 
@@ -153,13 +153,19 @@ It runs with the job's AWS credentials, so it follows the credentials step. The 
 
 ## Going back to Pulumi Cloud
 
-After the target has deployed, its state returns to the same Pulumi Cloud stack, which keeps its history:
+After the target has deployed, `back` returns its state and config to the same Pulumi Cloud stack, which keeps its history:
 
-1. Export from the target: `pulumi stack export -s <stack> > state.json`.
-2. Restore the Pulumi Cloud `Pulumi.<stack>.yaml`, then set in it every config value the target deployed with.
-3. Import into Pulumi Cloud: `pulumi stack import --file state.json -s <org>/<project>/<stack>`.
+1. **Stop deploys to the target**, such as by disabling the workflows that deploy in the repo's Actions settings. Pulumi Cloud stays fenced by its revoked tokens.
+2. **Run `back`** with `PULUMI_BACKEND_URL` set to the target and `PULUMI_ACCESS_TOKEN` to a new Pulumi Cloud token:
 
-Secrets are re-encrypted for Pulumi Cloud on import. The returned stack matched the target resource by resource, and its preview and refresh showed no changes.
+   ```sh
+   lambada-state back ../shop --stack dev
+   ```
+
+   For each project it checks, before changing anything, that the Pulumi Cloud stack is still at the version `freeze` tagged and that the target is not deployed while it is read. It then rewrites `Pulumi.<stack>.yaml` for Pulumi Cloud, sets every config value the target deployed with, imports the target's state, proves state and config equal, and removes the tag. Secret values reach Pulumi on stdin, never as arguments.
+3. **Commit the `Pulumi.<stack>.yaml` files** it wrote, revert the rest of the move's PR, give the workflows a Pulumi Cloud token, and enable them again. The PR's preview should show no changes.
+
+It refuses, and a person reconciles, when Pulumi Cloud was deployed after the move, when a stack was never frozen, when Pulumi Cloud did not encrypt the stack with its own key, or when a secret holds a map or list. The target's stack stays; remove it once the way back has held.
 
 ## Operating the database
 
@@ -181,6 +187,7 @@ Measured with Pulumi 3.265 against RDS Postgres 17:
 - **An update makes about 190 SQL statements,** so the network between CI and the database shapes its speed.
 - **End to end, two lambada services moved and kept deploying.** One referenced the other in code and through config. After `migrate` and `rewrite`, a run with only `PULUMI_BACKEND_URL` previewed no changes. Its updates reached both references, its secrets decrypted with KMS alone, and both APIs answered.
 - **`pulumi/actions` writes the backend URL, password included, to `~/.pulumi/credentials.json`.** A GitHub-hosted runner discards it; a self-hosted runner keeps it.
+- **`back`, on Pulumi Cloud.** A stack moved, frozen, then deployed twice from the target returned with its plain, structured and secret config. Its preview and refresh with `--expect-no-changes` passed, the secret decrypted to the original, and its history kept the update from before the move. Run again, `back` refused and left the settings file as it was. A DIY backend numbers every update 0, so `back` compares the target's state before and after reading it; two exports with nothing between them were identical.
 - **`freeze` and the token check, on Pulumi Cloud.** `freeze` refused a stack deployed between `migrate` and it, naming the resources that differed, and tagged nothing. It tagged a stack moved cleanly at version 1, found it unchanged when run again, and named it with exit 1 after a deploy took it to version 2. The token check answered a live token 200 and a revoked one 401, so the step stopped on the live one and passed the revoked and missing ones.
 - **The template made a working database from scratch in about 10 minutes**, and a second update changed nothing. Its login's session ran as `pulumi_state_owner`, so the table the backend created belonged to the owner; it deployed with KMS secrets; a rule a runner had added survived the template's update; and protect refused a destroy.
 - **A GitHub-hosted runner deployed a lambada service through the backend.** It opened the database to itself, decrypted with `kms:Decrypt` alone, resumed an update an earlier run had left half done, and a second run previewed no changes.

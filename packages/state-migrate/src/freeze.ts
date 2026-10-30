@@ -28,7 +28,13 @@ export const freezeStack = (pulumi: Pulumi, cwd: string, source: string, stack: 
         must(pulumi(['stack', 'tag', 'set', MOVED_TAG, `version ${version} at ${now.toISOString()}`, '-s', source], { backend: 'cloud', cwd }), `tagging ${source}`)
         return { state: 'tagged', version }
     }
-    const [, at, when] = /^version (\d+) at (\S+)$/.exec(recorded) ?? []
-    if (at === undefined) throw new Error(`${source} is tagged ${MOVED_TAG}=${recorded}, which is not \`version <n> at <time>\``)
-    return Number(at) === version ? { state: 'unchanged', version, at: when } : { state: 'deployed', version: Number(at), at: when, now: version }
+    const moved = movedAt(source, recorded)
+    return moved.version === version ? { state: 'unchanged', ...moved } : { state: 'deployed', ...moved, now: version }
+}
+
+/** The version and time a `lambada-state:moved` tag records. */
+export const movedAt = (source: string, recorded: string): { version: number, at: string } => {
+    const [, version, at] = /^version (\d+) at (\S+)$/.exec(recorded) ?? []
+    if (version === undefined) throw new Error(`${source} is tagged ${MOVED_TAG}=${recorded}, which is not \`version <n> at <time>\``)
+    return { version: Number(version), at }
 }

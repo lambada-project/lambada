@@ -2,6 +2,7 @@
 import { statSync } from 'node:fs'
 import { resolve, join } from 'node:path'
 import { parseArgs } from 'node:util'
+import { backStack } from './back'
 import { freezeStack } from './freeze'
 import { migrateStack } from './migrate'
 import { moveOrder, planRepo, RepoPlan } from './plan'
@@ -18,9 +19,12 @@ const USAGE = `lambada-state: move Pulumi stacks from Pulumi Cloud to a self-man
                                      prove each copy still equals its Pulumi Cloud stack, and tag that stack
                                      with the version it moved at; run again,
                                      report any deploy that landed on it since. Nothing is deleted.
+  lambada-state back <repo> --stack <name>
+                                     the way back once the target has deployed: its state and config go into the
+                                     Pulumi Cloud stack it moved from, which keeps its history, and are proved there
 
 Options:
-  --stack <name>            migrate, freeze: the stack to copy, in every project of the repo that has Pulumi.<name>.yaml
+  --stack <name>            migrate, freeze, back: the stack to copy, in every project of the repo that has Pulumi.<name>.yaml
   --secrets-provider <url>  migrate: how the copy encrypts, such as awskms://alias/pulumi-state?region=us-east-1
   --org <name>              the Pulumi Cloud organization (default: the one PULUMI_ACCESS_TOKEN belongs to)
   --state-action <uses>     plan, rewrite: the step that opens the database to a hosted runner, put before each
@@ -39,10 +43,11 @@ Freezing: Pulumi Cloud cannot make a stack read-only, so the move holds once no 
 The step rewrite adds checks the tokens the workflows used, and refuses to deploy while one still logs
 in to Pulumi Cloud: revoke each, or remove its secret from the repo. Revoke personal tokens too.
 
-Environment for migrate and freeze:
+Environment for migrate, freeze and back:
   PULUMI_BACKEND_URL        the target backend, such as postgres://…?sslmode=verify-full. Read from the
                             environment so the password stays out of arguments and ~/.pulumi/credentials.json.
-  PULUMI_ACCESS_TOKEN       a Pulumi Cloud token that can read the source stacks, and tag them to freeze them
+  PULUMI_ACCESS_TOKEN       a Pulumi Cloud token that can read the source stacks, and tag them to freeze them;
+                            back writes them
 `
 
 const { values, positionals } = parseArgs({
@@ -148,6 +153,24 @@ if (values.help || !command) {
             fail(`${project.name}: ${(error as Error).message}`)
         }
     }
+} else if (command === 'back') {
+    const [repo] = repos
+    const { stack } = values
+    if (!repo || !stack) fail(USAGE)
+    const targetUrl = process.env.PULUMI_BACKEND_URL ?? fail('Set PULUMI_BACKEND_URL to the backend the stacks moved to.')
+    const org = organization()
+    const plan = planRepo(resolve(repo!), org)
+    const pulumi = pulumiCli(targetUrl, process.env.PULUMI_ACCESS_TOKEN)
+    const projects = plan.projects.filter(p => p.stacks.some(s => s.name === stack))
+    if (projects.length === 0) fail(`No project in ${repo} has a Pulumi.${stack}.yaml; its stacks are named by those files.`)
+    for (const project of projects) {
+        try {
+            backStack({ pulumi, cwd: join(plan.root, project.dir), source: `${org}/${project.name}/${stack}`, stack: stack!, log: console.log })
+        } catch (error) {
+            fail(`${project.name}: ${(error as Error).message}`)
+        }
+    }
+    console.log(`\nNext: commit the Pulumi.${stack}.yaml files back wrote, revert the rest of the move's PR, and give the workflows a Pulumi Cloud token again; the PR's preview should show no changes.`)
 } else {
     fail(USAGE)
 }

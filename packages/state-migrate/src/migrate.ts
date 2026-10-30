@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { cloudVersion, must, PULUMI_CLOUD, Pulumi } from './pulumi'
+import { Backend, cloudVersion, must, PULUMI_CLOUD, Pulumi } from './pulumi'
 import { nameProblem } from './scan'
 import { Config, configDifferences, Exported, stateDifferences } from './state'
 
@@ -24,11 +24,12 @@ export type Migrated = {
     recopied: boolean
 }
 
-/** How the target's copy of a stack differs in state from its Pulumi Cloud source, secrets decrypted. */
-export const copyDifferences = (pulumi: Pulumi, cwd: string, source: string, stack: string): string[] => {
-    const exported = (backend: 'cloud' | 'target', name: string): Exported =>
+/** How a copy of a stack differs in state from the stack it was copied `from`, secrets decrypted: the target's copy of a Pulumi Cloud stack, or back. */
+export const copyDifferences = (pulumi: Pulumi, cwd: string, source: string, stack: string, from: Backend = 'cloud'): string[] => {
+    const exported = (backend: Backend, name: string): Exported =>
         JSON.parse(must(pulumi(['stack', 'export', '--show-secrets', '-s', name], { backend, cwd }), `exporting ${name}`))
-    return stateDifferences(exported('cloud', source), exported('target', stack))
+    const [cloud, target] = [exported('cloud', source), exported('target', stack)]
+    return from === 'cloud' ? stateDifferences(cloud, target) : stateDifferences(target, cloud)
 }
 
 /**
