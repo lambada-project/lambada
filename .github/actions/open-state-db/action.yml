@@ -1,0 +1,18 @@
+name: Open the Pulumi state database
+description: >
+  Lets this runner reach a self-managed Pulumi state database for the job, and closes it again
+  after the job, even when the job fails. Run it after AWS credentials are configured.
+inputs:
+  security-group:
+    description: The database's security group, by ID or by its Name tag.
+    default: pulumi-state
+  port:
+    description: The database's port.
+    default: '5432'
+  ca-bundle:
+    description: Where to write the RDS certificate bundle that sslrootcert in PULUMI_BACKEND_URL names.
+    default: /tmp/rds-ca.pem
+runs:
+  using: node24
+  main: open.mjs
+  post: close.mjs

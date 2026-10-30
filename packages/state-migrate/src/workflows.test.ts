@@ -79,3 +79,82 @@ describe('jobs that can run one stack twice at once', () => {
         expect(rewriteWorkflow(workflow('      - run: npm test')).unserialized).toEqual([])
     })
 })
+
+describe('a hosted runner opening the state database', () => {
+    const uses = 'acme/infra/.github/actions/open-state-db@v1'
+    const credentials = `      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::123456789012:role/deploy
+`
+
+    test('the step goes right before the first Pulumi step, after the credentials', () => {
+        const r = rewriteWorkflow(workflow(`      - uses: actions/checkout@v4
+${credentials}      - run: npm ci
+      - uses: pulumi/actions@v6
+        env:
+          PULUMI_ACCESS_TOKEN: \${{ secrets.PULUMI_ACCESS_TOKEN }}
+      - run: pulumi stack output -s dev`), { stateAction: uses })
+        expect(r.text).toContain(`      - run: npm ci\n      - uses: ${uses}\n      - uses: pulumi/actions@v6`)
+        expect(r.text.split(uses).length).toBe(2)
+        expect(r.changes.map(c => [c.line, c.to])).toEqual([[12, `- uses: ${uses}`], [15, 'PULUMI_BACKEND_URL: ${{ secrets.PULUMI_BACKEND_URL }}']])
+        expect(r.text.split('\n')[11].trim()).toBe(`- uses: ${uses}`)
+        expect(r.unresolved).toEqual([])
+    })
+
+    test('each job running Pulumi gets its own; a job not running it gets none', () => {
+        const yaml = `on: push
+env:
+  AWS_ROLE_ARN: arn:aws:iam::123456789012:role/deploy
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - run: npm test
+  dev:
+    runs-on: ubuntu-latest
+    steps:
+      - run: pulumi up --yes -s dev
+  prod:
+    runs-on: ubuntu-latest
+    steps:
+      - run: pulumi up --yes -s prod
+`
+        const r = rewriteWorkflow(yaml, { stateAction: uses })
+        expect(r.changes.filter(c => c.to.endsWith(uses)).map(c => c.line)).toEqual([12, 17])
+        expect(r.text.split('\n')[11].trim()).toBe(`- uses: ${uses}`)
+        expect(r.text.split('\n')[16].trim()).toBe(`- uses: ${uses}`)
+        expect(r.unresolved.filter(u => u.text !== 'PULUMI_ACCESS_TOKEN')).toEqual([])
+    })
+
+    test('a local action that runs Pulumi counts as a Pulumi step', () => {
+        const r = rewriteWorkflow(workflow(`${credentials}      - uses: ./.github/actions/deploy
+        with:
+          stack: dev`), { stateAction: uses, pulumiActions: ['./.github/actions/deploy'] })
+        expect(r.text).toContain(`      - uses: ${uses}\n      - uses: ./.github/actions/deploy`)
+    })
+
+    test('without credentials before the Pulumi step the job is reported', () => {
+        const r = rewriteWorkflow(workflow(`      - run: pulumi preview -s dev
+        env:
+          PULUMI_ACCESS_TOKEN: \${{ secrets.PULUMI_ACCESS_TOKEN }}
+${credentials}`), { stateAction: uses })
+        expect(r.unresolved).toEqual([{ line: 7, text: 'deploy', reason: 'no AWS credentials are set before its first Pulumi step; the opening step and Pulumi both need them' }])
+    })
+
+    test('a rewritten workflow is left as it is', () => {
+        const once = rewriteWorkflow(workflow(`${credentials}      - uses: pulumi/actions@v6
+        env:
+          PULUMI_ACCESS_TOKEN: \${{ secrets.PULUMI_ACCESS_TOKEN }}`), { stateAction: uses })
+        const twice = rewriteWorkflow(once.text, { stateAction: uses })
+        expect(twice.text).toBe(once.text)
+        expect(twice.changes).toEqual([])
+        expect(twice.unresolved).toEqual([])
+    })
+
+    test('no action, no step', () => {
+        const yaml = workflow(`${credentials}      - run: pulumi up --yes -s dev
+        env:
+          PULUMI_BACKEND_URL: \${{ secrets.PULUMI_BACKEND_URL }}`)
+        expect(rewriteWorkflow(yaml).text).toBe(yaml)
+    })
+})

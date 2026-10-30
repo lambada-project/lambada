@@ -5,6 +5,7 @@ import { parseArgs } from 'node:util'
 import { migrateStack } from './migrate'
 import { moveOrder, planRepo, RepoPlan } from './plan'
 import { must, pulumiCli } from './pulumi'
+import { STATE_ACTION } from './workflows'
 
 const USAGE = `lambada-state: move Pulumi stacks from Pulumi Cloud to a self-managed backend
 
@@ -17,6 +18,9 @@ Options:
   --stack <name>            migrate: the stack to copy, in every project of the repo that has Pulumi.<name>.yaml
   --secrets-provider <url>  migrate: how the copy encrypts, such as awskms://alias/pulumi-state?region=us-east-1
   --org <name>              the Pulumi Cloud organization (default: the one PULUMI_ACCESS_TOKEN belongs to)
+  --state-action <uses>     plan, rewrite: the step that opens the database to a hosted runner, put before each
+                            job's first Pulumi step (default: ${STATE_ACTION});
+                            none for runners inside the database's network
 
 Output:
   ~ file:line  a change rewrite makes
@@ -38,6 +42,7 @@ const { values, positionals } = parseArgs({
         org: { type: 'string' },
         stack: { type: 'string' },
         'secrets-provider': { type: 'string' },
+        'state-action': { type: 'string' },
         help: { type: 'boolean', short: 'h' },
     },
 })
@@ -71,6 +76,7 @@ const print = (plan: RepoPlan) => {
     for (const job of plan.unserialized) console.log(`  ? ${job}: runs Pulumi with no concurrency group. Two runs on one stack both fail on the backend's lock; add one.`)
     if (plan.secrets.length) console.log(`  workflows read the backend URL from: ${plan.secrets.join(', ')}; create these secrets before merging`)
     if (plan.references.length) console.log(`  references: ${plan.references.join(', ')}`)
+    if (plan.opening.length) console.log(`  jobs opening the database: ${plan.opening.length}. The role each assumes needs ec2:DescribeSecurityGroups, ec2:DescribeSecurityGroupRules, and ec2:AuthorizeSecurityGroupIngress and ec2:RevokeSecurityGroupIngress on the database's group, besides kms:Decrypt on the secrets provider's key`)
 }
 
 for (const repo of repos.filter(r => !isDirectory(r))) fail(`${repo} is not a directory.`)
@@ -81,7 +87,8 @@ if (values.help || !command) {
     if (repos.length === 0) fail(USAGE)
     if (command === 'rewrite' && repos.length !== 1) fail('rewrite takes one repo.')
     const org = organization()
-    const plans = repos.map(r => planRepo(resolve(r), org, command === 'rewrite'))
+    const stateAction = values['state-action'] === 'none' ? undefined : values['state-action'] ?? STATE_ACTION
+    const plans = repos.map(r => planRepo(resolve(r), org, command === 'rewrite', stateAction))
     plans.forEach(print)
     if (command === 'plan' && plans.length > 1) {
         console.log('\nMove in this order (a group moves together):')

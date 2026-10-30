@@ -25,6 +25,8 @@ const shop = () => repo({
     '.claude/worktrees/old/Pulumi.yaml': 'name: shop\n',
     '.claude/worktrees/old/index.ts': "new StackReference('petstore/ignored/dev')\n",
     '.github/workflows/deploy.yml': 'jobs:\n  up:\n    steps:\n      - uses: pulumi/actions@v6\n        env:\n          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN_T }}\n',
+    '.github/actions/deploy/action.yml': 'runs:\n  using: composite\n  steps:\n    - run: pulumi up --yes -s dev\n      shell: bash\n',
+    '.github/workflows/release.yml': 'jobs:\n  release:\n    steps:\n      - uses: ./.github/actions/deploy\n',
 })
 
 describe('planning a repo', () => {
@@ -32,7 +34,8 @@ describe('planning a repo', () => {
         const root = shop()
         const plan = planRepo(root, 'petstore')
         expect(plan.projects).toEqual([{ name: 'shop', dir: '.', stacks: [{ name: 'dev', file: 'Pulumi.dev.yaml', secretsProvider: undefined }, { name: 'prod', file: 'Pulumi.prod.yaml', secretsProvider: 'awskms://alias/state' }] }])
-        expect(plan.files.map(f => [f.file, f.changes.length])).toEqual([['index.ts', 1], ['Pulumi.dev.yaml', 1], ['Pulumi.prod.yaml', 1], ['.github/workflows/deploy.yml', 1]])
+        expect(plan.files.map(f => [f.file, f.changes.length])).toEqual([['index.ts', 1], ['Pulumi.dev.yaml', 1], ['Pulumi.prod.yaml', 1], ['.github/actions/deploy/action.yml', 0], ['.github/workflows/deploy.yml', 2], ['.github/workflows/release.yml', 1]])
+        expect(plan.opening).toEqual(['.github/workflows/deploy.yml:4', '.github/workflows/release.yml:4'])
         expect(plan.secrets).toEqual(['PULUMI_BACKEND_URL_T'])
         expect(plan.references).toEqual(['catalog/dev', 'catalog/prod', 'orders/${env}'])
         expect(plan.unserialized).toEqual(['.github/workflows/deploy.yml: up'])
@@ -56,7 +59,7 @@ describe('planning a repo', () => {
 
 describe('the order to move repos in', () => {
     const plan = (root: string, project: string, references: string[]): RepoPlan =>
-        ({ root, projects: [{ name: project, dir: '.', stacks: [] }], problems: [], files: [], unserialized: [], secrets: [], references })
+        ({ root, projects: [{ name: project, dir: '.', stacks: [] }], problems: [], files: [], unserialized: [], secrets: [], references, opening: [] })
 
     test('a referenced project moves first; one referenced from outside the plan is not waited on', () => {
         expect(moveOrder([plan('/shop', 'shop', ['catalog/dev', 'payments/dev']), plan('/catalog', 'catalog', [])])).toEqual([['/catalog'], ['/shop']])

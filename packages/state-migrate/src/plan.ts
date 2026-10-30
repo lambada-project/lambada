@@ -1,8 +1,8 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
-import { join, relative } from 'node:path'
+import { dirname, join, relative } from 'node:path'
 import { Change, referenceConfigKeys, rewriteCode, rewriteConfig, Unresolved } from './references'
 import { findFiles, findProjects, nameProblem, Project } from './scan'
-import { rewriteWorkflow } from './workflows'
+import { rewriteWorkflow, RUNS_PULUMI, STATE_ACTION } from './workflows'
 
 export type FileReport = { file: string, changes: Change[], unresolved: Unresolved[] }
 
@@ -18,6 +18,8 @@ export type RepoPlan = {
     secrets: string[]
     /** Projects this repo's code references, by the name it spells: `<project>/<stack>`. */
     references: string[]
+    /** Jobs that open the state database to their runner, as `file: job`. */
+    opening: string[]
 }
 
 const CODE = (name: string) => /\.(ts|js|mjs|cjs)$/.test(name) && !/\.(test|spec|d)\.[a-z]+$/.test(name)
@@ -26,7 +28,7 @@ const CODE = (name: string) => /\.(ts|js|mjs|cjs)$/.test(name) && !/\.(test|spec
  * What moving a repo to a self-managed backend changes in it: its stack references, the config values
  * naming them, and its workflows' login. With `write`, the changes are made; the report is the same.
  */
-export const planRepo = (root: string, org: string, write = false): RepoPlan => {
+export const planRepo = (root: string, org: string, write = false, stateAction: string | undefined = STATE_ACTION): RepoPlan => {
     const projects = findProjects(root)
     const problems = projects.flatMap(p => [nameProblem('project', p.name), ...p.stacks.map(s => nameProblem('stack', s.name))].filter((x): x is string => !!x))
     const files: FileReport[] = []
@@ -55,16 +57,22 @@ export const planRepo = (root: string, org: string, write = false): RepoPlan => 
         keep(file, yaml, r)
     }
     const unserialized: string[] = []
+    const opening: string[] = []
     const secrets = new Set<string>()
     const github = join(root, '.github')
-    for (const file of existsSync(github) ? findFiles(github, n => /\.ya?ml$/.test(n), 3).filter(f => /\/\.github\/(workflows|actions)\//.test(f)) : []) {
+    const workflows = existsSync(github) ? findFiles(github, n => /\.ya?ml$/.test(n), 3).filter(f => /\/\.github\/(workflows|actions)\//.test(f)) : []
+    const pulumiActions = workflows
+        .filter(f => /\/\.github\/actions\/[^/]+\/action\.ya?ml$/.test(f) && RUNS_PULUMI.test(readFileSync(f, 'utf8')))
+        .map(f => `./${relative(root, dirname(f))}`)
+    for (const file of workflows) {
         const yaml = readFileSync(file, 'utf8')
-        const r = rewriteWorkflow(yaml)
+        const r = rewriteWorkflow(yaml, { stateAction, pulumiActions })
         unserialized.push(...r.unserialized.map(job => `${relative(root, file)}: ${job}`))
+        if (stateAction) opening.push(...r.changes.filter(c => c.to.endsWith(stateAction)).map(c => `${relative(root, file)}:${c.line}`))
         r.secrets.forEach(s => secrets.add(s))
         keep(file, yaml, r)
     }
-    return { root, projects, problems, files, unserialized, secrets: [...secrets].sort(), references: [...references].sort() }
+    return { root, projects, problems, files, unserialized, secrets: [...secrets].sort(), references: [...references].sort(), opening }
 }
 
 /**

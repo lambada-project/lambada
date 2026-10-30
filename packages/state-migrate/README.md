@@ -38,6 +38,7 @@ A command exits 1 when `plan` finds a problem, or when it fails or refuses; othe
 - **Stack references that name the Pulumi Cloud organization.** A self-managed backend has one organization, `organization`, and refuses any other name: `organization name must be 'organization'`. These are references written in code and the config values passed to them.
 - **Workflow logins**: every `PULUMI_ACCESS_TOKEN` it renames, and the secrets the workflows will then read.
 - **Jobs running Pulumi without a `concurrency` group.**
+- **Jobs that will open the database to their runner**, and those with no AWS credentials before their first Pulumi step.
 - **Names the Postgres backend cannot hold.**
 - **The order to move repos in.** A stack's references resolve in its own backend, so referenced projects move first. Repos referencing each other form a group that moves together.
 
@@ -57,6 +58,7 @@ Pulumi Cloud is left as it was. The target's URL is read from the environment, n
 - **Code references** whose organization is spelled out are pointed at `organization`. A reference's stack is its `name` option when it has one, otherwise its first argument.
 - **Config values** that references read are changed the same way.
 - **`PULUMI_ACCESS_TOKEN`** is renamed to `PULUMI_BACKEND_URL` in workflows and local actions. This keeps however a workflow picks its token: one secret, one per environment, or a name built at run time.
+- **The step opening the database** goes right before each job's first Pulumi step: a `pulumi` command, `pulumi/actions`, or a local action that runs either. `--state-action <uses>` names another step, and `--state-action none` adds none, for runners inside the database's network.
 
 A new reference names `organization/<project>/<stack>`, or only `<stack>` within its own project. `<project>/<stack>` fails, as does the Pulumi Cloud organization.
 
@@ -96,9 +98,19 @@ GRANT pulumi_state_owner TO pulumi_ci;
 
 `pulumi_ci` deploys and cannot create roles or databases. It can drop the table, so give each AWS account its own database, and keep point-in-time recovery and deletion protection on.
 
-For `sslmode=verify-full`, the URL names the RDS certificate bundle, which CI downloads from `https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem`. The URL holds the password; GitHub masks the secret as a whole, but `pulumi/actions` prints the URL's host in its login line.
+For `sslmode=verify-full`, the URL names the RDS certificate bundle at `/tmp/rds-ca.pem`, as `sslrootcert=/tmp/rds-ca.pem`. The URL holds the password; GitHub masks the secret as a whole, but `pulumi/actions` prints the URL's host in its login line.
 
-A GitHub-hosted runner leaves from Azure, from an address no security group can list in advance. The deploy role may add the runner's `/32` to the database's security group, and the job removes it in a step that runs even when the job fails. That role needs `ec2:AuthorizeSecurityGroupIngress` and `ec2:RevokeSecurityGroupIngress` on that group, `ec2:DescribeSecurityGroups`, and `kms:Decrypt` on the secrets provider's key; it needs no `kms:Encrypt`.
+A GitHub-hosted runner leaves from Azure, from an address no security group can list in advance. The step `rewrite` adds, [`open-state-db`](../../.github/actions/open-state-db/action.yml), lets the runner's `/32` into the database's security group, and removes it after the job, even a failed one:
+
+```yaml
+- uses: lambada-project/lambada/.github/actions/open-state-db@state-db-v1
+  with:
+    security-group: pulumi-state   # its ID, or its Name tag (the default)
+```
+
+It also downloads the certificate bundle to `/tmp/rds-ca.pem`, and, when `PULUMI_BACKEND_URL` is in the job's environment, masks the database's host and waits until the database answers. A rule a cancelled run left behind is removed by the next run, after six hours. Set the URL in the job's `env:` rather than a step's, so the step sees it.
+
+It runs with the job's AWS credentials, so it follows the credentials step. The role needs `ec2:AuthorizeSecurityGroupIngress` and `ec2:RevokeSecurityGroupIngress` on the database's group, `ec2:DescribeSecurityGroups` and `ec2:DescribeSecurityGroupRules`, and `kms:Decrypt` on the secrets provider's key; it needs no `kms:Encrypt`.
 
 ## Going back to Pulumi Cloud
 
