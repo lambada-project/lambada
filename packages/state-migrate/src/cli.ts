@@ -2,6 +2,7 @@
 import { statSync } from 'node:fs'
 import { resolve, join } from 'node:path'
 import { parseArgs } from 'node:util'
+import { freezeStack } from './freeze'
 import { migrateStack } from './migrate'
 import { moveOrder, planRepo, RepoPlan } from './plan'
 import { must, pulumiCli } from './pulumi'
@@ -13,9 +14,12 @@ const USAGE = `lambada-state: move Pulumi stacks from Pulumi Cloud to a self-man
   lambada-state rewrite <repo>       make those changes: stack references, the config naming them, workflow logins
   lambada-state migrate <repo> --stack <name> --secrets-provider <url>
                                      copy the stack of every project in the repo, and prove each copy
+  lambada-state freeze <repo> --stack <name>
+                                     tag each Pulumi Cloud stack with the version it moved at; run again,
+                                     report any deploy that landed on it since. Nothing is deleted.
 
 Options:
-  --stack <name>            migrate: the stack to copy, in every project of the repo that has Pulumi.<name>.yaml
+  --stack <name>            migrate, freeze: the stack to copy, in every project of the repo that has Pulumi.<name>.yaml
   --secrets-provider <url>  migrate: how the copy encrypts, such as awskms://alias/pulumi-state?region=us-east-1
   --org <name>              the Pulumi Cloud organization (default: the one PULUMI_ACCESS_TOKEN belongs to)
   --state-action <uses>     plan, rewrite: the step that opens the database to a hosted runner, put before each
@@ -30,10 +34,14 @@ Output:
 Exit status: 1 when plan finds a problem, or a command fails or refuses; 0 otherwise.
 Needs the pulumi CLI on PATH and Node 22 or later.
 
-Environment for migrate:
+Freezing: Pulumi Cloud cannot make a stack read-only, so the move holds once no token can deploy there.
+The step rewrite adds checks the tokens the workflows used, and refuses to deploy while one still logs
+in to Pulumi Cloud: revoke each, or remove its secret from the repo. Revoke personal tokens too.
+
+Environment for migrate and freeze:
   PULUMI_BACKEND_URL        the target backend, such as postgres://…?sslmode=verify-full. Read from the
                             environment so the password stays out of arguments and ~/.pulumi/credentials.json.
-  PULUMI_ACCESS_TOKEN       a Pulumi Cloud token that can read the source stacks
+  PULUMI_ACCESS_TOKEN       a Pulumi Cloud token that can read the source stacks, and tag them to freeze them
 `
 
 const { values, positionals } = parseArgs({
@@ -114,7 +122,30 @@ if (values.help || !command) {
             fail(`${project.name}: ${(error as Error).message}`)
         }
     }
-    console.log(`\nNext: make the Pulumi Cloud stacks read-only, run \`lambada-state rewrite ${repo}\`, and open the PR; its preview should show no changes.`)
+    console.log(`\nNext: run \`lambada-state freeze ${repo} --stack ${stack}\`, then \`lambada-state rewrite ${repo}\`, and open the PR; its preview should show no changes.`)
+} else if (command === 'freeze') {
+    const [repo] = repos
+    const { stack } = values
+    if (!repo || !stack) fail(USAGE)
+    const org = organization()
+    const plan = planRepo(resolve(repo!), org)
+    const pulumi = pulumiCli('', process.env.PULUMI_ACCESS_TOKEN)
+    const projects = plan.projects.filter(p => p.stacks.some(s => s.name === stack))
+    if (projects.length === 0) fail(`No project in ${repo} has a Pulumi.${stack}.yaml; its stacks are named by those files.`)
+    for (const project of projects) {
+        const source = `${org}/${project.name}/${stack}`
+        try {
+            const frozen = freezeStack(pulumi, join(plan.root, project.dir), source)
+            if (frozen.state === 'tagged') console.log(`${source}: frozen at version ${frozen.version}`)
+            else if (frozen.state === 'unchanged') console.log(`${source}: unchanged since it moved at version ${frozen.version}, ${frozen.at}`)
+            else {
+                console.log(`✗ ${source}: deployed on Pulumi Cloud after the move, version ${frozen.version} → ${frozen.now}. Its resources may differ from the moved stack's: find that update in its history, stop what ran it, then \`pulumi refresh\` the moved stack.`)
+                process.exitCode = 1
+            }
+        } catch (error) {
+            fail(`${project.name}: ${(error as Error).message}`)
+        }
+    }
 } else {
     fail(USAGE)
 }

@@ -94,9 +94,9 @@ ${credentials}      - run: npm ci
         env:
           PULUMI_ACCESS_TOKEN: \${{ secrets.PULUMI_ACCESS_TOKEN }}
       - run: pulumi stack output -s dev`), { stateAction: uses })
-        expect(r.text).toContain(`      - run: npm ci\n      - uses: ${uses}\n      - uses: pulumi/actions@v6`)
+        expect(r.text).toContain(`      - run: npm ci\n      - uses: ${uses}\n        with:\n          pulumi-cloud-tokens: |\n            PULUMI_ACCESS_TOKEN: \${{ secrets.PULUMI_ACCESS_TOKEN }}\n      - uses: pulumi/actions@v6`)
         expect(r.text.split(uses).length).toBe(2)
-        expect(r.changes.map(c => [c.line, c.to])).toEqual([[12, `- uses: ${uses}`], [15, 'PULUMI_BACKEND_URL: ${{ secrets.PULUMI_BACKEND_URL }}']])
+        expect(r.changes.map(c => [c.line, c.to])).toEqual([[12, `- uses: ${uses}`], [18, 'PULUMI_BACKEND_URL: ${{ secrets.PULUMI_BACKEND_URL }}']])
         expect(r.text.split('\n')[11].trim()).toBe(`- uses: ${uses}`)
         expect(r.unresolved).toEqual([])
     })
@@ -156,5 +156,46 @@ ${credentials}`), { stateAction: uses })
         env:
           PULUMI_BACKEND_URL: \${{ secrets.PULUMI_BACKEND_URL }}`)
         expect(rewriteWorkflow(yaml).text).toBe(yaml)
+    })
+})
+
+describe('the opening step checking Pulumi Cloud is frozen', () => {
+    const uses = 'acme/infra/.github/actions/open-state-db@v1'
+    const credentials = `      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::123456789012:role/deploy
+`
+
+    test('it is handed every token the workflow named, under their old names', () => {
+        const r = rewriteWorkflow(workflow(`${credentials}      - uses: pulumi/actions@v6
+        env:
+          PULUMI_ACCESS_TOKEN: \${{ github.ref == 'refs/heads/release' && secrets.PULUMI_ACCESS_TOKEN_PROD || secrets.PULUMI_ACCESS_TOKEN_DEV }}`), { stateAction: uses })
+        expect(r.text).toContain(`      - uses: ${uses}
+        with:
+          pulumi-cloud-tokens: |
+            PULUMI_ACCESS_TOKEN_DEV: \${{ secrets.PULUMI_ACCESS_TOKEN_DEV }}
+            PULUMI_ACCESS_TOKEN_PROD: \${{ secrets.PULUMI_ACCESS_TOKEN_PROD }}
+      - uses: pulumi/actions@v6`)
+        expect(r.text).toContain('secrets.PULUMI_BACKEND_URL_PROD || secrets.PULUMI_BACKEND_URL_DEV')
+        expect(r.secrets).toEqual(['PULUMI_BACKEND_URL_DEV', 'PULUMI_BACKEND_URL_PROD'])
+        expect(r.changes.map(c => c.line)).toEqual([10, 17])
+        expect(r.text.split('\n')[16]).toContain('PULUMI_BACKEND_URL_PROD')
+    })
+
+    test('rewriting again keeps the tokens it checks', () => {
+        const once = rewriteWorkflow(workflow(`${credentials}      - run: pulumi up --yes -s dev
+        env:
+          PULUMI_ACCESS_TOKEN: \${{ secrets.PULUMI_ACCESS_TOKEN }}`), { stateAction: uses })
+        expect(once.text).toContain('            PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}\n')
+        const twice = rewriteWorkflow(once.text, { stateAction: uses })
+        expect(twice.text).toBe(once.text)
+        expect(twice.changes).toEqual([])
+    })
+
+    test('a token named at run time is reported for listing by hand', () => {
+        const r = rewriteWorkflow(workflow(`${credentials}      - run: echo "TOKEN=PULUMI_ACCESS_TOKEN_\${STAGE^^}" >> "$GITHUB_ENV"
+      - run: pulumi up --yes -s dev`), { stateAction: uses })
+        expect(r.text).not.toContain('pulumi-cloud-tokens')
+        expect(r.unresolved.map(u => [u.text, u.reason])).toEqual([['PULUMI_ACCESS_TOKEN_${STAGE^^}', 'a token named at run time; list it under pulumi-cloud-tokens so the step can check Pulumi Cloud is frozen']])
     })
 })

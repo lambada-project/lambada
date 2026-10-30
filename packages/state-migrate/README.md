@@ -69,9 +69,9 @@ A new reference names `organization/<project>/<stack>`, or only `<stack>` within
 For each environment, in the order `plan` gives:
 
 1. **Pause the repos' deploys** and copy their stacks with `migrate`.
-2. **Make the Pulumi Cloud stacks read-only** by revoking the Pulumi tokens their workflows use, or deleting the `PULUMI_ACCESS_TOKEN` secrets. Nothing on the Pulumi side holds: an update held open blocks others only until its lease expires, about 5 minutes, and a renamed stack still answers to its old name.
-3. **Create the backend URL secrets**, run `rewrite`, and open the PR with the rewritten `Pulumi.<stack>.yaml` files. Its preview should show no changes. CI then needs to reach the database and to decrypt with the KMS key.
-4. **Keep the Pulumi Cloud stacks until the soak ends.** They are the way back.
+2. **Freeze Pulumi Cloud.** `freeze` tags each stack with the version it moved at; it deletes nothing. Then revoke the Pulumi tokens the workflows use, or remove their secrets from the repo, and revoke the personal tokens of whoever deployed by hand. Nothing on the Pulumi side holds a stack still: an update held open blocks others only until its lease expires, about 5 minutes, and a renamed stack still answers to its old name. Read-only stacks need Pulumi Cloud's team permissions.
+3. **Create the backend URL secrets**, run `rewrite`, and open the PR with the rewritten `Pulumi.<stack>.yaml` files. Its preview should show no changes. CI then needs to reach the database and to decrypt with the KMS key. The step `rewrite` adds is handed the tokens the workflows used, and refuses to deploy while one still logs in to Pulumi Cloud, so the move cannot run beside a live way to Pulumi Cloud.
+4. **Keep the Pulumi Cloud stacks until the soak ends.** They are the way back. Run `freeze` again to check none was deployed since: it names any stack whose version moved, and exits 1.
 
 A deploy to Pulumi Cloud after the copy and before step 2 leaves the copy behind. `migrate` catches the ones that land while it runs. Afterwards, the target's preview does not show the gap: it plans to create what Pulumi Cloud created, which then fails with "already exists".
 
@@ -127,6 +127,14 @@ A GitHub-hosted runner leaves from Azure, from an address no security group can 
     security-group: pulumi-state   # its ID, or its Name tag (the default)
 ```
 
+Before opening anything it checks `pulumi-cloud-tokens`, which `rewrite` fills with the token secrets the workflow named before the move. A token that still logs in stops the job; a revoked token or a missing secret passes. A token named at run time cannot be listed by `rewrite`, which reports it for listing by hand:
+
+```yaml
+  with:
+    pulumi-cloud-tokens: |
+      PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+```
+
 It also downloads the certificate bundle to `/tmp/rds-ca.pem`, and, when `PULUMI_BACKEND_URL` is in the job's environment, masks the database's host and waits until the database answers. A rule a cancelled run left behind is removed by the next run, after six hours. Set the URL in the job's `env:` rather than a step's, so the step sees it.
 
 It runs with the job's AWS credentials, so it follows the credentials step. The role needs `ec2:AuthorizeSecurityGroupIngress` and `ec2:RevokeSecurityGroupIngress` on the database's group, `ec2:DescribeSecurityGroups` and `ec2:DescribeSecurityGroupRules`, and `kms:Decrypt` on the secrets provider's key; it needs no `kms:Encrypt`.
@@ -161,5 +169,6 @@ Measured with Pulumi 3.265 against RDS Postgres 17:
 - **An update makes about 190 SQL statements,** so the network between CI and the database shapes its speed.
 - **End to end, two lambada services moved and kept deploying.** One referenced the other in code and through config. After `migrate` and `rewrite`, a run with only `PULUMI_BACKEND_URL` previewed no changes. Its updates reached both references, its secrets decrypted with KMS alone, and both APIs answered.
 - **`pulumi/actions` writes the backend URL, password included, to `~/.pulumi/credentials.json`.** A GitHub-hosted runner discards it; a self-hosted runner keeps it.
+- **`freeze` and the token check, on Pulumi Cloud.** `freeze` tagged a stack at version 1, found it unchanged when run again, and named it with exit 1 after a deploy took it to version 2. The token check answered a live token 200 and a revoked one 401, so the step stopped on the live one and passed the revoked and missing ones.
 - **The template made a working database from scratch in about 10 minutes**, and a second update changed nothing. Its login's session ran as `pulumi_state_owner`, so the table the backend created belonged to the owner; it deployed with KMS secrets; a rule a runner had added survived the template's update; and protect refused a destroy.
 - **A GitHub-hosted runner deployed a lambada service through the backend.** It opened the database to itself, decrypted with `kms:Decrypt` alone, resumed an update an earlier run had left half done, and a second run previewed no changes.

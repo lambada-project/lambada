@@ -9,6 +9,11 @@ inputs:
   port:
     description: The database's port.
     default: '5432'
+  pulumi-cloud-tokens:
+    description: >
+      The Pulumi Cloud tokens the workflows used, one `NAME: value` per line. The step refuses to run
+      while one still logs in to Pulumi Cloud; an empty value, a missing secret, passes.
+    default: ''
   ca-bundle:
     description: Where to write the RDS certificate bundle that sslrootcert in PULUMI_BACKEND_URL names.
     default: /tmp/rds-ca.pem

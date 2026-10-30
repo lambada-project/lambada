@@ -29,6 +29,7 @@ export type WorkflowRewrite = {
 }
 
 const TOKEN = /\bPULUMI_ACCESS_TOKEN/g
+const TOKENS_INPUT = /^\s*pulumi-cloud-tokens:\s*\|/
 const URL = 'PULUMI_BACKEND_URL'
 export const RUNS_PULUMI = /uses:\s*pulumi\/actions@|(^|[\s;&|(])pulumi\s+(up|preview|destroy|refresh|import|cancel|stack|config)\b/m
 
@@ -36,7 +37,12 @@ export const rewriteWorkflow = (yaml: string, options: WorkflowOptions = {}): Wo
     // The step goes in first: renaming keeps every line where it is, so both report final line numbers.
     const opened = options.stateAction ? openStateDatabase(yaml, options.stateAction, options.pulumiActions ?? []) : { text: yaml, changes: [], unresolved: [] }
     const changes: Change[] = [...opened.changes]
+    let tokens: number | undefined
     const text = opened.text.split('\n').map((line, i) => {
+        // The tokens the opening step checks keep their names.
+        const indent = line.search(/\S/)
+        if (tokens !== undefined && (indent < 0 || indent > tokens)) return line
+        tokens = TOKENS_INPUT.test(line) ? indent : undefined
         const to = line.replace(TOKEN, URL)
         if (to !== line) changes.push({ line: i + 1, from: line.trim(), to: to.trim() })
         return to
@@ -45,11 +51,16 @@ export const rewriteWorkflow = (yaml: string, options: WorkflowOptions = {}): Wo
     const unresolved: Unresolved[] = !/\bPULUMI_(ACCESS_TOKEN|BACKEND_URL)/.test(yaml) && RUNS_PULUMI.test(yaml)
         ? [{ line: 1, text: 'PULUMI_ACCESS_TOKEN', reason: 'the workflow runs Pulumi but never names the token; give its Pulumi steps PULUMI_BACKEND_URL' }]
         : []
-    const secrets = new Set<string>()
-    for (const m of text.matchAll(/secrets\.(PULUMI_BACKEND_URL\w*)|secrets\[\s*['"](PULUMI_BACKEND_URL\w*)['"]\s*\]/g)) secrets.add(m[1] ?? m[2])
-    for (const m of text.matchAll(/\b(PULUMI_BACKEND_URL\w*\$\{[^}]+\}\w*)/g)) secrets.add(m[1])
-    for (const m of text.matchAll(/^\s*(?:-\s+)?[\w-]+:\s*([\w,\s]*\bPULUMI_BACKEND_URL\w*[\w,\s]*)$/gm)) for (const name of m[1].split(',').map(s => s.trim())) if (name.startsWith(URL)) secrets.add(name)
-    return { text, changes, unresolved: [...unresolved, ...opened.unresolved], secrets: [...secrets].sort(), unserialized: unserializedJobs(text) }
+    return { text, changes, unresolved: [...unresolved, ...opened.unresolved], secrets: secretNames(text, URL), unserialized: unserializedJobs(text) }
+}
+
+/** The secrets a workflow reads whose names start with `prefix`, by the names it spells; a name built at run time keeps its `${…}`. */
+const secretNames = (text: string, prefix: string): string[] => {
+    const names = new Set<string>()
+    for (const m of text.matchAll(new RegExp(String.raw`secrets\.(${prefix}\w*)|secrets\[\s*['"](${prefix}\w*)['"]\s*\]`, 'g'))) names.add(m[1] ?? m[2])
+    for (const m of text.matchAll(new RegExp(String.raw`\b(${prefix}\w*\$\{[^}]+\}\w*)`, 'g'))) names.add(m[1])
+    for (const m of text.matchAll(new RegExp(String.raw`^\s*(?:-\s+)?[\w-]+:\s*([\w,\s]*\b${prefix}\w*[\w,\s]*)$`, 'gm'))) for (const name of m[1].split(',').map(s => s.trim())) if (name.startsWith(prefix)) names.add(name)
+    return [...names].sort()
 }
 
 type Job = { name: string, start: number, text: string }
@@ -70,10 +81,18 @@ const AWS_CREDENTIALS = /aws-actions\/configure-aws-credentials@|\bAWS_ACCESS_KE
 /**
  * A hosted runner reaches the state database only once its address is let in. Each job running Pulumi
  * gets the opening step right before its first Pulumi step; the step closes the database after the job.
+ * It is handed the Pulumi Cloud tokens the workflow used, and refuses to open while one still logs in:
+ * Pulumi Cloud cannot make a stack read-only, so the move holds only once no token can deploy there.
  */
 const openStateDatabase = (yaml: string, uses: string, pulumiActions: string[]): { text: string, changes: Change[], unresolved: Unresolved[] } => {
     const path = uses.split('@')[0]
     const runsPulumi = (step: string) => RUNS_PULUMI.test(step) || pulumiActions.some(a => new RegExp(`uses:\\s*['"]?${a.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}['"]?\\s*$`, 'm').test(step))
+    const names = secretNames(yaml, 'PULUMI_ACCESS_TOKEN')
+    const tokens = names.filter(n => !n.includes('${'))
+    const step = (indent: string) => [
+        `${indent}- uses: ${uses}\n`,
+        ...tokens.length ? [`${indent}  with:\n`, `${indent}    pulumi-cloud-tokens: |\n`, ...tokens.map(t => `${indent}      ${t}: \${{ secrets.${t} }}\n`)] : [],
+    ].join('')
     const inserts: { offset: number, line: string, job: string, credentials: boolean }[] = []
     const workflowCredentials = AWS_CREDENTIALS.test(yaml.slice(0, /^jobs:/m.exec(yaml)?.index ?? 0))
     for (const job of jobsOf(yaml)) {
@@ -88,7 +107,7 @@ const openStateDatabase = (yaml: string, uses: string, pulumiActions: string[]):
         const first = blocks.findIndex(b => runsPulumi(b.text))
         if (first < 0) continue
         const credentials = workflowCredentials || AWS_CREDENTIALS.test(job.text.slice(0, steps.index)) || blocks.slice(0, first).some(b => AWS_CREDENTIALS.test(b.text))
-        inserts.push({ offset: job.start + steps.index + steps[0].length + blocks[first].offset, line: `${indent}- uses: ${uses}\n`, job: job.name, credentials })
+        inserts.push({ offset: job.start + steps.index + steps[0].length + blocks[first].offset, line: step(indent), job: job.name, credentials })
     }
     let text = yaml
     for (const i of [...inserts].reverse()) text = text.slice(0, i.offset) + i.line + text.slice(i.offset)
@@ -98,7 +117,8 @@ const openStateDatabase = (yaml: string, uses: string, pulumiActions: string[]):
     for (const i of inserts) {
         const line = lineAt(text, i.offset + shift)
         shift += i.line.length
-        changes.push({ line, from: '', to: i.line.trim() })
+        changes.push({ line, from: '', to: i.line.split('\n')[0].trim() })
+        for (const name of names.filter(n => n.includes('${'))) unresolved.push({ line, text: name, reason: 'a token named at run time; list it under pulumi-cloud-tokens so the step can check Pulumi Cloud is frozen' })
         if (!i.credentials) unresolved.push({ line, text: i.job, reason: 'no AWS credentials are set before its first Pulumi step; the opening step and Pulumi both need them' })
     }
     return { text, changes, unresolved }

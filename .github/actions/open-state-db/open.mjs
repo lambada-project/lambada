@@ -5,6 +5,21 @@ import { connect } from 'node:net'
 import { aws, fail, input, permission, PREFIX, save } from './state.mjs'
 
 const port = input('port', '5432')
+
+// Pulumi Cloud cannot make a stack read-only, so the move holds only once no token the workflows used
+// still logs in there: an old branch, or a workflow not yet rewritten, would deploy where this job does not look.
+const tokens = input('pulumi-cloud-tokens', '').split('\n').map(l => /^\s*([\w-]+)\s*:\s*(\S*)\s*$/.exec(l)).filter(Boolean)
+const live = []
+for (const [, name, token] of tokens) {
+    if (!token) continue
+    const r = await fetch('https://api.pulumi.com/api/user', { headers: { Authorization: `token ${token}`, Accept: 'application/vnd.pulumi+8' } })
+        .catch(e => ({ status: 0, statusText: e.message }))
+    if (r.status === 200) live.push(name)
+    else if (r.status !== 401 && r.status !== 403) fail(`could not tell whether ${name} still logs in to Pulumi Cloud: ${r.status} ${r.statusText}`)
+}
+if (live.length > 0) fail(`Pulumi Cloud is not frozen: ${live.join(', ')} still logs in. Revoke the token, or remove the secret from this repo, then run again.`)
+if (tokens.length > 0) console.log(`Pulumi Cloud is frozen: none of ${tokens.map(t => t[1]).join(', ')} logs in`)
+
 const ip = (await (await fetch('https://checkip.amazonaws.com')).text()).trim()
 if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(ip)) fail(`could not tell this runner's address: '${ip}'`)
 

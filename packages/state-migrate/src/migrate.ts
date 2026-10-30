@@ -1,6 +1,7 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { cloudVersion } from './freeze'
 import { must, PULUMI_CLOUD, Pulumi } from './pulumi'
 import { nameProblem } from './scan'
 import { Config, configDifferences, Exported, stateDifferences } from './state'
@@ -41,10 +42,7 @@ export const migrateStack = ({ pulumi, cwd, org, project, stack, secretsProvider
         throw new Error(`${stack} already exists in the target. To copy it again, remove the copy with \`pulumi stack rm --force -s ${stack}\` against the target; its resources stay. That deletes Pulumi.${stack}.yaml, which the copy re-encrypted, so restore the Pulumi Cloud one, such as with \`git checkout -- Pulumi.${stack}.yaml\`, and migrate again.`)
     }
 
-    const version = () => {
-        const history: { version: number }[] = JSON.parse(cloud(['stack', 'history', '--json', '--page-size', '1', '-s', source], `reading the history of ${source}`) || '[]')
-        return Math.max(0, ...history.map(h => h.version))
-    }
+    const version = () => cloudVersion(pulumi, cwd, source)
     const sourceConfig: Config = JSON.parse(cloud(['config', '--show-secrets', '--json', '-s', source], `reading the config of ${source}`))
     const prove = () => {
         const exported = (run: typeof cloud, name: string): Exported => JSON.parse(run(['stack', 'export', '--show-secrets', '-s', name], `exporting ${name}`))
