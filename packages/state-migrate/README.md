@@ -27,13 +27,17 @@ npx lambada-state rewrite ../shop                       # then open the PR
 3. Compares the two exports resource by resource, with secrets decrypted, and every config value.
 4. Reads the Pulumi Cloud version again. A deploy that landed meanwhile is copied over with `stack export` and `stack import`, then proven again. A stack that keeps moving is refused.
 
+`pulumi stack migrate` rewrites `Pulumi.<stack>.yaml` for the new secrets provider and keeps the Pulumi Cloud version beside it as `Pulumi.<stack>.yaml.bak.<n>`. The rewritten file belongs in the PR; the backup does not.
+
 Pulumi Cloud is left as it was. The target's URL is read from the environment, never from an argument, and never with `pulumi login`, which writes it to `~/.pulumi/credentials.json` with its password.
 
 `rewrite` makes the changes `plan` reports:
 
-- **Code references** whose organization is spelled out are pointed at `organization`.
+- **Code references** whose organization is spelled out are pointed at `organization`. A reference's stack is its `name` option when it has one, otherwise its first argument.
 - **Config values** that references read are changed the same way.
 - **`PULUMI_ACCESS_TOKEN`** is renamed to `PULUMI_BACKEND_URL` in workflows and local actions. This keeps however a workflow picks its token: one secret, one per environment, or a name built at run time.
+
+A new reference names `organization/<project>/<stack>`, or only `<stack>` within its own project. `<project>/<stack>` fails, as does the Pulumi Cloud organization.
 
 `pulumi` and `pulumi/actions` read `PULUMI_BACKEND_URL`; the action's own `pulumi login` yields to it. Create the secrets `plan` lists before merging. References whose names are computed are reported, not rewritten.
 
@@ -43,7 +47,7 @@ For each environment, in the order `plan` gives:
 
 1. **Pause the repos' deploys** and copy their stacks with `migrate`.
 2. **Make the Pulumi Cloud stacks read-only.**
-3. **Create the backend URL secrets**, run `rewrite`, and open the PR. Its preview should show no changes.
+3. **Create the backend URL secrets**, run `rewrite`, and open the PR with the rewritten `Pulumi.<stack>.yaml` files. Its preview should show no changes. CI then needs to reach the database and to decrypt with the KMS key.
 4. **Keep the Pulumi Cloud stacks until the soak ends.** They are the way back.
 
 A deploy to Pulumi Cloud after the copy and before step 2 leaves the copy behind. `migrate` catches the ones that land while it runs. Afterwards, the target's preview does not show the gap: it plans to create what Pulumi Cloud created, which then fails with "already exists".
