@@ -90,7 +90,7 @@ Each AWS account gets its own database, from the template in [`database`](databa
 ```sh
 pulumi new https://github.com/lambada-project/lambada/tree/main/packages/state-migrate/database
 pulumi up
-pulumi stack output backendUrl --show-secrets   # the PULUMI_BACKEND_URL secret
+pulumi stack output backendUrl --show-secrets | tr -d "\n"   # the PULUMI_BACKEND_URL secret, without a newline
 pulumi stack output secretsProvider             # --secrets-provider for migrate
 ```
 

@@ -44,6 +44,8 @@ const bundle = await fetch('https://truststore.pki.rds.amazonaws.com/global/glob
 if (!bundle.ok) fail(`could not download the RDS certificate bundle: ${bundle.status}`)
 writeFileSync(input('ca-bundle', '/tmp/rds-ca.pem'), await bundle.text())
 
+// Pulumi cannot parse a URL with a newline, reads it as Pulumi Cloud, and asks for PULUMI_ACCESS_TOKEN.
+if (/\s/.test(process.env.PULUMI_BACKEND_URL ?? '')) fail('PULUMI_BACKEND_URL holds whitespace, such as a trailing newline; set the secret again without it')
 const host = /@([^:/?]+)/.exec(process.env.PULUMI_BACKEND_URL ?? '')?.[1]
 if (!host) {
     console.log(`opened ${group}; PULUMI_BACKEND_URL is not set in this step, so the database was not tried`)
