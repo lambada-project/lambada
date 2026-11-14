@@ -1,7 +1,7 @@
 import { LambadaTables } from '../database/index'
-import { CreateTableInput, DynamoDB, DynamoDBClientConfig } from '@aws-sdk/client-dynamodb';
+import { DynamoDB, DynamoDBClientConfig, waitUntilTableNotExists } from '@aws-sdk/client-dynamodb';
 import { KMS, KMSClientConfig } from '@aws-sdk/client-kms'
-import { SQS, SQSClientConfig } from '@aws-sdk/client-sqs'
+import { SQSClientConfig } from '@aws-sdk/client-sqs'
 import type { S3ClientConfig } from '@aws-sdk/client-s3'
 import type { SNSClientConfig } from '@aws-sdk/client-sns'
 import type { SecretsManagerClientConfig } from '@aws-sdk/client-secrets-manager'
@@ -10,6 +10,9 @@ import { LambadaMessages } from '../messaging';
 import { LambadaQueues } from '../queue';
 import { EmbroiderySecrets, SecurityKeys } from '../security';
 import { Input } from '@pulumi/pulumi';
+import { removeKey, tableInput, waitUntilActive } from './provision';
+import { ifMissingQueue, sqsClient } from './sqs';
+import { queueAttributes } from './queueOptions';
 type AWSOptionTypes = {
     dynamodb?: DynamoDBClientConfig
     kms?: KMSClientConfig
@@ -60,6 +63,7 @@ export async function ConfigureAwsEnvironment({ options }: LambadaEnvironmentCon
         await delay()
 
         validateTables(tables)
+        const names: string[] = []
 
         for (const key in tables) {
 
@@ -67,61 +71,15 @@ export async function ConfigureAwsEnvironment({ options }: LambadaEnvironmentCon
                 const table = tables[key];
                 const tableName = physical(tablePrefix, table.name, environment)
                 process.env[table.envKeyName] = tableName
+                names.push(tableName)
                 if (existingTableNames.includes(tableName)) {
                     continue;
                 }
-                await db.createTable({
-                    TableName: tableName,
-                    AttributeDefinitions: [
-                        {
-                            AttributeName: table.primaryKey,
-                            AttributeType: 'S'
-                        },
-                        table.rangeKey ?
-                            {
-                                AttributeName: table.rangeKey,
-                                AttributeType: 'S'
-                            } : undefined,
-                        ...(table.attributes ?? []).map(x => ({
-                            AttributeName: x.name,
-                            AttributeType: x.type
-                        }))
-
-                    ].filter(x => typeof x !== 'undefined'),
-                    KeySchema: [
-                        {
-                            AttributeName: table.primaryKey,
-                            KeyType: 'HASH'
-                        },
-                        table.rangeKey ?
-                            {
-                                AttributeName: table.rangeKey,
-                                KeyType: 'RANGE'
-                            } : undefined
-                    ].filter(x => typeof x !== 'undefined'),
-                    ProvisionedThroughput: {
-                        ReadCapacityUnits: 10,
-                        WriteCapacityUnits: 10
-                    },
-                    GlobalSecondaryIndexes: table.indexes?.map(x => ({
-                        IndexName: x.name,
-                        KeySchema: [
-                            { AttributeName: x.hashKey, KeyType: "HASH" }, //Partition key
-                            ...(x.rangeKey ? [{ AttributeName: x.rangeKey, KeyType: "RANGE" }] : [])
-                        ],
-                        Projection: {
-                            ProjectionType: x.projectionType,
-                            NonKeyAttributes: x.projectionType == 'INCLUDE' ? x.nonKeyAttributes : undefined
-                        },
-                        ProvisionedThroughput: {
-                            ReadCapacityUnits: 10,
-                            WriteCapacityUnits: 10
-                        }
-                    }))
-
-                } as CreateTableInput)
+                await db.createTable(tableInput(table, tableName))
             }
         }
+
+        for (const name of names) await waitUntilActive(db, name)
     }
 
     if (keys) {
@@ -182,14 +140,14 @@ export async function ConfigureAwsEnvironment({ options }: LambadaEnvironmentCon
 
     const queues = options?.queues
     if (queues) {
-        const sqs = new SQS(currentAWSConfig.sqs ?? {})
+        const sqs = sqsClient(currentAWSConfig.sqs)
 
         for (const key in queues) {
             const fifo = queues[key].options?.fifoQueue ? '.fifo' : ''
             const name = `${physical(queues[key].name, environment)}${fifo}`
             const created = await sqs.createQueue({
                 QueueName: name,
-                Attributes: fifo ? { FifoQueue: 'true' } : undefined,
+                Attributes: queueAttributes(queues[key].options),
             })
             // The grant publishes the queue URL.
             process.env[queues[key].envKeyName] = created.QueueUrl
@@ -218,14 +176,21 @@ export async function RemoveResources(config: LambadaEnvironmentConfig): Promise
 
         const existingTableNames = (await db.listTables({})).TableNames ?? []
 
+        const deleted: string[] = []
         for (const tableKey of Object.keys(tables)) {
             const tableName = physical(tablePrefix, tables[tableKey].name, environment)
             if (existingTableNames.includes(tableName)) {
                 await db.deleteTable({
                     TableName: tableName,
                 });
+                deleted.push(tableName)
             }
         }
+
+        // DeleteTable answers before the store has dropped the table, and the next setup would list it.
+        // The SDK polls every 20 seconds by default, which adds 20 seconds to each test file.
+        const wait = { client: db, maxWaitTime: 60, minDelay: 1, maxDelay: 5 }
+        for (const name of deleted) await waitUntilTableNotExists(wait, { TableName: name })
     }
 
     const buckets = config.options?.buckets
@@ -260,12 +225,12 @@ export async function RemoveResources(config: LambadaEnvironmentConfig): Promise
 
     const queues = config.options?.queues
     if (queues) {
-        const sqs = new SQS(currentAWSConfig.sqs ?? {})
+        const sqs = sqsClient(currentAWSConfig.sqs)
 
         for (const key in queues) {
             const fifo = queues[key].options?.fifoQueue ? '.fifo' : ''
             const name = `${physical(queues[key].name, environment)}${fifo}`
-            const found = await sqs.getQueueUrl({ QueueName: name }).catch(() => undefined)
+            const found = await sqs.getQueueUrl({ QueueName: name }).catch(ifMissingQueue)
 
             if (found?.QueueUrl) await sqs.deleteQueue({ QueueUrl: found.QueueUrl })
         }
@@ -294,12 +259,7 @@ export async function RemoveResources(config: LambadaEnvironmentConfig): Promise
                 const keyConfig = keys[key]!
                 const alias = `alias/${physical(projectName, keyConfig.name, environment)}`
                 const existingKey = existingKeys.find((x) => x.AliasName === alias)
-                if (existingKey) {
-                    // Deleting key also deletes aliases
-                    await kms.scheduleKeyDeletion({
-                        KeyId: existingKey.TargetKeyId
-                    })
-                }
+                if (existingKey?.TargetKeyId) await removeKey(kms, alias, existingKey.TargetKeyId)
             }
         }
     }
