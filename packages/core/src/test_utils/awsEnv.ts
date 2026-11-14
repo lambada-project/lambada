@@ -12,6 +12,7 @@ import { EmbroiderySecrets, SecurityKeys } from '../security';
 import { Input } from '@pulumi/pulumi';
 import { removeKey, tableInput, waitUntilActive } from './provision';
 import { ifMissingQueue, sqsClient } from './sqs';
+import { queueAttributes } from './queueOptions';
 type AWSOptionTypes = {
     dynamodb?: DynamoDBClientConfig
     kms?: KMSClientConfig
@@ -146,7 +147,7 @@ export async function ConfigureAwsEnvironment({ options }: LambadaEnvironmentCon
             const name = `${physical(queues[key].name, environment)}${fifo}`
             const created = await sqs.createQueue({
                 QueueName: name,
-                Attributes: fifo ? { FifoQueue: 'true' } : undefined,
+                Attributes: queueAttributes(queues[key].options),
             })
             // The grant publishes the queue URL.
             process.env[queues[key].envKeyName] = created.QueueUrl
