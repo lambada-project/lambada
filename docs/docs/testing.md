@@ -6,11 +6,13 @@ slug: /testing
 
 ## What the setup creates
 
-`ConfigureAwsEnvironment` creates the tables and the keys that the config names, and sets the `envKeyName` of each one. `RemoveResources` deletes them.
+`ConfigureAwsEnvironment` creates the tables, the keys and the queues that the config names, and sets the `envKeyName` of each one. `RemoveResources` deletes them.
 
 A table is created with `PAY_PER_REQUEST`, and the setup returns when the table and each of its global secondary indexes are `ACTIVE`. A store that enforces provisioned throughput does not throttle a test, and a store that activates a table late does not fail the first test.
 
-This page covers DynamoDB and KMS. Those are the services that were run against AWS Emulator.
+A queue is created with the `fifoQueue`, `contentBasedDeduplication`, `deduplicationScope` and `visibilityTimeoutSeconds` of its declaration. Its other options do not reach a test queue.
+
+This page covers DynamoDB, KMS and SQS. Those are the services that were run against AWS Emulator.
 
 ## Point the setup at AWS Emulator
 
@@ -26,7 +28,7 @@ const emulator = {
 }
 
 const config = {
-    options: { aws: { dynamodb: emulator, kms: emulator }, tables, keys },
+    options: { aws: { dynamodb: emulator, kms: emulator, sqs: emulator }, tables, keys, queues },
 }
 
 beforeAll(() => ConfigureAwsEnvironment(config))
@@ -34,6 +36,14 @@ afterAll(() => RemoveResources(config))
 ```
 
 The clients of your own code need the same endpoint. The setup configures only its own clients.
+
+## SQS: keep each client on the emulator
+
+The AWS SDK sends an SQS request to the host of the queue URL when the client has no `endpoint` option, that is, when its endpoint comes from `AWS_ENDPOINT_URL` or from the region. AWS Emulator answers queue URLs on the host of the real SQS endpoint, so such a client sends its requests, signed with the test credentials, to AWS.
+
+The setup builds its own SQS client with `useQueueUrlAsEndpoint: false`; a value in `aws.sqs` wins. The queue URL that the setup sets in the `envKeyName` carries the host that the store answered, so give each SQS client of your own code `useQueueUrlAsEndpoint: false` or an explicit `endpoint`.
+
+The teardown skips a queue that does not exist, and fails on any other error of the lookup.
 
 ## Start the emulator
 
