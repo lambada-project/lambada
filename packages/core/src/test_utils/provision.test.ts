@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'bun:test'
 import type { DynamoDB, TableDescription } from '@aws-sdk/client-dynamodb'
 import type { TableDefinition } from '../database'
-import { isActive, tableInput, waitUntilActive } from './provision'
+import type { KMS } from '@aws-sdk/client-kms'
+import { isActive, removeKey, tableInput, waitUntilActive } from './provision'
 
 const pets: TableDefinition = {
     name: 'pets',
@@ -91,5 +92,21 @@ describe('the wait for a table', () => {
         expect(failure).toBeInstanceOf(Error)
         expect((failure as Error).message).toContain('pets-test')
         expect((failure as Error).message).toContain('byOwner CREATING')
+    })
+})
+
+describe('the teardown of a key', () => {
+    test('leaves no alias, because a key pending deletion keeps its alias and cannot sign', async () => {
+        const aliases = new Set(['alias/proj-data-test'])
+        const pending: string[] = []
+        const kms = {
+            deleteAlias: async ({ AliasName }: { AliasName: string }) => void aliases.delete(AliasName),
+            scheduleKeyDeletion: async ({ KeyId }: { KeyId: string }) => void pending.push(KeyId),
+        } as unknown as Pick<KMS, 'deleteAlias' | 'scheduleKeyDeletion'>
+
+        await removeKey(kms, 'alias/proj-data-test', 'key-1')
+
+        expect([...aliases]).toEqual([])
+        expect(pending).toEqual(['key-1'])
     })
 })

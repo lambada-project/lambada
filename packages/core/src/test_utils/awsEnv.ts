@@ -10,7 +10,7 @@ import { LambadaMessages } from '../messaging';
 import { LambadaQueues } from '../queue';
 import { EmbroiderySecrets, SecurityKeys } from '../security';
 import { Input } from '@pulumi/pulumi';
-import { tableInput, waitUntilActive } from './provision';
+import { removeKey, tableInput, waitUntilActive } from './provision';
 type AWSOptionTypes = {
     dynamodb?: DynamoDBClientConfig
     kms?: KMSClientConfig
@@ -257,12 +257,7 @@ export async function RemoveResources(config: LambadaEnvironmentConfig): Promise
                 const keyConfig = keys[key]!
                 const alias = `alias/${physical(projectName, keyConfig.name, environment)}`
                 const existingKey = existingKeys.find((x) => x.AliasName === alias)
-                if (existingKey) {
-                    // Deleting key also deletes aliases
-                    await kms.scheduleKeyDeletion({
-                        KeyId: existingKey.TargetKeyId
-                    })
-                }
+                if (existingKey?.TargetKeyId) await removeKey(kms, alias, existingKey.TargetKeyId)
             }
         }
     }

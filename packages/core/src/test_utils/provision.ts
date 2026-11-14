@@ -1,4 +1,5 @@
 import type { CreateTableInput, DynamoDB, TableDescription } from '@aws-sdk/client-dynamodb'
+import type { KMS } from '@aws-sdk/client-kms'
 import type { LambadaTables } from '../database/index'
 
 /** The table, as the runner creates it. On demand, so a store that enforces provisioned units does not throttle a test. */
@@ -65,4 +66,10 @@ export async function waitUntilActive(db: DynamoDB, tableName: string, timeoutMs
         await new Promise((resolve) => setTimeout(resolve, intervalMs))
     } while (Date.now() < deadline)
     throw new Error(`Table ${tableName} is not ACTIVE after ${timeoutMs} ms (${statuses(last)})`)
+}
+
+/** The alias goes first: a key pending deletion keeps its alias, and the next setup would reuse a key that cannot sign. */
+export async function removeKey(kms: Pick<KMS, 'deleteAlias' | 'scheduleKeyDeletion'>, alias: string, keyId: string): Promise<void> {
+    await kms.deleteAlias({ AliasName: alias })
+    await kms.scheduleKeyDeletion({ KeyId: keyId })
 }
