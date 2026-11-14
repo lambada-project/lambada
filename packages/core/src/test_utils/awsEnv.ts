@@ -1,7 +1,7 @@
 import { LambadaTables } from '../database/index'
 import { DynamoDB, DynamoDBClientConfig, waitUntilTableNotExists } from '@aws-sdk/client-dynamodb';
 import { KMS, KMSClientConfig } from '@aws-sdk/client-kms'
-import { SQS, SQSClientConfig } from '@aws-sdk/client-sqs'
+import { SQSClientConfig } from '@aws-sdk/client-sqs'
 import type { S3ClientConfig } from '@aws-sdk/client-s3'
 import type { SNSClientConfig } from '@aws-sdk/client-sns'
 import type { SecretsManagerClientConfig } from '@aws-sdk/client-secrets-manager'
@@ -11,6 +11,7 @@ import { LambadaQueues } from '../queue';
 import { EmbroiderySecrets, SecurityKeys } from '../security';
 import { Input } from '@pulumi/pulumi';
 import { removeKey, tableInput, waitUntilActive } from './provision';
+import { ifMissingQueue, sqsClient } from './sqs';
 type AWSOptionTypes = {
     dynamodb?: DynamoDBClientConfig
     kms?: KMSClientConfig
@@ -138,7 +139,7 @@ export async function ConfigureAwsEnvironment({ options }: LambadaEnvironmentCon
 
     const queues = options?.queues
     if (queues) {
-        const sqs = new SQS(currentAWSConfig.sqs ?? {})
+        const sqs = sqsClient(currentAWSConfig.sqs)
 
         for (const key in queues) {
             const fifo = queues[key].options?.fifoQueue ? '.fifo' : ''
@@ -223,12 +224,12 @@ export async function RemoveResources(config: LambadaEnvironmentConfig): Promise
 
     const queues = config.options?.queues
     if (queues) {
-        const sqs = new SQS(currentAWSConfig.sqs ?? {})
+        const sqs = sqsClient(currentAWSConfig.sqs)
 
         for (const key in queues) {
             const fifo = queues[key].options?.fifoQueue ? '.fifo' : ''
             const name = `${physical(queues[key].name, environment)}${fifo}`
-            const found = await sqs.getQueueUrl({ QueueName: name }).catch(() => undefined)
+            const found = await sqs.getQueueUrl({ QueueName: name }).catch(ifMissingQueue)
 
             if (found?.QueueUrl) await sqs.deleteQueue({ QueueUrl: found.QueueUrl })
         }
