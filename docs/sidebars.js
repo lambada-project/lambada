@@ -17,6 +17,12 @@ module.exports = {
       label: "Configuration",
       items: ['aws-config', 'authorizers', 'buckets', 'custom-resources'],
       collapsed: false
+    },
+    {
+      type: 'category',
+      label: "Testing",
+      items: ['testing'],
+      collapsed: false
     }
   ],
 };
