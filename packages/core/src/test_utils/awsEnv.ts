@@ -1,5 +1,5 @@
 import { LambadaTables } from '../database/index'
-import { CreateTableInput, DynamoDB, DynamoDBClientConfig } from '@aws-sdk/client-dynamodb';
+import { DynamoDB, DynamoDBClientConfig } from '@aws-sdk/client-dynamodb';
 import { KMS, KMSClientConfig } from '@aws-sdk/client-kms'
 import { SQS, SQSClientConfig } from '@aws-sdk/client-sqs'
 import type { S3ClientConfig } from '@aws-sdk/client-s3'
@@ -10,6 +10,7 @@ import { LambadaMessages } from '../messaging';
 import { LambadaQueues } from '../queue';
 import { EmbroiderySecrets, SecurityKeys } from '../security';
 import { Input } from '@pulumi/pulumi';
+import { tableInput, waitUntilActive } from './provision';
 type AWSOptionTypes = {
     dynamodb?: DynamoDBClientConfig
     kms?: KMSClientConfig
@@ -60,6 +61,7 @@ export async function ConfigureAwsEnvironment({ options }: LambadaEnvironmentCon
         await delay()
 
         validateTables(tables)
+        const names: string[] = []
 
         for (const key in tables) {
 
@@ -67,61 +69,15 @@ export async function ConfigureAwsEnvironment({ options }: LambadaEnvironmentCon
                 const table = tables[key];
                 const tableName = physical(tablePrefix, table.name, environment)
                 process.env[table.envKeyName] = tableName
+                names.push(tableName)
                 if (existingTableNames.includes(tableName)) {
                     continue;
                 }
-                await db.createTable({
-                    TableName: tableName,
-                    AttributeDefinitions: [
-                        {
-                            AttributeName: table.primaryKey,
-                            AttributeType: 'S'
-                        },
-                        table.rangeKey ?
-                            {
-                                AttributeName: table.rangeKey,
-                                AttributeType: 'S'
-                            } : undefined,
-                        ...(table.attributes ?? []).map(x => ({
-                            AttributeName: x.name,
-                            AttributeType: x.type
-                        }))
-
-                    ].filter(x => typeof x !== 'undefined'),
-                    KeySchema: [
-                        {
-                            AttributeName: table.primaryKey,
-                            KeyType: 'HASH'
-                        },
-                        table.rangeKey ?
-                            {
-                                AttributeName: table.rangeKey,
-                                KeyType: 'RANGE'
-                            } : undefined
-                    ].filter(x => typeof x !== 'undefined'),
-                    ProvisionedThroughput: {
-                        ReadCapacityUnits: 10,
-                        WriteCapacityUnits: 10
-                    },
-                    GlobalSecondaryIndexes: table.indexes?.map(x => ({
-                        IndexName: x.name,
-                        KeySchema: [
-                            { AttributeName: x.hashKey, KeyType: "HASH" }, //Partition key
-                            ...(x.rangeKey ? [{ AttributeName: x.rangeKey, KeyType: "RANGE" }] : [])
-                        ],
-                        Projection: {
-                            ProjectionType: x.projectionType,
-                            NonKeyAttributes: x.projectionType == 'INCLUDE' ? x.nonKeyAttributes : undefined
-                        },
-                        ProvisionedThroughput: {
-                            ReadCapacityUnits: 10,
-                            WriteCapacityUnits: 10
-                        }
-                    }))
-
-                } as CreateTableInput)
+                await db.createTable(tableInput(table, tableName))
             }
         }
+
+        for (const name of names) await waitUntilActive(db, name)
     }
 
     if (keys) {
@@ -226,6 +182,7 @@ export async function RemoveResources(config: LambadaEnvironmentConfig): Promise
                 });
             }
         }
+
     }
 
     const buckets = config.options?.buckets
