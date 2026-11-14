@@ -1,5 +1,5 @@
 import { LambadaTables } from '../database/index'
-import { DynamoDB, DynamoDBClientConfig } from '@aws-sdk/client-dynamodb';
+import { DynamoDB, DynamoDBClientConfig, waitUntilTableNotExists } from '@aws-sdk/client-dynamodb';
 import { KMS, KMSClientConfig } from '@aws-sdk/client-kms'
 import { SQS, SQSClientConfig } from '@aws-sdk/client-sqs'
 import type { S3ClientConfig } from '@aws-sdk/client-s3'
@@ -174,15 +174,21 @@ export async function RemoveResources(config: LambadaEnvironmentConfig): Promise
 
         const existingTableNames = (await db.listTables({})).TableNames ?? []
 
+        const deleted: string[] = []
         for (const tableKey of Object.keys(tables)) {
             const tableName = physical(tablePrefix, tables[tableKey].name, environment)
             if (existingTableNames.includes(tableName)) {
                 await db.deleteTable({
                     TableName: tableName,
                 });
+                deleted.push(tableName)
             }
         }
 
+        // DeleteTable answers before the store has dropped the table, and the next setup would list it.
+        // The SDK polls every 20 seconds by default, which adds 20 seconds to each test file.
+        const wait = { client: db, maxWaitTime: 60, minDelay: 1, maxDelay: 5 }
+        for (const name of deleted) await waitUntilTableNotExists(wait, { TableName: name })
     }
 
     const buckets = config.options?.buckets
