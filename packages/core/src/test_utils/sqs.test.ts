@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { ConfigureAwsEnvironment, RemoveResources } from './awsEnv'
+import { isMissingQueue } from './sqs'
 
 /**
  * The SDK follows a queue URL to its host only when the client has no `endpoint` option, that is, when the endpoint
@@ -79,5 +80,49 @@ describe('the SQS client of the test setup', () => {
         await run({ useQueueUrlAsEndpoint: true })
 
         expect(elsewhere.targets).toEqual(['DeleteQueue'])
+    })
+
+    test('deletes nothing and fails nothing when the store has no such queue', async () => {
+        answerGetQueueUrl = () =>
+            json(
+                { __type: 'com.amazonaws.sqs#QueueDoesNotExist', message: 'The specified queue does not exist.' },
+                { status: 400, headers: { 'x-amzn-query-error': 'AWS.SimpleQueueService.NonExistentQueue;Sender' } },
+            )
+
+        await run()
+
+        expect(store.targets).toEqual(['CreateQueue', 'GetQueueUrl'])
+    })
+
+    test('fails with the error of the store when the lookup of the queue fails for any other reason', async () => {
+        answerGetQueueUrl = () =>
+            json(
+                {
+                    __type: 'com.amazon.coral.service#UnrecognizedClientException',
+                    message: 'The security token included in the request is invalid.',
+                },
+                { status: 403 },
+            )
+
+        await expect(run()).rejects.toThrow(/security token/)
+    })
+})
+
+describe('a missing queue, as the stores answer it', () => {
+    test('is the class QueueDoesNotExist of the SDK', () => {
+        expect(isMissingQueue(Object.assign(new Error('x'), { name: 'QueueDoesNotExist' }))).toBe(true)
+    })
+
+    test('is the code AWS.SimpleQueueService.NonExistentQueue, which the emulator and LocalStack answer with it', () => {
+        expect(isMissingQueue(Object.assign(new Error('x'), { Code: 'AWS.SimpleQueueService.NonExistentQueue' }))).toBe(
+            true,
+        )
+    })
+
+    test('is not an error of the credentials, a throttle, or something that is not an error', () => {
+        expect(isMissingQueue(Object.assign(new Error('x'), { name: 'InvalidClientTokenId' }))).toBe(false)
+        expect(isMissingQueue(Object.assign(new Error('x'), { Code: 'RequestThrottled' }))).toBe(false)
+        expect(isMissingQueue('QueueDoesNotExist')).toBe(false)
+        expect(isMissingQueue(undefined)).toBe(false)
     })
 })

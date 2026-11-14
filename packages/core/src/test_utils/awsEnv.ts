@@ -10,7 +10,7 @@ import { LambadaMessages } from '../messaging';
 import { LambadaQueues } from '../queue';
 import { EmbroiderySecrets, SecurityKeys } from '../security';
 import { Input } from '@pulumi/pulumi';
-import { sqsClient } from './sqs';
+import { ifMissingQueue, sqsClient } from './sqs';
 type AWSOptionTypes = {
     dynamodb?: DynamoDBClientConfig
     kms?: KMSClientConfig
@@ -266,7 +266,7 @@ export async function RemoveResources(config: LambadaEnvironmentConfig): Promise
         for (const key in queues) {
             const fifo = queues[key].options?.fifoQueue ? '.fifo' : ''
             const name = `${physical(queues[key].name, environment)}${fifo}`
-            const found = await sqs.getQueueUrl({ QueueName: name }).catch(() => undefined)
+            const found = await sqs.getQueueUrl({ QueueName: name }).catch(ifMissingQueue)
 
             if (found?.QueueUrl) await sqs.deleteQueue({ QueueUrl: found.QueueUrl })
         }
