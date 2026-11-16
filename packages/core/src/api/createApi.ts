@@ -129,7 +129,11 @@ export default function createApi(
         restApiArgs: {
             endpointConfiguration: api?.type || api?.vpcEndpointIds ? {
                 types: api.type ?? 'EDGE',
-                vpcEndpointIds: api.vpcEndpointIds
+                vpcEndpointIds: api.vpcEndpointIds,
+                // AWS serves private REST APIs over dualstack only. Unset, the provider keeps the
+                // address type it recorded, and a recorded ipv4 fails the plan of an API turned
+                // private. Public APIs set none, so the stacks already deployed see no diff.
+                ...(api.type === 'PRIVATE' ? { ipAddressType: 'dualstack' } : {}),
             } : undefined,
             policy: api?.policy
         },
