@@ -1,0 +1,36 @@
+{
+	"name": "@lambada/state-migrate",
+	"version": "0.1.0",
+	"description": "Move Pulumi stacks from Pulumi Cloud to a self-managed backend, verified, with the repo rewritten to match.",
+	"main": "dist/index.js",
+	"typings": "dist/index.d.ts",
+	"bin": {
+		"lambada-state": "dist/cli.js"
+	},
+	"files": [
+		"dist"
+	],
+	"repository": {
+		"type": "git",
+		"url": "git+ssh://git@github.com/lambada-project/lambada.git",
+		"directory": "packages/state-migrate"
+	},
+	"publishConfig": {
+		"access": "public",
+		"registry": "https://registry.npmjs.org"
+	},
+	"license": "Apache-2.0",
+	"scripts": {
+		"prebuild": "rm -rf dist/*",
+		"build": "tsc",
+		"test": "tsc -p tsconfig.test.json && bun test"
+	},
+	"engines": {
+		"node": ">=22"
+	},
+	"devDependencies": {
+		"@types/bun": "^1.2.0",
+		"@types/node": "^22.0.0",
+		"typescript": "^5.9.2"
+	}
+}

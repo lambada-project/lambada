@@ -14,7 +14,8 @@
   "workspaces": [
     "packages/core",
     "packages/create",
-    "packages/utils"
+    "packages/utils",
+    "packages/state-migrate"
   ],
   "overrides": {
     "fast-xml-parser": "5.7.1"

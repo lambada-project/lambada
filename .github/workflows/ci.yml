@@ -36,7 +36,7 @@ jobs:
       - name: Check package integrity
         run: |
           # Verify that built packages have the expected structure
-          for package in core create utils; do
+          for package in core create utils state-migrate; do
             if [ -d "packages/$package/dist" ]; then
               echo "✓ Package $package built successfully"
               ls -la "packages/$package/dist"
