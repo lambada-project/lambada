@@ -40,7 +40,7 @@ Every name is checked before anything is built. Names that are not declared, and
 
 An endpoint selecting `{ iam: true }` admits a request signed with SigV4 by an identity whose IAM policy allows `execute-api:Invoke` on its route, and no authorizer runs. Another stack's functions are granted its routes by name: see [Signed APIs](signed-apis).
 
-Measured on an API with one granted route: a signed request to it got 200, an unsigned one 403, and a signed request to a route not granted 403. A first grant took effect within seconds; a changed or revoked one took more than 30 seconds to settle, with requests disagreeing in between. With `useApiKey`, a request needs both the signature and the key.
+Measured on an API that lambada built, with a function granted one of its signed routes: a signed request to that route got 200, and a signed request to a route not granted 403, before any handler ran. A request with no signature got 404 `Not found`, the response awsx gives every API for a missing authentication token (`MissingAuthenticationTokenException`), so it reads as a route that does not exist; a malformed signature got 403. A first grant took effect within seconds; a changed or revoked one took more than 30 seconds to settle, with requests disagreeing in between. With `useApiKey`, a request needs both the signature and the key.
 
 awsx's `iamAuthEnabled` alone writes an extension API Gateway ignores on import, which left the route open to unsigned requests. lambada writes the route's security as the `sigv4` definition API Gateway enforces.
 
