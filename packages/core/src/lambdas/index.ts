@@ -197,10 +197,10 @@ const grantedResource = (
         return { resource: access.pool.ref.arn, envVars: { [access.pool.envKeyName]: access.pool.ref.id } }
     }
     if (access.api) {
-        const { key, api, envKeyName } = access.api
+        const granted = access.api
         return {
-            resource: api.apply(resolved => grantedRouteArns(functionName, key, resolved, access.access)),
-            envVars: { [envKeyName]: api.url },
+            resource: granted.api.apply(api => grantedRouteArns(functionName, granted.key, api, access.access)),
+            envVars: { [granted.envKeyName]: granted.api.url },
         }
     }
     if (access.custom) {

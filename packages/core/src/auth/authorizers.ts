@@ -106,17 +106,19 @@ export const createAuthorization = (
         if (name === false) return { authorizers: [], missing: [] }
 
         const missing = check(functionName, name)
-        return missing.length > 0 ? { authorizers: [], missing } : { ...build(name), missing }
+        if (missing.length > 0) return { authorizers: [], missing }
+        const route = build(name)
+        return { authorizers: route.authorizers, iamAuthEnabled: route.iamAuthEnabled, missing }
     }
 
     return {
         select,
         resolve(functionName, selection) {
-            const { missing, ...route } = select(functionName, selection)
+            const selected = select(functionName, selection)
             const diagnostics = createDiagnostics()
-            missing.forEach(diagnostics.missingResource)
+            selected.missing.forEach(diagnostics.missingResource)
             diagnostics.throwIfIncomplete()
-            return route
+            return { authorizers: selected.authorizers, iamAuthEnabled: selected.iamAuthEnabled }
         },
     }
 }

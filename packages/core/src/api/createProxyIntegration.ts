@@ -1,7 +1,7 @@
 import * as pulumi from "@pulumi/pulumi";
 import { Route, IntegrationRoute } from "@pulumi/awsx/classic/apigateway/api";
 import { LambadaResources } from "..";
-import { AuthorizerSelection, styleProblems } from "../auth/authorizers";
+import { AuthorizerSelection, RouteAuthorization, styleProblems } from "../auth/authorizers";
 
 export const createProxyIntegration = (
     embroideryContext: LambadaResources,
@@ -29,10 +29,13 @@ export const createProxyIntegrationCompat = ({ path, targetUri, enableAuth, auth
     const mixed = styleProblems(embroideryContext.authorization, path, { enableAuth, authorizer: auth?.authorizer })
     if (mixed.length > 0) throw new Error(mixed.join('\n'))
 
+    const authorization: RouteAuthorization = embroideryContext.authorization
+        ? embroideryContext.authorization.resolve(path, auth?.authorizer)
+        : { authorizers: enableAuth ? embroideryContext.authorizers : [] }
     const route: IntegrationRoute = {
         path: `${embroideryContext.api?.apiPath ?? ''}${path}`,
-        ...(embroideryContext.authorization ? embroideryContext.authorization.resolve(path, auth?.authorizer)
-            : { authorizers: enableAuth ? embroideryContext.authorizers : [] }),
+        authorizers: authorization.authorizers,
+        iamAuthEnabled: authorization.iamAuthEnabled,
         target: {
             type: 'http_proxy',
             httpMethod: 'ANY',

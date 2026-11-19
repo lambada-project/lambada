@@ -166,7 +166,7 @@ export default function createApi(
 
     }, {
         dependsOn: options?.dependsOn,
-        ...(allRoutes.some(route => 'iamAuthEnabled' in route && route.iamAuthEnabled) && { transformations: [withSignedRoutes] }),
+        transformations: [withSignedRoutes],
     });
 
     return apigateway;

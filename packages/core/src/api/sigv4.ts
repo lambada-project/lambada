@@ -48,8 +48,15 @@ export const requireSignatures = (swagger: Swagger): Swagger => {
     return swagger
 }
 
+/** The body with every signed route enforced. A body without one is returned as it came, byte for byte. */
+const enforcedBody = (body: string): string => {
+    const swagger: Swagger = JSON.parse(body)
+    const signed = Object.values(swagger.paths ?? {}).some(methods => Object.values(methods).some(isSigned))
+    return signed ? JSON.stringify(requireSignatures(swagger)) : body
+}
+
 /** A transformation rather than a transform: it runs in the SDK, so the rewrite holds under mocks too. */
 export const withSignedRoutes: pulumi.ResourceTransformation = ({ type, props, opts }) =>
     type === 'aws:apigateway/restApi:RestApi'
-        ? { props: { ...props, body: pulumi.output(props.body).apply((body: string) => JSON.stringify(requireSignatures(JSON.parse(body)))) }, opts }
+        ? { props: { ...props, body: pulumi.output(props.body).apply(enforcedBody) }, opts }
         : undefined

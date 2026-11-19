@@ -8,7 +8,7 @@ import { AuthExecutionContext, toWrapperEnvVars } from '@lambada/utils';
 import { EmbroideryEnvironmentVariables } from '..';
 import { CognitoAuthorizer, LambdaAuthorizer, Method } from '@pulumi/awsx/classic/apigateway';
 import { getNameFromPath } from './utils';
-import { AuthorizerSelection, styleProblems } from '../auth/authorizers';
+import { AuthorizerSelection, RouteAuthorization, styleProblems } from '../auth/authorizers';
 import { LambadaFunctionTuning, lambdaOptionsOf } from '../lambdas/declarations';
 import { createWebhook } from './createWebhook';
 import { createCallback, toWrapperConfig } from './callbackWrapper';
@@ -229,7 +229,7 @@ export const createEndpoint = <E, R>(
     const mixed = styleProblems(lambadaContext.authorization, name, { enableAuth, lambdaAuthorizer, authorizer })
     if (mixed.length > 0) throw new Error(mixed.join('\n'))
 
-    const auth = lambadaContext.authorization
+    const auth: RouteAuthorization = lambadaContext.authorization
         ? lambadaContext.authorization.resolve(name, authorizer)
         : { authorizers: legacyAuthorizers(lambadaContext, enableAuth ?? true, lambdaAuthorizer) }
 
@@ -259,7 +259,8 @@ export const createEndpoint = <E, R>(
     return {
         path: `${lambadaContext.api?.apiPath ?? ''}${path}`,
         method: method,
-        ...auth,
+        authorizers: auth.authorizers,
+        iamAuthEnabled: auth.iamAuthEnabled,
         eventHandler: callback,
         apiKeyRequired: typeof apiKeyRequired === 'boolean' ? apiKeyRequired : lambadaContext?.api?.auth?.useApiKey === true
     }

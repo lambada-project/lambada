@@ -56,6 +56,13 @@ describe('the transform', () => {
         expect(JSON.parse(await resolved(result!.props.body))).toEqual(requireSignatures(swagger()))
     })
 
+    test('leaves the body of an API without a signed route byte for byte, as it runs on every API', async () => {
+        const body = '{"paths": {"/stores": {"get": {"security": [{"userPool": []}]}}}}'
+        const result = withSignedRoutes({ resource: undefined as never, type: 'aws:apigateway/restApi:RestApi', name: 'api', props: { body }, opts })
+
+        expect(await resolved<string>(result!.props.body)).toBe(body)
+    })
+
     test('leaves every other resource of the API alone', async () => {
         expect(withSignedRoutes({ resource: undefined as never, type: 'aws:apigateway/deployment:Deployment', name: 'd', props: {}, opts })).toBeUndefined()
     })

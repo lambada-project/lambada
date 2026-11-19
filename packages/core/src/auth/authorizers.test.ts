@@ -61,7 +61,7 @@ describe('a method runs the one authorizer it names', () => {
     test('every other route requires no signature', () => {
         const authorization = createAuthorization(definitions, pools, 'signed')
 
-        expect(authorization.resolve('fn', 'secure')).not.toHaveProperty('iamAuthEnabled')
+        expect(authorization.resolve('fn', 'secure').iamAuthEnabled).toBeUndefined()
         expect(authorization.resolve('fn', false)).toEqual({ authorizers: [] })
     })
 
