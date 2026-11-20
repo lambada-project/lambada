@@ -1,37 +1,63 @@
 ---
-title: AWS Configuration
-sidebar_label: AWS
+title: AWS credentials
+sidebar_label: AWS credentials
 slug: /aws-config
+description: Give Pulumi and your tests AWS credentials, with profiles, SSO or a devcontainer.
 ---
 
-## AWS Credentials
-Instead of logging in every time the devcontainer is rebuilt, we recommend using a credentials file.
+Pulumi deploys with the same credentials the AWS CLI uses. Before you deploy, check that your terminal reaches the right account:
 
-
-## Linux 
-Get your AWS credentials and save them like so:
-
-~/.aws/credentials
-```
-[default]
-aws_access_key_id=AKIAIOSFODNN7EXAMPLE
-aws_secret_access_key=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+```bash
+aws sts get-caller-identity
 ```
 
-~/.aws/config
+## IAM Identity Center (SSO)
+
+If your organization uses IAM Identity Center, configure a profile once and log in when the session expires:
+
+```bash
+aws configure sso          # once: creates a named profile
+aws sso login --profile my-dev
+export AWS_PROFILE=my-dev
 ```
-[default]
-region=us-west-2
-output=json
+
+## Access keys
+
+For a personal account, store access keys in the credentials file rather than in the environment:
+
+```ini title="~/.aws/credentials"
+[my-dev]
+aws_access_key_id = AKIAIOSFODNN7EXAMPLE
+aws_secret_access_key = wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
 ```
 
-
-For more information and other OS go to [AWS Credentials file](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html)
-
-
-## AWS Profiles
-We recommend using profiles. Once you have it setup open `.devcontainer/Dockerfile` and replace `<profile-name>` with the name of your profile here
-
-```dockerfile
-ENV AWS_PROFILE=<profile-name>
+```ini title="~/.aws/config"
+[profile my-dev]
+region = eu-west-1
+output = json
 ```
+
+See [Configuration and credential file settings](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html) for every option and other operating systems.
+
+## Choosing a profile
+
+With several profiles, pick one per shell with `AWS_PROFILE`, or pin it to a Pulumi stack so each environment always deploys to its own account:
+
+```bash
+pulumi config set aws:profile my-dev --stack dev
+pulumi config set aws:profile my-prod --stack prod
+pulumi config set aws:region eu-west-1
+```
+
+## In a devcontainer
+
+A devcontainer loses whatever you logged in with when it is rebuilt. Mount your AWS folder read-only and select the profile in the container's environment:
+
+```json title=".devcontainer/devcontainer.json"
+{
+  "mounts": ["source=${localEnv:HOME}/.aws,target=/home/node/.aws,type=bind,readonly"],
+  "containerEnv": { "AWS_PROFILE": "my-dev" }
+}
+```
+
+SSO logins write their token cache under `~/.aws/sso`, so with a read-only mount, run `aws sso login` on the host.

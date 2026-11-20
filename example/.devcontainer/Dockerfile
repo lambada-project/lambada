@@ -1,26 +1,25 @@
-# See here for image contents: https://github.com/microsoft/vscode-dev-containers/tree/v0.148.1/containers/javascript-node/.devcontainer/base.Dockerfile
+FROM node:24-bookworm
 
-# [Choice] Node.js version: 14, 12, 10
-ARG VARIANT="18-buster"
-FROM mcr.microsoft.com/vscode/devcontainers/javascript-node:0-${VARIANT}
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends less unzip \
+    && rm -rf /var/lib/apt/lists/*
 
-# [Optional] Uncomment this section to install additional OS packages.
-# RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
-#     && apt-get -y install --no-install-recommends <your-package-list-here>
+# AWS CLI v2
+RUN curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-$(uname -m).zip" -o /tmp/awscli.zip \
+    && unzip -q /tmp/awscli.zip -d /tmp \
+    && /tmp/aws/install \
+    && rm -rf /tmp/aws /tmp/awscli.zip
 
-# [Optional] Uncomment if you want to install more global node modules
-# RUN sudo -u node npm install -g <your-package-list-here>
+# AWS Emulator, which the tests run against: https://docs.aws.amazon.com/emulator/latest/userguide/
+RUN curl -fsSLo /tmp/aws-emulator.deb \
+        "https://downloads.aws.com/aws-emulator/packages/aws-emulator/LTS/latest/aws-emulator_$(dpkg --print-architecture).deb" \
+    && apt-get update \
+    && apt-get install -y /tmp/aws-emulator.deb \
+    && rm -rf /tmp/aws-emulator.deb /var/lib/apt/lists/*
 
-#PULUMI 
-#RUN curl -fsSL https://get.pulumi.com/ | sudo sh
+USER node
 
-RUN curl -fsSL https://get.pulumi.com | sudo sh -s -- --version 3.24.1
-RUN mv ~/.pulumi /pulumi
-ENV PATH "/pulumi/bin:${PATH}"
-
-#AWS SDK
-RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-RUN unzip awscliv2.zip
-RUN ./aws/install
-
-ENV AWS_PROFILE=andreujuanc
+# Pulumi CLI and Bun
+RUN curl -fsSL https://get.pulumi.com | sh \
+    && curl -fsSL https://bun.sh/install | bash
+ENV PATH="/home/node/.pulumi/bin:/home/node/.bun/bin:${PATH}"

@@ -1,26 +1,24 @@
 {
 	"name": "{{PROJECT_NAME}}",
-	"service": "app",
-	"dockerComposeFile": "docker-compose.yml",
-	"workspaceFolder": "/workspace",
+	"build": {
+		"dockerfile": "Dockerfile"
+	},
+	"remoteUser": "node",
+	// Your AWS config, read-only. It is mounted beside ~/.aws, which stays writable for AWS Emulator.
+	"mounts": [
+		"source=${localEnv:HOME}/.aws,target=/home/node/.aws-host,type=bind,readonly"
+	],
+	"containerEnv": {
+		"AWS_CONFIG_FILE": "/home/node/.aws-host/config",
+		"AWS_SHARED_CREDENTIALS_FILE": "/home/node/.aws-host/credentials"
+	},
+	"postCreateCommand": "npm install",
 	"customizations": {
 		"vscode": {
 			"extensions": [
-				"dbaeumer.vscode-eslint",
-				"firsttris.vscode-jest-runner"
-			],
-			"settings": {
-				"terminal.integrated.profiles.linux": {
-					"bash": {
-						"path": "/bin/bash"
-					}
-				}
-			}
+				"oven.bun-vscode",
+				"pulumi.pulumi-lsp-client"
+			]
 		}
-	},
-	// Use 'forwardPorts' to make a list of ports inside the container available locally.
-	// "forwardPorts": [],
-	// Use 'postCreateCommand' to run commands after the container is created.
-	// "postCreateCommand": "yarn install",
-	"remoteUser": "node"
+	}
 }

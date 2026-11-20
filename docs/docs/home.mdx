@@ -1,0 +1,99 @@
+---
+id: home
+title: Lambada
+sidebar_label: Introduction
+slug: /
+hide_title: true
+description: Lambada declares serverless AWS stacks in TypeScript — functions, tables, queues and APIs — and grants every function exactly what it names.
+---
+
+import Link from '@docusaurus/Link'
+import { Cards, Card } from '@site/src/components/Cards'
+
+<div className="lb-hero">
+  <div className="lb-hero__eyebrow">Serverless AWS in TypeScript</div>
+  <h1 className="lb-hero__title">Declare the stack. Name what each function needs.</h1>
+  <div className="lb-hero__lead">
+    Lambada is an opinionated layer over Pulumi. You describe tables, queues, topics and endpoints
+    in one <code>run()</code> call, and each function is granted, by name, exactly the resources it
+    uses: least-privilege IAM and wired environment variables, checked before anything deploys.
+  </div>
+  <div className="lb-hero__actions">
+    <Link className="button button--primary button--lg" to="/quickstart">Quickstart</Link>
+    <Link className="button button--secondary button--lg" to="/concepts">Core concepts</Link>
+  </div>
+</div>
+
+```ts title="index.ts"
+import * as pulumi from '@pulumi/pulumi'
+import { run } from '@lambada/core'
+
+const result = run('shop', pulumi.getStack(), {
+    tables: {
+        orders: { name: 'orders', primaryKey: 'id', envKeyName: 'ORDERS_TABLE' },
+    },
+    messages: {
+        orderPlaced: { name: 'order-placed', envKeyName: 'ORDER_PLACED_TOPIC' },
+    },
+    api: {
+        endpointDefinitions: [{
+            name: 'placeOrder',
+            path: '/orders',
+            method: 'POST',
+            callbackDefinition: placeOrder,
+            resources: {
+                table: { orders: ['dynamodb:PutItem'] },
+                topic: { orderPlaced: ['sns:Publish'] },
+            },
+        }],
+    },
+    messageHandlerDefinitions: [{
+        name: 'sendReceipt',
+        topic: 'orderPlaced',
+        callback: sendReceipt,
+        filter: { attributes: { channel: ['web'] } },
+        resources: { table: { orders: ['dynamodb:GetItem'] } },
+    }],
+})
+
+export const apiUrl = result.api?.url
+```
+
+From these lines Lambada builds:
+
+- a DynamoDB table and an SNS topic, named per environment (`orders-dev`, `order-placed-prod`);
+- an API Gateway route and a Lambda function that may **only** put orders and publish to that topic. It reads both names from `process.env`;
+- a subscriber that SNS invokes only for web orders, and that may **only** read orders;
+- a least-privilege IAM role for each function, and a resource group for the stack.
+
+Misspell `orderPlaced` in a grant and `pulumi preview` fails, naming the function, the missing topic and the topics the stack does have.
+
+## Why Lambada
+
+- **Grants by name.** A function lists the resources it uses and the actions it needs. lambada writes its IAM policy and its environment, and nothing else reaches it.
+- **Mistakes fail early.** Every name is resolved before a function is built, so `pulumi preview` catches it. Filter policies and schedules are typed against what AWS actually accepts.
+- **One language.** Infrastructure and handlers are TypeScript in the same program. A handler is a function you import, not a `file.export` string in YAML.
+- **Still Pulumi.** `run()` returns the resources it built. Anything lambada doesn't cover is plain Pulumi next to it, in any provider.
+
+## What you can build
+
+<Cards>
+  <Card to="/http-api" title="HTTP API">Endpoints on API Gateway, with authorizers, CORS, API keys and OpenAPI.</Card>
+  <Card to="/tables" title="Tables">DynamoDB with indexes, TTL, streams and encryption.</Card>
+  <Card to="/queues" title="Queues">SQS with batch handlers, partial failures and event filters.</Card>
+  <Card to="/topics" title="Topics">SNS fan-out with typed filter policies.</Card>
+  <Card to="/schedules" title="Schedules">Rates and crons as typed objects.</Card>
+  <Card to="/webhooks" title="Webhooks">Answer at once, process from a FIFO queue.</Card>
+  <Card to="/buckets" title="Buckets">S3 with per-prefix grants and CloudFront.</Card>
+  <Card to="/signed-apis" title="Signed APIs">IAM-signed routes granted across stacks.</Card>
+</Cards>
+
+## Packages
+
+| Package | What it is |
+| --- | --- |
+| [`@lambada/core`](https://www.npmjs.com/package/@lambada/core) | `run()` and everything it builds. Used in your Pulumi program. |
+| [`@lambada/utils`](https://www.npmjs.com/package/@lambada/utils) | Runtime helpers for handlers: request parsing, errors, repositories, secrets. Has no Pulumi dependency. |
+| [`@lambada/create`](https://www.npmjs.com/package/@lambada/create) | `npm init @lambada my-app`: a starter stack with a devcontainer and tests against AWS Emulator. |
+
+Ready? Deploy your first stack in the [Quickstart](quickstart).

@@ -2,6 +2,7 @@
 title: Signed APIs
 sidebar_label: Signed APIs
 slug: /signed-apis
+description: Require SigV4 on routes, and grant them to another stack's functions by name.
 ---
 
 An API's signed routes are granted to another stack's functions the way a table is: by name, per function, as IAM on the caller's role. The API lists no callers.
@@ -44,7 +45,7 @@ run('store', environment, {
 
 `checkout` may invoke `GET /api/users/{id}` and nothing else, and reads the stage's URL from `USERS_API_URL`; a route's path follows it. A function that grants nothing from `users` gets neither. The function signs each request with its role's credentials, using SigV4 for the service `execute-api`, for example with `@smithy/signature-v4`.
 
-- A key `apisRef` lacks is reported with the other missing resources, before anything is built.
+- A key `apisRef` lacks is reported with the other missing resources, before any function is built.
 - A route the API does not sign is refused at preview, listing the routes it does sign.
 
 ## What IAM matches

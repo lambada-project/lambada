@@ -42,6 +42,4 @@ if (!nameArg || nameArg.length === 0) {
   process.exit(9);
 }
 
-console.info(`Creating a new Lambada app with name ${nameArg}`);
-
-create(nameArg, 'empty' ,{ baseDir, newDir });
+create(nameArg, 'empty', { baseDir, newDir });

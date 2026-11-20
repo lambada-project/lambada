@@ -1,43 +1,17 @@
 {
-  "name": "www",
-  "version": "0.1.0",
+  "name": "lambada-example-www",
   "private": true,
-  "dependencies": {
-    "@testing-library/jest-dom": "^5.11.4",
-    "@testing-library/react": "^11.1.0",
-    "@testing-library/user-event": "^12.1.10",
-    "node-fetch": "^2.6.1",
-    "react": "^17.0.2",
-    "react-dom": "^17.0.2",
-    "react-query": "^3.13.5",
-    "react-scripts": "4.0.3",
-    "web-vitals": "^1.0.1"
-  },
+  "type": "module",
   "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "dev": "vite",
+    "build": "vite build"
   },
-  "eslintConfig": {
-    "extends": [
-      "react-app",
-      "react-app/jest"
-    ]
-  },
-  "browserslist": {
-    "production": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all"
-    ],
-    "development": [
-      "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
-    ]
+  "dependencies": {
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
   },
   "devDependencies": {
-    "@types/node-fetch": "^2.5.10"
+    "@vitejs/plugin-react": "^5.0.0",
+    "vite": "~7.3.7"
   }
 }

@@ -6,12 +6,12 @@ var currentNodeVersion = process.versions.node;
 var semver = currentNodeVersion.split('.');
 var major = semver[0];
 
-if (parseInt(major) < 10) {
+if (parseInt(major) < 20) {
   console.error(
     'You are running Node ' +
     currentNodeVersion +
     '.\n' +
-    'Create a Lambada project requires Node 10 or higher. \n' +
+    'Creating a Lambada project requires Node 20 or higher. \n' +
     'Please update your version of Node.'
   );
   process.exit(1);
