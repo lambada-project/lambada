@@ -1,3 +1,4 @@
 /bin/
 /node_modules/
-/www/build/
+/src/www/node_modules/
+/src/www/build/

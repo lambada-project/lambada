@@ -1,33 +1,17 @@
 {
     "compilerOptions": {
         "strict": true,
-        "target": "ES2022",
-        "module": "CommonJS",
-        "noImplicitAny": true,
-        "moduleResolution": "Node",
+        "outDir": "bin",
+        "target": "es2022",
+        "module": "nodenext",
+        "moduleResolution": "nodenext",
         "sourceMap": true,
-        "experimentalDecorators": true,
-        "esModuleInterop": true,
-        "pretty": true,
         "noFallthroughCasesInSwitch": true,
         "noImplicitReturns": true,
         "forceConsistentCasingInFileNames": true,
-        "outDir": "dist",
-
-        "allowArbitraryExtensions": true,
-        
-        "types": [
-            "@types/jest",
-            "node"
-        ],
-        "lib": [
-            "es2020"
-        ]
+        "skipLibCheck": true,
+        "types": ["node", "bun"]
     },
-    "files": [
-        "src/index.ts"
-    ],
-    "exclude": [
-        "node_modules"
-    ]
+    "include": ["src", "test"],
+    "exclude": ["src/www"]
 }
