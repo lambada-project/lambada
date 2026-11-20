@@ -10,6 +10,7 @@ module.exports = {
   favicon: 'img/favicon.ico',
   organizationName: 'lambada-project',
   projectName: 'lambada-project.github.io',
+  deploymentBranch: 'master',
   trailingSlash: false,
 
   onBrokenLinks: 'throw',
