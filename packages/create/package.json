@@ -11,6 +11,11 @@
     "pre-release": "cd dist && npm publish",
     "release": "npm run build&& npm run pre-release"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/lambada-project/lambada.git",
+    "directory": "packages/create"
+  },
   "author": "Juan C. Andreu",
   "license": "Apache-2.0",
   "keywords": [],
