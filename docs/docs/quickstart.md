@@ -2,75 +2,176 @@
 title: Quickstart
 sidebar_label: Quickstart
 slug: /quickstart
+description: Deploy an API with a DynamoDB table to your AWS account in about ten minutes.
 ---
 
+You'll deploy a small to-do API: two endpoints backed by a DynamoDB table. Along the way you'll see the three things every lambada stack does: declare resources, declare functions, and grant one to the other.
 
-## Requirements
-- You'll need npm installed locally if you want to bootstrap with the npm initializer
-- A pulumi account (free), or knowledge on how to store the deployment state somewhere else. To know more about this refer to their docs: https://www.pulumi.com/docs/intro/concepts/state/
-- A AWS account, and credentials configured locally. If you are using several AWS profiles, please read [this page](/aws-config) 
+## Before you start
 
-## Installation
+You need:
 
-1. ** Scaffolding with the npm initializer ** 
-    
-    Create a directory for your project, change to it, and run the initializer:
-    
-    **⚠ WARNING ⚠** At the moment, the initializer does not warn if executing on not empty directories, so be careful where you call it from.
-    ```bash
-    mkdir <your-project-name> && cd <your-project-name>
-    npm init @lambada
-    ```
+- **Node.js 20 or newer**.
+- **The [Pulumi CLI](https://www.pulumi.com/docs/install/)**, logged in to a backend: `pulumi login` for Pulumi Cloud (free for individuals), or `pulumi login --local` to keep state on your machine.
+- **An AWS account** with credentials your terminal can use: `aws sts get-caller-identity` should print your account. See [AWS credentials](aws-config) if you use profiles.
 
+## 1. Create the project
 
-2. **VSCode DevContainers**
+Start from Pulumi's AWS TypeScript template, then add lambada:
 
-    - Install [Docker](https://docs.docker.com/get-docker) and [VSCode](https://code.visualstudio.com/) if you don't have them already 
-    - Install the following VSCode extension: `ms-vscode-remote.vscode-remote-extensionpack`
-    - Open the project root with `code .` and once it's loaded, the extension will prompt you to  `Reopen in Container`, click it button and be the happiest developer ever 😀
+```bash
+mkdir todos && cd todos
+pulumi new aws-typescript --name todos --stack dev
 
+# What the functions use at runtime
+npm install @lambada/utils @aws-sdk/client-dynamodb@~3.981.0 @aws-sdk/lib-dynamodb@~3.981.0
 
-NOTE: If not using DevContainers open the `Dockerfile` and install in your local machine all the dependencies listed there.
-
-## Build and Deploy
-First, open the `src/index.ts` file and as you can see, the default template comes with a simple one-liner health-check. 
-
-```typescript
-const result = run(projectName, environment,
-{
-    endpointDefinitions: [
-        (context) => ({
-            path: '/test',
-            method: 'GET',
-            callbackDefinition: async (event) => ({ ok: true })
-        })
-    ]
-})
-
-export const apiUrl = result.api.url
-
+# What only deploying uses
+npm install --save-dev @lambada/core \
+  @aws-sdk/client-kms@~3.981.0 @aws-sdk/client-s3@~3.981.0 @aws-sdk/client-sns@~3.981.0
 ```
 
-Every endpoint is a function that returns an object that describes your infrastructure. In this case we return an endpoint that describes our test api (listen on GET /test) and it has a callback that returns a simple object `{ ok: true }`  that will be serialized to json with a `200` status code.
+`pulumi new` creates `index.ts`, `Pulumi.yaml` and a `dev` stack, and asks for an AWS region. npm installs lambada's peer dependencies (`@pulumi/awsx`, `zod`…) along with it.
 
-Now, we want our new api up and running, and to do so we call the pulumi cli (comes installed in the dockerfile).
+:::note Why two installs
+Pulumi uploads every package under `dependencies` with each function. `@lambada/core` is only needed while deploying, and it brings large packages with it, so it belongs in `devDependencies`. The AWS SDK versions are pinned because lambada declares its SDK peers at `~3.981.0`. The KMS, S3 and SNS clients are listed because `@lambada/core` loads or references them without declaring them.
+:::
+
+:::tip Or scaffold it
+`npm init @lambada todos` creates this same app with a devcontainer and tests that run against AWS Emulator.
+:::
+
+## 2. Declare the stack
+
+Replace `index.ts` with:
+
+```ts title="index.ts"
+import * as pulumi from '@pulumi/pulumi'
+import { run } from '@lambada/core'
+import { listTodos, addTodo } from './todos'
+
+const result = run('todos', pulumi.getStack(), {
+    tables: {
+        todos: {
+            name: 'todos',
+            primaryKey: 'listId',
+            rangeKey: 'id',
+            envKeyName: 'TODOS_TABLE',
+        },
+    },
+    api: {
+        endpointDefinitions: [
+            {
+                name: 'listTodos',
+                path: '/lists/{listId}/todos',
+                method: 'GET',
+                callbackDefinition: listTodos,
+                resources: { table: { todos: ['dynamodb:Query'] } },
+            },
+            {
+                name: 'addTodo',
+                path: '/lists/{listId}/todos',
+                method: 'POST',
+                callbackDefinition: addTodo,
+                resources: { table: { todos: ['dynamodb:PutItem'] } },
+            },
+        ],
+    },
+})
+
+export const apiUrl = result.api?.url
+```
+
+This declares:
+
+- a **table** under the key `todos`. It will be named `todos-dev`, and every function granted it reads that name from `TODOS_TABLE`;
+- two **endpoints**, each backed by its own Lambda function;
+- the **grants**: `listTodos` may only query the table, and `addTodo` may only put items in it.
+
+## 3. Write the handlers
+
+Create `todos.ts` next to it:
+
+```ts title="todos.ts"
+import { randomUUID } from 'node:crypto'
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb'
+import { DynamoDBDocumentClient, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb'
+import type { EmbroideryCallback } from '@lambada/core'
+import { getBody } from '@lambada/utils'
+
+// Created on first use, inside Lambda: a client built at deploy time can't be serialized.
+let client: DynamoDBDocumentClient | undefined
+const db = () => client ??= DynamoDBDocumentClient.from(new DynamoDBClient({}))
+
+export const listTodos: EmbroideryCallback = async ({ request }) => {
+    const { Items } = await db().send(new QueryCommand({
+        TableName: process.env.TODOS_TABLE,
+        KeyConditionExpression: 'listId = :listId',
+        ExpressionAttributeValues: { ':listId': request.pathParameters?.listId },
+    }))
+    return { todos: Items ?? [] }
+}
+
+export const addTodo: EmbroideryCallback = async ({ request }) => {
+    const { title } = getBody<{ title: string }>(request)
+    const todo = { listId: request.pathParameters?.listId, id: randomUUID(), title, done: false }
+    await db().send(new PutCommand({ TableName: process.env.TODOS_TABLE, Item: todo }))
+    return { statusCode: 201, body: todo }
+}
+```
+
+A handler receives `{ request, user }` and returns a value, which is sent as JSON. `process.env.TODOS_TABLE` is there because the endpoint granted the table.
+
+:::caution Create SDK clients inside Lambda
+Pulumi deploys each handler by serializing it with everything it references. A client created at the top of the module, `const db = new DynamoDBClient({})`, is a live object holding credential providers, and Pulumi can't serialize it. `pulumi up` fails with `Error serializing … it was a native code function`. Create clients on first use, as above: warm invocations still reuse them. See [Function options](functions#what-a-handler-captures).
+:::
+
+## 4. Deploy
 
 ```bash
 pulumi up
 ```
 
-**Note:** Ensure your AWS credentials are correctly configured before running the above command. You can verify this by running `aws configure` or checking your environment variables.
+Pulumi previews what it will create: the table, two functions with their roles and policies, the API and its stage, and a resource group for the stack. Choose `yes`. A minute or two later it prints `apiUrl`.
 
-This will ask to create several resources in AWS:
-- 1 APIGateway
-- 1 Lambda
-- Execution, access, etc
+Routes live under `/api`. Try them:
 
-Evaluate the resources to be created and press `Y` once you confirmed all is good.
-In a few seconds you'll have your api in AWS and you can call it with your favourite client. The url of the ApiGateway will be shown as an output of the last operation, in our case we called it `apiUrl`.
+```bash
+API=$(pulumi stack output apiUrl)
 
-If you want to know more about Pulumi, check out their amazing documentation: https://www.pulumi.com/docs/intro/
+curl -X POST "${API}api/lists/groceries/todos" -d '{"title":"Oat milk"}'
+curl "${API}api/lists/groceries/todos"
+```
 
+```json
+{"todos":[{"listId":"groceries","id":"9b0e…","title":"Oat milk","done":false}]}
+```
 
-### Final steps
-Congratulations!!, you have saved hours by using this tool and not doing the `ClickyClicky` (Trademark pending)
+## 5. Make a mistake on purpose
+
+Change one grant to a table that doesn't exist, `{ table: { todo: ['dynamodb:Query'] } }`, and run `pulumi preview`:
+
+```text
+Lambada found 1 resource that is granted but absent from the stack:
+
+  listTodos  table 'todo' — the stack has: todos
+
+Correct the names, or add the resources to run().
+```
+
+The preview stops there. lambada checks every name before it builds any function, so the mistake never reaches AWS. Put the name back.
+
+## 6. Clean up
+
+```bash
+pulumi destroy
+```
+
+## Next steps
+
+- [Core concepts](concepts): how `run()`, names, grants and environments fit together.
+- [HTTP API](http-api): status codes, errors, CORS, API keys and OpenAPI.
+- [Authorizers](authorizers): put a Cognito pool or a Lambda authorizer in front of your endpoints.
+- [Queues](queues), [Topics](topics) and [Schedules](schedules): functions that run without a request.
+- [Testing](testing): run your handlers against an emulator.
+- [The example app](https://github.com/lambada-project/lambada/tree/main/example): a topic, a queue, a schedule and a React app behind CloudFront, in one stack.

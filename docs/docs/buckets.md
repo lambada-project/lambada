@@ -2,7 +2,10 @@
 title: Buckets
 sidebar_label: Buckets
 slug: /buckets
+description: Declare S3 buckets, grant them whole or by key prefix, and serve them through CloudFront.
 ---
+
+A bucket is declared under `buckets` by the name grants use. A function can be granted the whole bucket, or only the objects under one prefix. A bucket can also be served to the public through its own CloudFront distribution.
 
 ## A bucket and its key spaces
 

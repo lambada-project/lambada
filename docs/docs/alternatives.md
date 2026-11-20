@@ -1,155 +1,99 @@
 ---
-title: Alternatives
-sidebar_label: Alternatives
+title: Why Lambada
+sidebar_label: Why Lambada
 slug: /alternatives
+description: How Lambada compares with the Serverless Framework, AWS CDK and plain Pulumi, using one function that reads a table.
 ---
 
+Take one function behind an HTTP route that reads one DynamoDB table, and compare how each tool declares it.
 
-### Why not serverless, CDK, etc?
+## Serverless Framework
 
-
-Let's compare how to get a function that has access to a dynamo table on each framework:
-
-#### Serverless Framework
-Looks very simple at first, a single lambda, and some policies to the table. Things can get complicated once you start having more and more resources.
-The full example can be found [here](https://github.com/serverless/examples/blob/master/aws-node-typescript-rest-api-with-dynamodb/serverless.yml)
-```yaml
+```yaml title="serverless.yml"
 functions:
-  create:
-    handler: todos/create.create
+  list:
+    handler: todos/list.list
+    environment:
+      DYNAMODB_TABLE: ${self:service}-${sls:stage}
     events:
       - http:
           path: todos
-          method: post
-          cors: true
+          method: get
+
+provider:
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action: [dynamodb:Query]
+          Resource: arn:aws:dynamodb:${aws:region}:*:table/${self:service}-${sls:stage}
 
 resources:
   Resources:
-    TodosDynamoDbTable:
-      Type: 'AWS::DynamoDB::Table'
-      DeletionPolicy: Retain
+    TodosTable:
+      Type: AWS::DynamoDB::Table
       Properties:
+        TableName: ${self:service}-${sls:stage}
+        BillingMode: PAY_PER_REQUEST
         AttributeDefinitions:
-          -
-            AttributeName: id
-            AttributeType: S
+          - { AttributeName: id, AttributeType: S }
         KeySchema:
-          -
-            AttributeName: id
-            KeyType: HASH
-        ProvisionedThroughput:
-          ReadCapacityUnits: 1
-          WriteCapacityUnits: 1
-        TableName: ${self:provider.environment.DYNAMODB_TABLE}
+          - { AttributeName: id, KeyType: HASH }
 ```
 
-As with a lot of yaml-based frameworks, the handler and the code that creates and deploys it suffer from a disconnection. There a lot of room for failure. 
-Under the `handler` section we can see how it's pointing to a (filepath).(module), anyone can have a typo here, plus imagine having dozens of handlers, it can get wild quickly.
+Simple to start with, and its conventions are close to lambada's. But the table's name is spelled three times, IAM is written by hand and usually shared by every function, and `handler: todos/list.list` is a string: a typo there is found when the function is invoked, not when it is deployed.
 
-I do like the simplicity of Serverless, and the way they abstract away a lot of things go hand to hand with the Lambada project. But if I'm doing typescript, I expect to do everything in typescript!
+## AWS CDK
 
-
-
-### CDK
-What I like about CDK is that there is almost no yaml required, and that the IaC language can be shared with the application itself, in this example, we'll take a look at a nodejs [example](https://github.com/aws-samples/aws-cdk-examples/blob/master/typescript/api-cors-lambda-crud-dynamodb/index.ts)
-
-``` typescript
-    // ... unrelated code before this
-
-    const dynamoTable = new dynamodb.Table(this, 'items', {
-      partitionKey: {
-        name: 'itemId',
-        type: dynamodb.AttributeType.STRING
-      },
-      tableName: 'items',
-
-      // The default removal policy is RETAIN, which means that cdk destroy will not attempt to delete
-      // the new table, and it will remain in your account until manually deleted. By setting the policy to 
-      // DESTROY, cdk destroy will delete the table (even if it has data in it)
-      removalPolicy: cdk.RemovalPolicy.DESTROY, // NOT recommended for production code
-    });
-
-    const getOneLambda = new lambda.Function(this, 'getOneItemFunction', {
-      code: new lambda.AssetCode('src'),
-      handler: 'get-one.handler',
-      runtime: lambda.Runtime.NODEJS_10_X,
-      environment: {
-        TABLE_NAME: dynamoTable.tableName,
-        PRIMARY_KEY: 'itemId'
-      }
-    });
-
-    ////....
-
-
-    dynamoTable.grantReadWriteData(getOneLambda);
-
-    /// ...
-
-    const api = new apigateway.RestApi(this, 'itemsApi', {
-      restApiName: 'Items Service'
-    });
-
-    /// ...
-
-    const singleItem = items.addResource('{id}');
-    const getOneIntegration = new apigateway.LambdaIntegration(getOneLambda);
-    singleItem.addMethod('GET', getOneIntegration);
-
-```
-
-
-We'll this goes on and on. There is a lot of manual work to do. I'm sure somebody is going to abstract this away and make a awsx or lambada-like library on top of CDK, but it won't be as battle tested as Pulumi (which if you have used pulumi already, this might look very familiar, looks like they were inspired by it).
-
-One small bit we are missing here, is that, like in serverless, the handler and the definitions are also not run-time tight to each other. And it has to be manually matched.
-
-
-
-
-## How does Lambada compare?
-NOTE: In this case we are inlining the lambda definition and the lambda handler itself, but we recommend having it separate places so it can be integration-tested. You can see an example of how to do this [here](https://github.com/lambada-project/lambada/tree/main/example/src/api/todos).
-
-Judge for yourself:
-```typescript
-const result = run(projectName, environment, {
-    endpointDefinitions: [
-        (context) => ({
-            path: '/todos',
-            method: 'GET',
-            callbackDefinition: async (event) => ({ result: [] }), // Just a callback
-            resources: [{ // When we set access on a resource, we inject the env var with the final name
-                table: context.databases?.todos,
-                access: [ LambdaResourceAccess.DynamoDbQuery ],
-            }]
-        })
-    ],
-    createOptionsForCors: true, // Want to have cors of all lambdas? Done
-    tables: {
-        'todos': {
-            name: 'todos', // Will have a final name of {name}-{environment}
-            primaryKey: 'userId',
-            rangeKey: 'id',
-            envKeyName: 'TODOS_TABLE_NAME' // To get the actual table name on runtime
-        }
-    },
-    cdn: {
-        useCDN: true // Want to have Cloudfront on top? Done
-    },
+```ts
+const table = new dynamodb.Table(this, 'Todos', {
+    partitionKey: { name: 'id', type: dynamodb.AttributeType.STRING },
+    billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
 })
 
+const list = new lambda.NodejsFunction(this, 'List', {
+    entry: 'src/todos/list.ts',
+    environment: { TABLE_NAME: table.tableName },
+})
+table.grantReadData(list)
+
+const api = new apigateway.RestApi(this, 'Api')
+api.root.addResource('todos').addMethod('GET', new apigateway.LambdaIntegration(list))
 ```
 
-We use the power of pulumi serialization and the abstractions on pulumi-awsx to get to this point. 
-As you may see, this follows a very minimalistic and opinionated way to create *robust* infrastructure dancing-fast.
+Everything is TypeScript, and `grantReadData` writes the IAM. But each step is separate: the grant, the environment variable that carries the name, and the route are three statements that have to agree, and nothing checks that the handler reads the variable the stack sets. The grant is also broader than the function needs: `grantReadData` allows scans and batch reads when the function only queries.
 
-Of course, Lambada can create much more than this, and because it's using pulumi as a base, you can use any other pulumi provider along-side the aws one. 
+## Pulumi
 
-- Need to use Azure to run some ML work? ` @pulumi/azure-native`
-- Need to control some k8s clusters? `@pulumi/kubernetes`
-- Need to set some records on a cloudflare-managed domain? `@pulumi/cloudflare`
+Plain Pulumi is as expressive as the CDK, and its `CallbackFunction` lets the handler live in the program. You still write the role, the policy document, the attachment, the environment and the route for every function. That is the code lambada writes for you.
 
-Here is a complete list of all the official [pulumi providers](https://www.pulumi.com/docs/intro/cloud-providers)
+## Lambada
 
-We'll introduce more functionality as we need it, and don't expect Lambada to be a all-in-one solution. This library has an specific target, and for that works perfectly well!
+```ts
+run('todos', pulumi.getStack(), {
+    tables: {
+        todos: { name: 'todos', primaryKey: 'id', envKeyName: 'TODOS_TABLE' },
+    },
+    api: {
+        endpointDefinitions: [{
+            name: 'listTodos', path: '/todos', method: 'GET', callbackDefinition: listTodos,
+            resources: { table: { todos: ['dynamodb:Query'] } },
+        }],
+    },
+})
+```
 
-Got curious about the project? Head over the [Quickstart](/quickstart) and try it for yourself.
+- The handler is a function you import, so the compiler checks it exists.
+- The grant names the table and the one action the function needs. lambada writes a role holding that and the permission to write logs, and sets `TODOS_TABLE` for that function only.
+- A wrong name fails `pulumi preview`, naming the function and the resources the stack does have.
+- Each environment (`pulumi.getStack()`) gets its own table, functions and API.
+
+Lambada is built on Pulumi and returns what it builds. Anything it doesn't cover is plain Pulumi next to `run()`, in any provider: `@pulumi/cloudflare` for DNS, `@pulumi/kubernetes` for a cluster.
+
+## When not to use Lambada
+
+- **You need resources lambada has no kind for, everywhere.** It covers the serverless core: API Gateway REST APIs, Lambda, DynamoDB, S3, SNS, SQS, EventBridge schedules, KMS, Secrets Manager and Cognito. HTTP APIs (API Gateway v2), Step Functions or containers are plain Pulumi, which works, but the conventions stop at the edge of `run()`.
+- **Your team isn't on TypeScript.** Stacks and handlers are both TypeScript.
+- **You want no opinions.** Naming, tagging, how roles are built and the request/response contract are decided for you.
+
+Curious? Deploy a stack in the [Quickstart](quickstart).

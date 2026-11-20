@@ -2,7 +2,10 @@
 title: Authorizers
 sidebar_label: Authorizers
 slug: /authorizers
+description: Declare Cognito, Lambda and IAM authorizers once by name, and select one per endpoint.
 ---
+
+An authorizer decides who may call an endpoint before its function runs. A stack declares every authorizer it uses once, by name. Each endpoint selects one of them, or none.
 
 ## Declare them once
 
@@ -34,7 +37,7 @@ run('orders', environment, {
 
 Without `defaultAuthorizer`, an endpoint that selects nothing is public. Proxy integrations, `createEndpointSimple` and `createEndpointSimpleCors` take the same `auth.authorizer`; `createEndpoint` takes the name or `false` as its last argument.
 
-Every name is checked before anything is built. Names that are not declared, and pools that are not in `pools` or `poolsRef`, are reported together with the other missing resources.
+Every name is checked before any function is built. Names that are not declared, and pools that are not in `pools` or `poolsRef`, are reported together with the other missing resources.
 
 ## Signed requests
 

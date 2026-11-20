@@ -1,28 +1,43 @@
+// @ts-check
+
+/** @type {import('@docusaurus/plugin-content-docs').SidebarsConfig} */
 module.exports = {
   docs: [
     {
       type: 'category',
-      label: 'Welcome',
-      items: ['home', 'alternatives'],
-      collapsed: false
+      label: 'Getting started',
+      collapsed: false,
+      items: ['home', 'quickstart', 'concepts', 'alternatives', 'aws-config'],
     },
     {
       type: 'category',
-      label: "Getting Started",
-      items: ['quickstart'],
-      collapsed: false
+      label: 'HTTP',
+      collapsed: false,
+      items: ['http-api', 'authorizers', 'signed-apis', 'webhooks', 'static-sites'],
     },
     {
       type: 'category',
-      label: "Configuration",
-      items: ['aws-config', 'authorizers', 'buckets', 'custom-resources', 'signed-apis'],
-      collapsed: false
+      label: 'Data and messaging',
+      collapsed: false,
+      items: ['tables', 'buckets', 'queues', 'topics', 'schedules'],
     },
     {
       type: 'category',
-      label: "Testing",
-      items: ['testing'],
-      collapsed: false
-    }
+      label: 'Security',
+      collapsed: false,
+      items: ['permissions', 'keys-and-secrets', 'user-pools', 'custom-resources'],
+    },
+    {
+      type: 'category',
+      label: 'Functions',
+      collapsed: false,
+      items: ['functions', 'bundles', 'testing'],
+    },
+    {
+      type: 'category',
+      label: 'Reference',
+      collapsed: false,
+      items: ['reference/run', 'reference/utils', 'migration-guide'],
+    },
   ],
 };
