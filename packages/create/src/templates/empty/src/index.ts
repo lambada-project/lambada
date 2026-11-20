@@ -1,24 +1,35 @@
-import { run, createEndpointSimple } from '@lambada/core'
 import * as pulumi from '@pulumi/pulumi'
+import { run } from '@lambada/core'
+import { tables } from './resources'
+import { addTodo, health, listTodos } from './api/todos'
 
-const config = new pulumi.Config()
+const result = run(pulumi.getProject(), pulumi.getStack(), {
+    tables,
+    api: {
+        endpointDefinitions: [
+            {
+                name: 'health',
+                path: '/health',
+                method: 'GET',
+                callbackDefinition: health,
+                resources: {},
+            },
+            {
+                name: 'listTodos',
+                path: '/lists/{listId}/todos',
+                method: 'GET',
+                callbackDefinition: listTodos,
+                resources: { table: { todos: ['dynamodb:Query'] } },
+            },
+            {
+                name: 'addTodo',
+                path: '/lists/{listId}/todos',
+                method: 'POST',
+                callbackDefinition: addTodo,
+                resources: { table: { todos: ['dynamodb:PutItem'] } },
+            },
+        ],
+    },
+})
 
-const projectName = pulumi.getProject()
-const environment = pulumi.getStack()
-
-const result = run(projectName, environment,
-    {
-        api: {
-            endpointDefinitions: [
-                (context) => ({
-                    name: 'health',
-                    path: '/health',
-                    method: 'GET',
-                    callbackDefinition: async (event) => ({ ok: true }),
-                })
-            ]
-        }
-    })
-
-
-export const apiUrl = result.api.url
+export const apiUrl = result.api?.url
