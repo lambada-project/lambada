@@ -7,6 +7,55 @@ on:
     branches: [ main, dev ]
 
 jobs:
+  docs:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: docs
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: 'npm'
+          cache-dependency-path: docs/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build the site (fails on broken links)
+        run: npm run build
+
+  example:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: example
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: 'npm'
+          cache-dependency-path: |
+            example/package-lock.json
+            example/src/www/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check the stack and handlers
+        run: npm run typecheck
+
+      - name: Build the web app
+        run: npm --prefix src/www ci && npm --prefix src/www run build
+
   build-and-test:
     runs-on: ubuntu-latest
     
