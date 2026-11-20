@@ -37,8 +37,8 @@ const deploy = async (args: Partial<LambadaRunArguments>) => {
     const body = JSON.parse((await settled(api!.restAPI.body))!)
     const security = Object.fromEntries(Object.entries(body.paths as Record<string, any>)
         .filter(([path]) => !path.includes('openapi'))
-        .map(([path, methods]) => [path, methods.get?.security?.map((s: object) => Object.keys(s)[0]) ?? []]))
-    return { definitions: body.securityDefinitions ?? {}, security }
+        .map(([path, methods]) => [path, methods.get?.security?.flatMap(Object.keys) ?? []]))
+    return { definitions: body.securityDefinitions ?? {}, security, paths: body.paths }
 }
 
 describe('a stack declaring authorizers by name', () => {
@@ -68,6 +68,27 @@ describe('a stack declaring authorizers by name', () => {
         expect(Object.keys(definitions).sort()).toEqual(['secure', 'userPool'])
         expect(definitions.userPool['x-amazon-apigateway-authorizer'].providerARNs).toEqual(['arn:users'])
         expect(definitions.secure['x-amazon-apigateway-authtype']).toBe('custom')
+    })
+
+    test('a signed method requires a signature, joined by its API key, and runs no authorizer', async () => {
+        const { definitions, security, paths } = await deploy({
+            auth: { authorizers: { signed: { iam: true }, secure: lambdaAuthorizer('secure6') }, defaultAuthorizer: 'signed' },
+            api: {
+                endpointDefinitions: [
+                    endpoint('/signed'),
+                    endpoint('/signed-keyed', { useApiKey: true }),
+                    endpoint('/secure', { authorizer: 'secure' }),
+                    { path: '/proxy', targetUri: 'https://example.com' },
+                ],
+            },
+        } as Partial<LambadaRunArguments>)
+
+        expect(security).toMatchObject({ '/api/signed': ['sigv4'], '/api/signed-keyed': ['sigv4', 'api_key'], '/api/secure': ['secure'] })
+        expect(paths['/api/signed-keyed'].get.security).toEqual([{ sigv4: [], api_key: [] }])
+        expect(paths['/api/signed'].get).not.toHaveProperty('x-amazon-apigateway-auth')
+        expect(paths['/api/proxy/']['x-amazon-apigateway-any-method'].security).toEqual([{ sigv4: [] }])
+        expect(paths['/api/proxy/{proxy+}']['x-amazon-apigateway-any-method'].security).toEqual([{ sigv4: [] }])
+        expect(definitions.sigv4).toEqual({ type: 'apiKey', name: 'Authorization', in: 'header', 'x-amazon-apigateway-authtype': 'awsSigv4' })
     })
 
     test('builds no stack-wide authorizer from createCognito: its pool authorizes where it is selected', async () => {

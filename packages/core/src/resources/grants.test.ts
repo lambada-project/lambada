@@ -15,7 +15,7 @@ const context = {
         userPool: { id: 'pool-id', arn: 'arn:pool', envKeyName: 'USER_POOL_ID' },
     }).pools,
     custom: createCustom({
-        search: { service: 'es', resources: 'arn:aws:es:us-east-1:123456789012:domain/pets/*', environment: { SEARCH_ENDPOINT: 'search-pets' } },
+        petsDomain: { service: 'es', resources: 'arn:aws:es:us-east-1:123456789012:domain/pets/*', environment: { PETS_DOMAIN_ENDPOINT: 'search-pets' } },
     }),
 } as unknown as GrantContext
 
@@ -28,7 +28,7 @@ describe('toLambdaResources', () => {
             secret: { apiKey: ['secretsmanager:GetSecretValue'] },
             kmsKey: { signing: ['kms:Decrypt'] },
             pool: { userPool: ['cognito-idp:ListUsers'] },
-            custom: { search: ['es:ESHttpGet'] },
+            custom: { petsDomain: ['es:ESHttpGet'] },
         } })
 
         expect(grants.map(x => Object.keys(x).filter(k => k !== 'access')).flat()).toEqual([
@@ -83,27 +83,27 @@ describe('a custom grant', () => {
         // A service whose name another one starts with is still another service.
         { actions: ['ess:Describe'], foreign: 'ess:Describe' },
     ])('refuses $foreign, outside the service its resource names', ({ actions, foreign }) => {
-        const resources = { custom: { search: actions } } as LambadaGrants
+        const resources = { custom: { petsDomain: actions } } as LambadaGrants
 
-        expect(() => toLambdaResources(context, { name: 'getPet', resources })).toThrow(`getPet: grants custom 'search' ${foreign}, outside its service 'es'.`)
-        expect(findCustomGrantProblems(context, { name: 'getPet', resources })).toEqual([`getPet: grants custom 'search' ${foreign}, outside its service 'es'.`])
+        expect(() => toLambdaResources(context, { name: 'getPet', resources })).toThrow(`getPet: grants custom 'petsDomain' ${foreign}, outside its service 'es'.`)
+        expect(findCustomGrantProblems(context, { name: 'getPet', resources })).toEqual([`getPet: grants custom 'petsDomain' ${foreign}, outside its service 'es'.`])
     })
 
     test('reports nothing for actions of its service, or for a name preflight reports as missing', () => {
-        expect(findCustomGrantProblems(context, { name: 'getPet', resources: { custom: { search: ['es:ESHttpGet', 'ES:ESHttpPost'] } } })).toEqual([])
+        expect(findCustomGrantProblems(context, { name: 'getPet', resources: { custom: { petsDomain: ['es:ESHttpGet', 'ES:ESHttpPost'] } } })).toEqual([])
         expect(findCustomGrantProblems(context, { name: 'getPet', resources: { custom: { missing: ['s3:GetObject'] } } })).toEqual([])
     })
 
     test.each(['es:*', 'es:ESHttp*', 'ES:ESHttpGe?'])('refuses the wildcard %s', action => {
-        const resources = { custom: { search: [action] } } as LambadaGrants
-        const problem = `getPet: grants custom 'search' ${action}, a wildcard: name each action. State it in the function's policyStatements, where it is reviewed as written.`
+        const resources = { custom: { petsDomain: [action] } } as LambadaGrants
+        const problem = `getPet: grants custom 'petsDomain' ${action}, a wildcard: name each action. State it in the function's policyStatements, where it is reviewed as written.`
 
         expect(() => toLambdaResources(context, { name: 'getPet', resources })).toThrow(problem)
         expect(findCustomGrantProblems(context, { name: 'getPet', resources })).toEqual([problem])
     })
 
     test.each(['', 'es:', 'ES', 'execute api'])('refuses %p as a service', service => {
-        expect(() => createCustom({ search: { service, resources: 'arn:x' } })).toThrow(`Cannot declare the custom resource 'search': service '${service}'`)
+        expect(() => createCustom({ petsDomain: { service, resources: 'arn:x' } })).toThrow(`Cannot declare the custom resource 'petsDomain': service '${service}'`)
     })
 
     test.each(['iam', 'sts'])('refuses %s, whose grants let a function give itself more', service => {
@@ -121,7 +121,7 @@ describe('a custom resource', () => {
         { resource: 'arn:aws:es:us-east-1:123456789012:*', problem: "names every resource of 'es'" },
         { resource: 'domain/pets', problem: "is not an ARN of 'es'" },
     ])('is refused when broader than one ARN of its service: $resource', ({ resource, problem }) => {
-        expect(() => createCustom({ search: { service: 'es', resources: ['arn:aws:es:us-east-1:123456789012:domain/pets', resource] } }))
+        expect(() => createCustom({ petsDomain: { service: 'es', resources: ['arn:aws:es:us-east-1:123456789012:domain/pets', resource] } }))
             .toThrow(problem)
     })
 
@@ -144,7 +144,7 @@ describe('a custom resource', () => {
         'arn:aws:es:us-east-1:123456789012:domain/pets/*',
         'arn:aws-us-gov:es:us-gov-west-1:123456789012:domain/pets',
     ])('is accepted as an ARN of its service: %s', resource => {
-        expect(() => createCustom({ search: { service: 'es', resources: resource } })).not.toThrow()
+        expect(() => createCustom({ petsDomain: { service: 'es', resources: resource } })).not.toThrow()
     })
 })
 

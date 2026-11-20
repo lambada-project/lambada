@@ -62,12 +62,12 @@ describe('lambdas that grant differently keep their own role', () => {
 
     test('equal table grants and different custom grants', async () => {
         const shops = table('shops')
-        const { search } = createCustom({ search: { service: 'es', resources: 'arn:aws:es:us-east-1:123456789012:domain/shops/*', environment: { SHOPS_ENDPOINT: 'search-shops' } } })
+        const { shopsDomain } = createCustom({ shopsDomain: { service: 'es', resources: 'arn:aws:es:us-east-1:123456789012:domain/shops/*', environment: { SHOPS_DOMAIN_ENDPOINT: 'search-shops' } } })
         const read = { table: shops as never, access: ['dynamodb:GetItem'] }
         const none = await lambda('readShops', [read])
-        const get = await lambda('searchShops', [read, { custom: search, access: ['es:ESHttpGet'] }])
-        const post = await lambda('queryShops', [read, { custom: search, access: ['es:ESHttpPost'] }])
-        const getAgain = await lambda('findShops', [read, { custom: search, access: ['es:ESHttpGet'] }])
+        const get = await lambda('searchShops', [read, { custom: shopsDomain, access: ['es:ESHttpGet'] }])
+        const post = await lambda('queryShops', [read, { custom: shopsDomain, access: ['es:ESHttpPost'] }])
+        const getAgain = await lambda('findShops', [read, { custom: shopsDomain, access: ['es:ESHttpGet'] }])
 
         expect(new Set([none, get, post]).size).toBe(3)
         expect(getAgain).toBe(get)

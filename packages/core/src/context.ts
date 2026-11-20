@@ -7,6 +7,7 @@ import { EmbroideryEnvironmentVariables } from ".";
 import { QueuesResult } from "./queue";
 import { BucketsResult } from "./buckets";
 import { CustomResult } from "./custom";
+import { ApisResult } from "./apis";
 import type { LogsResult } from "./logs";
 import { FunctionVpcConfig, LambdaOptions } from "./lambdas";
 import { BundleSource } from "./lambdas/bundles";
@@ -43,6 +44,8 @@ export type LambadaResources = {
     buckets?: BucketsResult
     /** The resources of `customRef`, granted through `resources.custom`. */
     custom?: CustomResult
+    /** The APIs of `apisRef`, whose signed routes `resources.api` grants. */
+    apis?: ApisResult
     logs?: LogsResult
     environment: string
     kmsKeys?: SecurityResult

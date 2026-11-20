@@ -13,6 +13,7 @@ export type GrantStack = {
     queues: LambadaResources['queues']
     pools: LambadaResources['pools']
     custom?: LambadaResources['custom']
+    apis?: LambadaResources['apis']
     security: LambadaResources['kmsKeys']
 }
 

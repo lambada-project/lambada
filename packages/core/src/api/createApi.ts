@@ -10,6 +10,7 @@ import { createEndpointSimpleCompat, LambadaEndpointArgs, OpenApiFactory, OpenAp
 import { asCreator } from "../resources/creators";
 import { createProxyIntegrationCompat } from "./createProxyIntegration";
 import { createOpenApiDocumentEndpoint } from "./openApiDocument";
+import { withSignedRoutes } from "./sigv4";
 import { OpenAPIObjectConfigV31 } from "@asteasolutions/zod-to-openapi/dist/v3.1/openapi-generator";
 
 export type LambadaCreator = EmbroideryApiEndpointCreator | LambadaEndpointCreator | LambadaProxyCreator
@@ -165,6 +166,7 @@ export default function createApi(
 
     }, {
         dependsOn: options?.dependsOn,
+        transformations: [withSignedRoutes],
     });
 
     return apigateway;

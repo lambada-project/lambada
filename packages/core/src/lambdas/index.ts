@@ -17,6 +17,7 @@ import { lift, lift2 } from '../inputs';
 import type { LogsResult, RetentionDays } from '../logs';
 import { PoolResultItem } from '../auth/pools';
 import type { CustomResultItem } from '../custom';
+import { ApisResultItem, grantedRouteArns } from '../apis';
 //import { NotificationResult, NotificationResultItem } from '../notifications';
 
 export const lambdaAssumeRole: PolicyDocument = {
@@ -144,8 +145,9 @@ export const resourceStatements = (
     }
     if (access.bucket?.prefix !== undefined) return prefixStatements(access.bucket, access.access, functionName)
     const { resource, envVars } = grantedResource(access, functionName, environment)
+    const actions = access.api ? ['execute-api:Invoke'] : access.access
 
-    return { statements: [{ Action: access.access, Resource: resource, Effect: 'Allow' }], envVars }
+    return { statements: [{ Action: actions, Resource: resource, Effect: 'Allow' }], envVars }
 }
 
 const grantedResource = (
@@ -193,6 +195,13 @@ const grantedResource = (
     if (access.pool) {
         //Cognito calls need the pool id to address the pool
         return { resource: access.pool.ref.arn, envVars: { [access.pool.envKeyName]: access.pool.ref.id } }
+    }
+    if (access.api) {
+        const granted = access.api
+        return {
+            resource: granted.api.apply(api => grantedRouteArns(functionName, granted.key, api, access.access)),
+            envVars: { [granted.envKeyName]: granted.api.url },
+        }
     }
     if (access.custom) {
         return { resource: access.custom.resources, envVars: access.custom.environment }
@@ -482,7 +491,8 @@ const grantsKey = (
 
     const grants = resources.map(({ access, ...resource }) => {
         const [kind, value] = Object.entries(resource).find(([, v]) => v !== undefined) ?? []
-        return JSON.stringify([kind, identity(value), access.map(actionName).sort()])
+        // A route's path is case-sensitive, unlike an action.
+        return JSON.stringify([kind, identity(value), (kind === 'api' ? [...access] : access.map(actionName)).sort()])
     })
     return JSON.stringify([environment, Boolean(options?.vpcConfig), xray, grants.sort()])
 }
@@ -629,6 +639,8 @@ export type LambdaDynamoDbResource = {
     secret?: SecretResultItem
     pool?: PoolResultItem
     custom?: CustomResultItem
+    /** Its access lists routes, which the one action `execute-api:Invoke` is granted on. */
+    api?: ApisResultItem
     arn?: Input<string> | Input<Input<string>[]>
     access: LambdaResourceAccessItem[]
 }

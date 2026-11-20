@@ -8,7 +8,7 @@ import { AuthExecutionContext, toWrapperEnvVars } from '@lambada/utils';
 import { EmbroideryEnvironmentVariables } from '..';
 import { CognitoAuthorizer, LambdaAuthorizer, Method } from '@pulumi/awsx/classic/apigateway';
 import { getNameFromPath } from './utils';
-import { AuthorizerSelection, styleProblems } from '../auth/authorizers';
+import { AuthorizerSelection, RouteAuthorization, styleProblems } from '../auth/authorizers';
 import { LambadaFunctionTuning, lambdaOptionsOf } from '../lambdas/declarations';
 import { createWebhook } from './createWebhook';
 import { createCallback, toWrapperConfig } from './callbackWrapper';
@@ -207,6 +207,7 @@ export type LambadaEndpointResult<E, R> = {
     authorizers: (LambdaAuthorizer | CognitoAuthorizer)[],
     eventHandler: aws.lambda.EventHandler<E, R>
     apiKeyRequired: boolean | undefined
+    iamAuthEnabled?: true
 }
 export type HTTP_METHODS = "GET" | "POST" | "DELETE" | "PUT" | "PATCH" | "OPTIONS" | "HEAD" | "ANY"
 export const createEndpoint = <E, R>(
@@ -228,9 +229,9 @@ export const createEndpoint = <E, R>(
     const mixed = styleProblems(lambadaContext.authorization, name, { enableAuth, lambdaAuthorizer, authorizer })
     if (mixed.length > 0) throw new Error(mixed.join('\n'))
 
-    const auth = lambadaContext.authorization
+    const auth: RouteAuthorization = lambadaContext.authorization
         ? lambadaContext.authorization.resolve(name, authorizer)
-        : legacyAuthorizers(lambadaContext, enableAuth ?? true, lambdaAuthorizer)
+        : { authorizers: legacyAuthorizers(lambadaContext, enableAuth ?? true, lambdaAuthorizer) }
 
     var environment = lambadaContext.environment
     const grants = resolveGrants(lambadaContext, { name, resources })
@@ -258,7 +259,8 @@ export const createEndpoint = <E, R>(
     return {
         path: `${lambadaContext.api?.apiPath ?? ''}${path}`,
         method: method,
-        authorizers: auth,
+        authorizers: auth.authorizers,
+        iamAuthEnabled: auth.iamAuthEnabled,
         eventHandler: callback,
         apiKeyRequired: typeof apiKeyRequired === 'boolean' ? apiKeyRequired : lambadaContext?.api?.auth?.useApiKey === true
     }
