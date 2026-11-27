@@ -379,6 +379,25 @@ describe('a bucket served through its cdn', () => {
         expect(behavior).toEqual({ ...lambadaBehavior, responseHeadersPolicyId: 'mine' })
     })
 
+    const subsets = <T>(items: T[]): T[][] => items.reduce<T[][]>((all, item) => [...all, ...all.map(subset => [...subset, item])], [[]])
+    const given = (fields: string[]) => Object.fromEntries(fields.map(field => [field, `given-${field}`]))
+
+    test('each field of options.defaultCacheBehavior wins, and each field it leaves out keeps lambada\'s value', async () => {
+        for (const fields of subsets([...Object.keys(lambadaBehavior), 'responseHeadersPolicyId'])) {
+            built.length = 0
+            const behavior = await behaviorOf(create(photos({ cdn: { options: { defaultCacheBehavior: given(fields) } } })))
+            expect(behavior).toEqual({ ...lambadaBehavior, ...given(fields) })
+        }
+    })
+
+    test('with cors, the same merge carries the cors policy', async () => {
+        for (const fields of subsets(Object.keys(lambadaBehavior))) {
+            built.length = 0
+            const behavior = await behaviorOf(create(photos({ cdn: { cors: true, options: { defaultCacheBehavior: given(fields) } } })))
+            expect(behavior).toEqual({ ...lambadaBehavior, responseHeadersPolicyId: 'rhp-1', ...given(fields) })
+        }
+    })
+
     test('refuses cors beside a responseHeadersPolicyId of its own', () => {
         expect(() => create(photos({ cdn: { cors: true, options: { defaultCacheBehavior: { responseHeadersPolicyId: 'mine' } } } })))
             .toThrow("Cannot serve the bucket 'photos-test' with cdn.cors")
