@@ -16,8 +16,17 @@ export type BucketCdnDefinition = {
     prefixes?: string[]
     /** Published to every function granted the bucket or one of its prefixes, carrying the distribution's domain. */
     envKeyName?: string
-    /** Merged over the distribution lambada writes. Its one origin is `bucket`. */
-    options?: Partial<aws.cloudfront.DistributionArgs>
+    /**
+     * Lets a page on any origin read the served objects: every GET and HEAD is answered with
+     * `Access-Control-Allow-Origin: *`, whatever request headers the browser sent.
+     */
+    cors?: boolean
+    /** Merged over the distribution lambada writes, and `defaultCacheBehavior` over its default behavior. Its one origin is `bucket`. */
+    options?: BucketCdnOptions
+}
+
+export type BucketCdnOptions = Omit<Partial<aws.cloudfront.DistributionArgs>, 'defaultCacheBehavior'> & {
+    defaultCacheBehavior?: Partial<aws.types.input.cloudfront.DistributionDefaultCacheBehavior>
 }
 
 /** An S3 name is global to every AWS account and the convention adds only the environment. */
@@ -180,6 +189,15 @@ const createDistribution = (
         signingProtocol: 'sigv4',
     })
 
+    const { defaultCacheBehavior, ...options } = cdn.options ?? {}
+    const given = definedFields(defaultCacheBehavior ?? {})
+    if (cdn.cors && 'responseHeadersPolicyId' in given) {
+        throw new Error(
+            `Cannot serve the bucket '${bucket}' with cdn.cors: cdn.options.defaultCacheBehavior sets its own responseHeadersPolicyId, ` +
+            `which the cors policy would replace. Leave out one of them.`
+        )
+    }
+
     return new aws.cloudfront.Distribution(`${bucket}-cdn`, {
         enabled: true,
         origins: [{ originId: 'bucket', domainName: awsS3Bucket.bucketRegionalDomainName, originAccessControlId: originAccess.id }],
@@ -188,15 +206,39 @@ const createDistribution = (
             viewerProtocolPolicy: 'redirect-to-https',
             allowedMethods: ['GET', 'HEAD'],
             cachedMethods: ['GET', 'HEAD'],
-            cachePolicyId: CACHING_OPTIMIZED,
+            // A behavior keys its cache by a cache policy or by forwardedValues, never both.
+            ...(!('forwardedValues' in given) && { cachePolicyId: CACHING_OPTIMIZED }),
             compress: true,
+            ...(cdn.cors && { responseHeadersPolicyId: corsPolicy(bucket).id }),
+            ...given,
         },
         restrictions: { geoRestriction: { restrictionType: 'none' } },
         viewerCertificate: { cloudfrontDefaultCertificate: true },
         tags,
-        ...cdn.options,
+        ...options,
     })
 }
+
+/** A field set to undefined is left out, so it keeps lambada's value instead of erasing it. */
+const definedFields = <T extends object>(fields: T): Partial<T> =>
+    Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== undefined)) as Partial<T>
+
+/**
+ * AWS's managed CORS policies leave out Access-Control-Allow-Headers, and CloudFront then adds no CORS
+ * header to a request carrying a header such as `priority` or `Cache-Control`, which browsers send.
+ * A custom header can't carry it instead: CloudFront refuses a CORS header name there.
+ */
+const corsPolicy = (bucket: string) =>
+    new aws.cloudfront.ResponseHeadersPolicy(`${bucket}-cdn-cors`, {
+        name: `${bucket}-cdn-cors`,
+        corsConfig: {
+            accessControlAllowOrigins: { items: ['*'] },
+            accessControlAllowHeaders: { items: ['*'] },
+            accessControlAllowMethods: { items: ['GET', 'HEAD'] },
+            accessControlAllowCredentials: false,
+            originOverride: true,
+        },
+    })
 
 function findBucket(name: string, environment: string): aws.s3.Bucket {
     const bucket = bucketName(name, environment)
