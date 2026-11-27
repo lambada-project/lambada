@@ -220,6 +220,7 @@ const createDistribution = (
 /**
  * AWS's managed CORS policies leave out Access-Control-Allow-Headers, and CloudFront then adds no CORS
  * header to a request carrying any header beyond the safelisted ones, such as the `priority` a browser sends.
+ * A custom header can't carry it instead: CloudFront refuses a CORS header name there.
  */
 const corsPolicy = (bucket: string) =>
     new aws.cloudfront.ResponseHeadersPolicy(`${bucket}-cdn-cors`, {
