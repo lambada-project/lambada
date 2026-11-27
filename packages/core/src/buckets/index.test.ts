@@ -16,6 +16,7 @@ pulumi.runtime.setMocks({
             return { id: 'E1', state: { ...args.inputs, arn: 'arn:aws:cloudfront::123456789012:distribution/E1', domainName: 'd1.cloudfront.net' } }
         }
         if (args.type === 'aws:cloudfront/originAccessControl:OriginAccessControl') return { id: 'oac-1', state: args.inputs }
+        if (args.type === 'aws:cloudfront/responseHeadersPolicy:ResponseHeadersPolicy') return { id: 'rhp-1', state: args.inputs }
         // A bucket's id is its name: `args.id` on a `.get`, the `bucket` input on a create.
         const id = args.id || (args.inputs.bucket as string)
 
@@ -337,5 +338,49 @@ describe('a bucket served through its cdn', () => {
 
     test('refuses a referenced bucket', () => {
         expect(() => create(undefined, { shared: { ...definition('shared'), cdn: {} } })).toThrow("Cannot serve the referenced bucket 'shared'")
+    })
+
+    const behaviorOf = async (buckets: BucketsResult) => {
+        await settled(buckets.photos.cdn!.distribution.arn)
+        await drain()
+        return settled(built0('aws:cloudfront/distribution:Distribution')[0].inputs.defaultCacheBehavior) as Promise<any>
+    }
+    const lambadaBehavior = {
+        targetOriginId: 'bucket', viewerProtocolPolicy: 'redirect-to-https', allowedMethods: ['GET', 'HEAD'], cachedMethods: ['GET', 'HEAD'],
+        cachePolicyId: '658327ea-f89d-4fab-a63d-7e88639e58f6', compress: true,
+    }
+
+    test('sends no CORS header unless asked', async () => {
+        built.length = 0
+        expect(await behaviorOf(create(photos({ cdn: {} })))).toEqual(lambadaBehavior)
+        expect(built0('aws:cloudfront/responseHeadersPolicy:ResponseHeadersPolicy')).toHaveLength(0)
+    })
+
+    test('with cors, lets a page on any origin read, whatever headers its browser sends', async () => {
+        built.length = 0
+        expect(await behaviorOf(create(photos({ cdn: { cors: true } })))).toEqual({ ...lambadaBehavior, responseHeadersPolicyId: 'rhp-1' })
+
+        const [policy] = built0('aws:cloudfront/responseHeadersPolicy:ResponseHeadersPolicy')
+        expect(policy.inputs).toEqual({
+            name: 'photos-test-cdn-cors',
+            corsConfig: {
+                accessControlAllowOrigins: { items: ['*'] },
+                accessControlAllowHeaders: { items: ['*'] },
+                accessControlAllowMethods: { items: ['GET', 'HEAD'] },
+                accessControlAllowCredentials: false,
+                originOverride: true,
+            },
+        })
+    })
+
+    test('merges options.defaultCacheBehavior over the behavior lambada writes, field by field', async () => {
+        built.length = 0
+        const behavior = await behaviorOf(create(photos({ cdn: { options: { defaultCacheBehavior: { responseHeadersPolicyId: 'mine' } } } })))
+        expect(behavior).toEqual({ ...lambadaBehavior, responseHeadersPolicyId: 'mine' })
+    })
+
+    test('refuses cors beside a responseHeadersPolicyId of its own', () => {
+        expect(() => create(photos({ cdn: { cors: true, options: { defaultCacheBehavior: { responseHeadersPolicyId: 'mine' } } } })))
+            .toThrow("Cannot serve the bucket 'photos-test' with cdn.cors")
     })
 })
