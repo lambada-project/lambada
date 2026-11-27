@@ -190,7 +190,8 @@ const createDistribution = (
     })
 
     const { defaultCacheBehavior, ...options } = cdn.options ?? {}
-    if (cdn.cors && defaultCacheBehavior?.responseHeadersPolicyId) {
+    const given = definedFields(defaultCacheBehavior ?? {})
+    if (cdn.cors && 'responseHeadersPolicyId' in given) {
         throw new Error(
             `Cannot serve the bucket '${bucket}' with cdn.cors: cdn.options.defaultCacheBehavior sets its own responseHeadersPolicyId, ` +
             `which the cors policy would replace. Leave out one of them.`
@@ -205,10 +206,11 @@ const createDistribution = (
             viewerProtocolPolicy: 'redirect-to-https',
             allowedMethods: ['GET', 'HEAD'],
             cachedMethods: ['GET', 'HEAD'],
-            cachePolicyId: CACHING_OPTIMIZED,
+            // A behavior keys its cache by a cache policy or by forwardedValues, never both.
+            ...(!('forwardedValues' in given) && { cachePolicyId: CACHING_OPTIMIZED }),
             compress: true,
             ...(cdn.cors && { responseHeadersPolicyId: corsPolicy(bucket).id }),
-            ...defaultCacheBehavior,
+            ...given,
         },
         restrictions: { geoRestriction: { restrictionType: 'none' } },
         viewerCertificate: { cloudfrontDefaultCertificate: true },
@@ -216,6 +218,10 @@ const createDistribution = (
         ...options,
     })
 }
+
+/** A field set to undefined is left out, so it keeps lambada's value instead of erasing it. */
+const definedFields = <T extends object>(fields: T): Partial<T> =>
+    Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== undefined)) as Partial<T>
 
 /**
  * AWS's managed CORS policies leave out Access-Control-Allow-Headers, and CloudFront then adds no CORS

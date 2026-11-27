@@ -398,6 +398,30 @@ describe('a bucket served through its cdn', () => {
         }
     })
 
+    test('a field given as undefined keeps lambada\'s value', async () => {
+        built.length = 0
+        const behavior = await behaviorOf(create(photos({ cdn: { options: { defaultCacheBehavior: { cachePolicyId: undefined, compress: undefined } } } })))
+        expect(behavior).toEqual(lambadaBehavior)
+    })
+
+    test('a behavior keyed by forwardedValues takes no cache policy, as under the whole-behavior replace of 1.42', async () => {
+        const { cachePolicyId, ...uncached } = lambadaBehavior
+        const legacy = {
+            ...uncached, compress: false,
+            forwardedValues: { queryString: false, cookies: { forward: 'none' } }, minTtl: 0, defaultTtl: 3600, maxTtl: 86400,
+        }
+        built.length = 0
+        expect(await behaviorOf(create(photos({ cdn: { options: { defaultCacheBehavior: legacy } } })))).toEqual(legacy)
+    })
+
+    test('with cors, an empty responseHeadersPolicyId is refused, and an undefined one keeps the cors policy', async () => {
+        expect(() => create(photos({ cdn: { cors: true, options: { defaultCacheBehavior: { responseHeadersPolicyId: '' } } } })))
+            .toThrow("Cannot serve the bucket 'photos-test' with cdn.cors")
+        built.length = 0
+        const behavior = await behaviorOf(create(photos({ cdn: { cors: true, options: { defaultCacheBehavior: { responseHeadersPolicyId: undefined } } } })))
+        expect(behavior.responseHeadersPolicyId).toBe('rhp-1')
+    })
+
     test('refuses cors beside a responseHeadersPolicyId of its own', () => {
         expect(() => create(photos({ cdn: { cors: true, options: { defaultCacheBehavior: { responseHeadersPolicyId: 'mine' } } } })))
             .toThrow("Cannot serve the bucket 'photos-test' with cdn.cors")
